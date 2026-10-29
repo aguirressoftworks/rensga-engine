@@ -1,0 +1,50 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 3, "minor": 24, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": { "CMAKE_EXPORT_COMPILE_COMMANDS": "ON" }
+    },
+    {
+      "name": "linux-host",
+      "displayName": "Linux host: tests, cooker, pipeline, CLI, editor, headless runtime",
+      "inherits": "base",
+      "generator": "Unix Makefiles",
+      "cacheVariables": {
+        "RENSGA_TARGET": "linux-host",
+        "RENSGA_BUILD_TESTS": "ON",
+        "RENSGA_BUILD_TOOLS": "ON",
+        "RENSGA_BUILD_EDITOR": "ON",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "psp",
+      "displayName": "PSP: runtime ELF, run inside the pspdev Docker image (tools/docker/psp.sh)",
+      "inherits": "base",
+      "generator": "Unix Makefiles",
+      "toolchainFile": "$env{PSPDEV}/psp/share/pspdev.cmake",
+      "cacheVariables": {
+        "RENSGA_TARGET": "psp",
+        "RENSGA_BUILD_TESTS": "OFF",
+        "RENSGA_BUILD_TOOLS": "OFF",
+        "RENSGA_BUILD_EDITOR": "OFF",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    { "name": "windows", "displayName": "Windows (slot for F1 and later)", "inherits": "base", "hidden": true, "cacheVariables": { "RENSGA_TARGET": "windows" } },
+    { "name": "android", "displayName": "Android (slot for F1 and later)", "inherits": "base", "hidden": true, "cacheVariables": { "RENSGA_TARGET": "android" } },
+    { "name": "ps2", "displayName": "PS2 (slot for F1 and later)", "inherits": "base", "hidden": true, "cacheVariables": { "RENSGA_TARGET": "ps2" } },
+    { "name": "psx", "displayName": "PSX (slot for F1 and later)", "inherits": "base", "hidden": true, "cacheVariables": { "RENSGA_TARGET": "psx" } }
+  ],
+  "buildPresets": [
+    { "name": "linux-host", "configurePreset": "linux-host" },
+    { "name": "psp", "configurePreset": "psp" }
+  ],
+  "testPresets": [
+    { "name": "linux-host", "configurePreset": "linux-host", "output": { "outputOnFailure": true } }
+  ]
+}

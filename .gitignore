@@ -1,0 +1,18 @@
+# build output and caches
+build/
+out/
+Library/
+cmake-build-*/
+CMakeUserPresets.json
+compile_commands.json
+.cache/
+# emulator binaries (VERSION, LICENSE, SOURCE are committed)
+third_party/emulators/ppsspp/*
+!third_party/emulators/ppsspp/VERSION
+!third_party/emulators/ppsspp/LICENSE
+!third_party/emulators/ppsspp/SOURCE
+# editor layout
+imgui.ini
+*.log
+# local tooling
+.claude/settings.local.json
