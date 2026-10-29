@@ -273,6 +273,24 @@ bool SceneDocument::setTransform(const std::string& guid, const float pos[3], co
   return true;
 }
 
+bool SceneDocument::setWorldMatrix(const std::string& guid, const double world[16]) {
+  const SceneObject* o = find(guid);
+  if (!o) return false;
+  Mat w{}, parentWorld = identity();
+  for (int i = 0; i < 16; ++i) w.m[i] = world[i];
+  if (!o->parentGuid.empty()) worldMatrix(o->parentGuid, parentWorld.m);
+  float p[3], q[4], s[3];
+  decompose(mul(invertAffine(parentWorld), w), p, q, s);
+  // keep stored values where the matrix round trip only added float noise (small diffs, no spurious edits)
+  auto keep = [](float* n, const float* old, int cnt) {
+    bool same = true;
+    for (int i = 0; i < cnt; ++i) same = same && std::fabs(n[i] - old[i]) < 1e-4f;
+    if (same) for (int i = 0; i < cnt; ++i) n[i] = old[i];
+  };
+  keep(p, o->position, 3); keep(q, o->rotation, 4); keep(s, o->scale, 3);
+  return setTransform(guid, p, q, s);
+}
+
 bool SceneDocument::setActive(const std::string& guid, bool active) {
   ordered_json* o = findJson(guid);
   if (!o) return false;

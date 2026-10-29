@@ -10,6 +10,8 @@
 #include "rensga/editor/project.h"
 #include "rensga/editor/scene_document.h"
 #include "rensga/editor/target_module.h"
+#include "render/scene_renderer.h"
+#include "rensga/editor/viewport.h"
 #include "theme.h"
 
 namespace rensga {
@@ -19,6 +21,19 @@ struct AssetNode {
   std::string name;
   bool dir = false;
   std::vector<AssetNode> children;
+};
+
+// Scene view interaction state (camera, tool, gizmo, drag).
+struct SceneViewState {
+  EditorCamera cam;
+  bool needFrame = true;      // no saved camera: frame the level on first draw
+  bool camDirty = false;      // camera moved since the last save to Library/Editor
+  int op = 0;                 // 0 translate, 1 rotate, 2 scale
+  bool local = false;         // gizmo space
+  int drag = 0;               // 0 none, 1 look (RMB), 2 pan (MMB), 3 orbit (Alt+LMB)
+  bool gizmoUsing = false;
+  bool clickValid = false;
+  ImVec2 clickPos{0, 0};
 };
 
 struct App {
@@ -53,7 +68,14 @@ struct App {
   AssetNode assets;
   double assetsStamp = -100;
 
-  // Scene view placeholder state
+  // Scene / Game views
+  SceneRenderer renderer;
+  MeshLibrary meshes;
+  RenderTarget sceneRT, gameRT;
+  SceneViewState sv;
+  std::filesystem::path cameraFile() const { return project.root / "Library" / "Editor" / "scene_camera.json"; }
+  void saveCamera();
+
   std::string status;             // last editor message for the status area
 
   bool openProject(const std::string& dir);  // loads project + first scene, sets up layout persistence

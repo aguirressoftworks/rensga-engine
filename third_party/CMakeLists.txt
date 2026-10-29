@@ -7,6 +7,9 @@ target_include_directories(nlohmann_json SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE
 if(RENSGA_BUILD_EDITOR)
   find_package(SDL2 CONFIG QUIET)
   find_package(OpenGL QUIET)
+  add_library(imguizmo STATIC imguizmo/ImGuizmo.cpp)
+  target_include_directories(imguizmo SYSTEM PUBLIC imguizmo)
+  target_link_libraries(imguizmo PUBLIC imgui)
   add_library(imgui STATIC
     imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp
     imgui/imgui_demo.cpp imgui/imgui_stdlib.cpp

@@ -6,6 +6,8 @@
 #include <imgui.h>
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_sdl2.h>
+#include <imgui.h>
+#include <ImGuizmo.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -36,6 +38,9 @@ bool App::openProject(const std::string& dir) {
       log.info("  object " + o.name + " [" + o.guid + "] components=" + std::to_string(o.components.size()));
   }
   assetsStamp = -100;
+  meshes.setProject(project.root);
+  sv = SceneViewState();
+  if (persistLayout && sv.cam.load(cameraFile())) sv.needFrame = false;
   // Layout persists per project; a project without one gets the default.
   layoutIni = project.root / "Library" / "Editor" / "layout.ini";
   std::error_code ec;
@@ -62,11 +67,11 @@ int main(int argc, char** argv) {
     else if (!std::strcmp(argv[i], "--quit-after") && i + 1 < argc) quitAfter = std::atof(argv[++i]);
     else if (!std::strcmp(argv[i], "--screenshot") && i + 1 < argc) shotFile = argv[++i];
     else if (!std::strcmp(argv[i], "--screenshot-frames") && i + 1 < argc) shotFrames = std::atoi(argv[++i]);
-    else if (!std::strcmp(argv[i], "--focus") && i + 1 < argc) focusName = argv[++i];
+    else if ((!std::strcmp(argv[i], "--focus") || !std::strcmp(argv[i], "--tab")) && i + 1 < argc) focusName = argv[++i];
     else if (!std::strcmp(argv[i], "--select") && i + 1 < argc) selectName = argv[++i];
     else {
       std::fprintf(stderr, "usage: rensga-editor [--project <dir>] [--play] [--quit-after N] "
-                           "[--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window>]]\n");
+                           "[--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window> | --tab <window>]]\n");
       return 2;
     }
   }
@@ -109,6 +114,7 @@ int main(int argc, char** argv) {
   ImGui_ImplSDL2_InitForOpenGL(window, gl);
   ImGui_ImplOpenGL3_Init("#version 330 core");
 
+  if (!app.renderer.init()) log.error("scene renderer failed to initialise");
   app.persistLayout = !shotMode;
   if (!projectDir.empty()) {
     app.openProject(projectDir);
@@ -138,6 +144,7 @@ int main(int argc, char** argv) {
     app.play.pump();
     if (!app.pendingProject.empty()) {
       saveLayout(app);
+      app.saveCamera();
       std::string dir = std::move(app.pendingProject);
       app.pendingProject.clear();
       app.openProject(dir);
@@ -146,6 +153,7 @@ int main(int argc, char** argv) {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
+    ImGuizmo::BeginFrame();
     drawMenuBar(app);
     drawToolbar(app);
     drawDockSpaceAndLayout(app);
@@ -182,6 +190,7 @@ int main(int argc, char** argv) {
   }
 
   saveLayout(app);
+  app.saveCamera();
   app.play.stop();
   app.play.pump();
   ImGui_ImplOpenGL3_Shutdown();
