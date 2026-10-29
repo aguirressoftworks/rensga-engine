@@ -1,4 +1,4 @@
-binary: /usr/bin/PPSSPPHeadless
+binary: /usr/bin/PPSSPPSDL
 package: pacman ppsspp 1.20.4-1
 source: https://github.com/hrydgard/ppsspp
 license: GPL-2.0-or-later (separate process only)

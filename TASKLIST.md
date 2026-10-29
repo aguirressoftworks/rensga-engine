@@ -21,7 +21,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 
 | Step / milestone | Weight | Cumulative | Status |
 | --- | --- | --- | --- |
-| **Step 1 · MVP** | own 0–100% | — | 98%: all tasks done; MVP-43 lacks the screenshot and a clean-clone run |
+| **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, 12/12 tests, play + editor Play + build, screenshot) |
 | F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 0% |
 | F2 · Shared core | 9.3% | 14.1% | 0% |
 | F3 · Editor core | 9.3% | 23.4% | 0% |
@@ -135,7 +135,7 @@ In the game, a primitive capsule character moves with the analog nub around a pr
   - The status shows Building → Launching → Running → Stopped.
   - A dropdown next to Play has "Play on console" active and "Play in editor" greyed out, with the reason "arrives in Editor 5".
   - Validator errors appear in the Console with the asset named.
-- [ ] **MVP-43** Acceptance, on a clean clone:
+- [x] **MVP-43** Acceptance, on a clean clone:
   - run `fetch_ppsspp.sh`, then `rensga play --target psp templates/psp`
   - press editor **Play**
 
@@ -183,7 +183,7 @@ Recorded deviations:
 - **Project scripts are sources of the runtime executables, not a static library.** Reason: static registrars would otherwise be dropped by the linker.
 - **Dev Play boots the ELF directly with assets from `host0:`;** the release PRX/EBOOT is only built by `rensga build` (placeholder ICON0).
 - **PPSSPP is the distro package (`/usr/bin/PPSSPPSDL`) found by `fetch_ppsspp.sh`, never linked.** Reason: GPL, separate process only.
-- **MVP-43 screenshot not captured.** PPSSPP under Xvfb renders a black window to xwd/import/ffmpeg grabs and PPSSPPHeadless writes no screenshot on timeout; acceptance was verified from the game log (boot, `pickups=5`, `frame 300`+).
+- **MVP-43 screenshot comes from the game, not a window grab.** PPSSPP's GL window reads black to xwd/import/ffmpeg under Xvfb and PPSSPPHeadless cannot compare/emit screenshots. `tools/emulators/screenshot.sh` builds the ELF with `RENSGA_EXIT_AFTER_FRAMES` (dumps the displayed frame to `host0:/rensga_shot.bmp` on exit), runs it in PPSSPPHeadless (software renderer) and converts it to `docs/rensga-engine/mvp/psp-template.png`.
 - **Editor exit code** is 0 even when the Play pipeline fails; the failure is only in the Console log (fix in F3/F6 editor work).
 
 ---

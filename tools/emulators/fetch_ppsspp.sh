@@ -7,7 +7,10 @@ OUT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/third_party/emulators/p
 mkdir -p "$OUT"
 BIN=""
 if command -v pacman >/dev/null 2>&1 && pacman -Q ppsspp >/dev/null 2>&1; then
-  BIN="$(pacman -Ql ppsspp | awk '{print $2}' | grep -E '/bin/[^/]+$' | grep -iE 'ppsspp(sdl|qt)?[^/]*$' | head -1)"
+  LIST="$(pacman -Ql ppsspp | awk '{print $2}' | grep -E '/bin/[^/]+$')"
+  # Prefer the windowed SDL build (what the editor launches), then Qt; never the headless test tool.
+  BIN="$(echo "$LIST" | grep -E '/PPSSPPSDL$' | head -1)"
+  [ -z "$BIN" ] && BIN="$(echo "$LIST" | grep -E '/PPSSPPQt$' | head -1)"
   VER="$(pacman -Q ppsspp | awk '{print $2}')"
 fi
 [ -z "$BIN" ] && BIN="$(command -v PPSSPPSDL || command -v ppsspp || true)"

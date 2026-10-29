@@ -33,6 +33,7 @@ build/host/engine/runtime/rensga_headless --pack templates/psp/Library/Cooked/ps
 xvfb-run -a build/host/tools/cli/rensga play --target psp templates/psp --json --quit-after 25   # dev build in Docker, boots in PPSSPP
 build/host/tools/cli/rensga build --target psp templates/psp              # release: EBOOT.PBP in Library/Build/psp-release/
 build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after 30]
+tools/emulators/screenshot.sh                       # PPSSPP screenshot into docs/rensga-engine/mvp/ (needs a prior cook)
 tools/check_editor_core.sh                                                # editor/core must not name a console
 ```
 

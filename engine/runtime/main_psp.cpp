@@ -1,6 +1,8 @@
 // PSP entry point: boot -> load host0:/game.rpak (or a built-in test cube) -> fixed-timestep loop -> render.
 #include <pspkernel.h>
 #include <pspdebug.h>
+#include <pspdisplay.h>
+#include <pspiofilemgr.h>
 
 #include "rensga/Rensga.h"
 #include "rensga/platform/psp.h"
@@ -35,6 +37,31 @@ void buildTestCube() {
 }
 
 }  // namespace
+
+#ifdef RENSGA_EXIT_AFTER_FRAMES
+// Screenshot/CI builds: dump the displayed 32-bit frame to host0:/rensga_shot.bmp so an emulator run can be captured
+// without a window grab (PPSSPP's GL window reads black to X grabs under Xvfb).
+static void dumpFrameBmp() {
+  void* top = nullptr; int bufw = 0, fmt = 0;
+  if (sceDisplayGetFrameBuf(&top, &bufw, &fmt, PSP_DISPLAY_SETBUF_NEXTFRAME) < 0 || !top || fmt != 3) return;
+  const unsigned char* px = reinterpret_cast<const unsigned char*>(reinterpret_cast<unsigned>(top) | 0x40000000u);
+  const int w = 480, h = 272, rowBytes = w * 3;
+  static unsigned char bmp[54 + 480 * 272 * 3];
+  unsigned dataSize = rowBytes * h, fileSize = 54 + dataSize;
+  unsigned char hdr[54] = {'B', 'M'};
+  auto put32 = [&](int o, unsigned v) { for (int i = 0; i < 4; ++i) hdr[o + i] = (v >> (8 * i)) & 0xff; };
+  put32(2, fileSize); put32(10, 54); put32(14, 40); put32(18, w); put32(22, h);
+  hdr[26] = 1; hdr[28] = 24; put32(34, dataSize);
+  for (int i = 0; i < 54; ++i) bmp[i] = hdr[i];
+  for (int y = 0; y < h; ++y) {
+    const unsigned char* src = px + static_cast<unsigned>(y) * bufw * 4;
+    unsigned char* dst = bmp + 54 + (h - 1 - y) * rowBytes;
+    for (int x = 0; x < w; ++x) { dst[x * 3] = src[x * 4 + 2]; dst[x * 3 + 1] = src[x * 4 + 1]; dst[x * 3 + 2] = src[x * 4]; }
+  }
+  SceUID fd = sceIoOpen("host0:/rensga_shot.bmp", PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC, 0777);
+  if (fd >= 0) { sceIoWrite(fd, bmp, fileSize); sceIoClose(fd); }
+}
+#endif
 
 int main() {
   pspInstallLogSinks();
@@ -111,8 +138,14 @@ int main() {
     }
     renderWorld(world, renderer);
     ++frame;
+#ifdef RENSGA_EXIT_AFTER_FRAMES
+    if (frame >= RENSGA_EXIT_AFTER_FRAMES) break;  // screenshot/CI builds (PPSSPPHeadless needs a clean exit)
+#endif
     if (frame % 60 == 0) RLOG_INFO("game", "rensga: frame %u", frame);
   }
+#ifdef RENSGA_EXIT_AFTER_FRAMES
+  dumpFrameBmp();
+#endif
   RLOG_INFO("game", "rensga: quit after %u frames", frame);
   log::flushAll();
   world.shutdown();
