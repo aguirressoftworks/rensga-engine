@@ -141,6 +141,17 @@ EDITOR = [
     ("CheckMark", "primary", False), ("SliderGrab", "pequi.600", False), ("SliderGrabActive", "primary", False),
     ("Tab", "surface-2", True), ("TabHovered", "soil.700", True),
     ("PlotHistogram", "primary", False), ("DockingPreview", "primary", False), ("TextSelectedBg", "ceu.700", True),
+    ("MenuBarBg", "surface-2", True), ("TitleBgCollapsed", "surface-2", True), ("TableHeaderBg", "surface-2", True),
+    ("ScrollbarBg", "bg", False), ("ScrollbarGrab", "soil.700", False), ("ScrollbarGrabHovered", "soil.600", False),
+    ("ScrollbarGrabActive", "soil.500", False),
+    ("Separator", "border", False), ("SeparatorHovered", "pequi.600", False), ("SeparatorActive", "primary", False),
+    ("ResizeGrip", "soil.700", False), ("ResizeGripHovered", "soil.600", False), ("ResizeGripActive", "primary", False),
+    ("TabSelected", "soil.800", True), ("TabSelectedOverline", "primary", False),
+    ("TabDimmed", "surface-2", True), ("TabDimmedSelected", "soil.800", True), ("TabDimmedSelectedOverline", "soil.600", False),
+    ("TableBorderStrong", "border", False), ("TableBorderLight", "border", False),
+    ("NavCursor", "focus", False), ("DragDropTarget", "primary", False), ("TextLink", "link", False),
+    ("PlotLines", "link", False), ("DockingEmptyBg", "bg", False),
+    ("ModalWindowDimBg", "bg", False), ("NavWindowingDimBg", "bg", False), ("NavWindowingHighlight", "text", False),
 ]
 
 EDITOR_NOTES = [

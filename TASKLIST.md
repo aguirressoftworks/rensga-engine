@@ -145,6 +145,10 @@ In the game, a primitive capsule character moves with the analog nub around a pr
   - Put the real build, test and run commands in AGENTS.md.
   - Tick the 🔶 head-start notes into the Step 2 tasks they affect.
 
+- [x] **MVP-45** Editor brand theme: colors from the embedded `palette.json`, Inter and JetBrains Mono, pequi icon, gold Play.
+- [x] **MVP-46** Unity default layout: menu bar, toolbar strip, Hierarchy / Inspector / Project / Console / Scene / Game docked, saved per project in `Library/Editor/layout.ini`; Window > Reset Layout.
+- [x] **MVP-47** `SceneDocument` in `editor/core`: load and save, selection, dirty flag, undo and redo, edit operations.
+
 ### MVP hook register
 
 Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a row for any new shortcut.

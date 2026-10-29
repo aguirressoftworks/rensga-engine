@@ -598,6 +598,146 @@
       "imgui": "TextSelectedBg",
       "ref": "ceu.700",
       "hex": "#245a8a"
+    },
+    {
+      "imgui": "MenuBarBg",
+      "ref": "surface-2",
+      "hex": "#23211c"
+    },
+    {
+      "imgui": "TitleBgCollapsed",
+      "ref": "surface-2",
+      "hex": "#23211c"
+    },
+    {
+      "imgui": "TableHeaderBg",
+      "ref": "surface-2",
+      "hex": "#23211c"
+    },
+    {
+      "imgui": "ScrollbarBg",
+      "ref": "bg",
+      "hex": "#1c1a16"
+    },
+    {
+      "imgui": "ScrollbarGrab",
+      "ref": "soil.700",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "ScrollbarGrabHovered",
+      "ref": "soil.600",
+      "hex": "#5c5547"
+    },
+    {
+      "imgui": "ScrollbarGrabActive",
+      "ref": "soil.500",
+      "hex": "#736b5a"
+    },
+    {
+      "imgui": "Separator",
+      "ref": "border",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "SeparatorHovered",
+      "ref": "pequi.600",
+      "hex": "#d98a0b"
+    },
+    {
+      "imgui": "SeparatorActive",
+      "ref": "primary",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "ResizeGrip",
+      "ref": "soil.700",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "ResizeGripHovered",
+      "ref": "soil.600",
+      "hex": "#5c5547"
+    },
+    {
+      "imgui": "ResizeGripActive",
+      "ref": "primary",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "TabSelected",
+      "ref": "soil.800",
+      "hex": "#2b2822"
+    },
+    {
+      "imgui": "TabSelectedOverline",
+      "ref": "primary",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "TabDimmed",
+      "ref": "surface-2",
+      "hex": "#23211c"
+    },
+    {
+      "imgui": "TabDimmedSelected",
+      "ref": "soil.800",
+      "hex": "#2b2822"
+    },
+    {
+      "imgui": "TabDimmedSelectedOverline",
+      "ref": "soil.600",
+      "hex": "#5c5547"
+    },
+    {
+      "imgui": "TableBorderStrong",
+      "ref": "border",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "TableBorderLight",
+      "ref": "border",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "NavCursor",
+      "ref": "focus",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "DragDropTarget",
+      "ref": "primary",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "TextLink",
+      "ref": "link",
+      "hex": "#9fc477"
+    },
+    {
+      "imgui": "PlotLines",
+      "ref": "link",
+      "hex": "#9fc477"
+    },
+    {
+      "imgui": "DockingEmptyBg",
+      "ref": "bg",
+      "hex": "#1c1a16"
+    },
+    {
+      "imgui": "ModalWindowDimBg",
+      "ref": "bg",
+      "hex": "#1c1a16"
+    },
+    {
+      "imgui": "NavWindowingDimBg",
+      "ref": "bg",
+      "hex": "#1c1a16"
+    },
+    {
+      "imgui": "NavWindowingHighlight",
+      "ref": "text",
+      "hex": "#faf8f3"
     }
   ],
   "icon": [
@@ -1068,6 +1208,54 @@
       "bg": "TextSelectedBg",
       "min": 4.5,
       "ratio": 6.81,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "MenuBarBg",
+      "min": 4.5,
+      "ratio": 15.15,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TitleBgCollapsed",
+      "min": 4.5,
+      "ratio": 15.15,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TableHeaderBg",
+      "min": 4.5,
+      "ratio": 15.15,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TabSelected",
+      "min": 4.5,
+      "ratio": 13.84,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TabDimmed",
+      "min": 4.5,
+      "ratio": 15.15,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TabDimmedSelected",
+      "min": 4.5,
+      "ratio": 13.84,
       "pass": true
     }
   ]

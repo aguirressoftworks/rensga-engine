@@ -28,6 +28,9 @@ struct Scene {
   std::vector<SceneObject> objects;
 };
 
+// Parses one scene document (the JSON of a .scene file) into the typed model.
+Scene parseScene(const nlohmann::json& sj);
+
 struct Project {
   std::filesystem::path root;
   std::string name, target;

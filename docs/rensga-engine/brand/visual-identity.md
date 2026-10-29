@@ -237,6 +237,12 @@ Computed by the build (WCAG 2 ratio). The build fails if any row is under its mi
 | editor | `text` | `Tab` | 15.15:1 | 4.5:1 |
 | editor | `text` | `TabHovered` | 10.48:1 | 4.5:1 |
 | editor | `text` | `TextSelectedBg` | 6.81:1 | 4.5:1 |
+| editor | `text` | `MenuBarBg` | 15.15:1 | 4.5:1 |
+| editor | `text` | `TitleBgCollapsed` | 15.15:1 | 4.5:1 |
+| editor | `text` | `TableHeaderBg` | 15.15:1 | 4.5:1 |
+| editor | `text` | `TabSelected` | 13.84:1 | 4.5:1 |
+| editor | `text` | `TabDimmed` | 15.15:1 | 4.5:1 |
+| editor | `text` | `TabDimmedSelected` | 13.84:1 | 4.5:1 |
 
 ## Console targets
 
@@ -295,6 +301,34 @@ Dear ImGui colors for the dark theme. Rows marked "text" carry text and are cont
 | `PlotHistogram` | `#f2a516` | `primary` |  |
 | `DockingPreview` | `#f2a516` | `primary` |  |
 | `TextSelectedBg` | `#245a8a` | `ceu.700` | text |
+| `MenuBarBg` | `#23211c` | `surface-2` | text |
+| `TitleBgCollapsed` | `#23211c` | `surface-2` | text |
+| `TableHeaderBg` | `#23211c` | `surface-2` | text |
+| `ScrollbarBg` | `#1c1a16` | `bg` |  |
+| `ScrollbarGrab` | `#403b31` | `soil.700` |  |
+| `ScrollbarGrabHovered` | `#5c5547` | `soil.600` |  |
+| `ScrollbarGrabActive` | `#736b5a` | `soil.500` |  |
+| `Separator` | `#403b31` | `border` |  |
+| `SeparatorHovered` | `#d98a0b` | `pequi.600` |  |
+| `SeparatorActive` | `#f2a516` | `primary` |  |
+| `ResizeGrip` | `#403b31` | `soil.700` |  |
+| `ResizeGripHovered` | `#5c5547` | `soil.600` |  |
+| `ResizeGripActive` | `#f2a516` | `primary` |  |
+| `TabSelected` | `#2b2822` | `soil.800` | text |
+| `TabSelectedOverline` | `#f2a516` | `primary` |  |
+| `TabDimmed` | `#23211c` | `surface-2` | text |
+| `TabDimmedSelected` | `#2b2822` | `soil.800` | text |
+| `TabDimmedSelectedOverline` | `#5c5547` | `soil.600` |  |
+| `TableBorderStrong` | `#403b31` | `border` |  |
+| `TableBorderLight` | `#403b31` | `border` |  |
+| `NavCursor` | `#f2a516` | `focus` |  |
+| `DragDropTarget` | `#f2a516` | `primary` |  |
+| `TextLink` | `#9fc477` | `link` |  |
+| `PlotLines` | `#9fc477` | `link` |  |
+| `DockingEmptyBg` | `#1c1a16` | `bg` |  |
+| `ModalWindowDimBg` | `#1c1a16` | `bg` |  |
+| `NavWindowingDimBg` | `#1c1a16` | `bg` |  |
+| `NavWindowingHighlight` | `#faf8f3` | `text` |  |
 
 - The editor defaults to the dark theme. A light theme uses the same mapping with the light token values.
 - The Play button is primary (gold with dark ink). Stop uses danger. Only one gold button is visible at a time.
