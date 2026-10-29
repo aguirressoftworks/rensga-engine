@@ -70,7 +70,17 @@ PrimitiveMesh generatePrimitive(const PrimitiveParams& p, const ConsoleTargetDat
     case PrimitiveShape::Plane: {
       Builder b;
       Scalar hx = p.size.x * 0.5f, hz = p.size.z * 0.5f;
-      b.quad(Vector3(-hx, 0, -hz), Vector3(-hx, 0, hz), Vector3(hx, 0, hz), Vector3(hx, 0, -hz), true);
+      Scalar cell = p.cellSize > 0 ? p.cellSize : p.size.x;
+      int nx = static_cast<int>(p.size.x / cell + 0.999f), nz = static_cast<int>(p.size.z / cell + 0.999f);
+      if (nx < 1) nx = 1;
+      if (nz < 1) nz = 1;
+      for (int i = 0; i < nx; ++i) {
+        for (int j = 0; j < nz; ++j) {
+          Scalar x0 = -hx + p.size.x * i / nx, x1 = -hx + p.size.x * (i + 1) / nx;
+          Scalar z0 = -hz + p.size.z * j / nz, z1 = -hz + p.size.z * (j + 1) / nz;
+          b.quad(Vector3(x0, 0, z0), Vector3(x0, 0, z1), Vector3(x1, 0, z1), Vector3(x1, 0, z0), true);
+        }
+      }
       return b.mesh;
     }
     case PrimitiveShape::Ramp: {
@@ -160,6 +170,7 @@ bool parsePrimitive(const std::string& text, PrimitiveParams& out, std::string& 
     }
     if (params.contains("radius")) out.radius = params["radius"].get<float>();
     if (params.contains("height")) out.height = params["height"].get<float>();
+    if (params.contains("cellSize")) out.cellSize = params["cellSize"].get<float>();
     return true;
   } catch (const std::exception& e) {
     error = e.what();

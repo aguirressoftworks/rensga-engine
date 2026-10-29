@@ -35,6 +35,8 @@ struct PrimitiveParams {
   Vector3 size = Vector3(1, 1, 1);  // cube, plane (x,z), ramp
   Scalar radius = 0.5f;             // sphere, capsule
   Scalar height = 2.0f;             // capsule (total, caps included)
+  Scalar cellSize = 1.0f;           // plane: grid cell edge. PSP GU drops whole triangles that cross the
+                                    // near plane or guard band, so large planes must be subdivided.
 };
 struct PrimitiveCollider {
   bool isSphere = false;
