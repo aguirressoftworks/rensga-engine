@@ -63,6 +63,10 @@ bool PpssppLauncher::start(const pipeline::LaunchSpec& spec, pipeline::EventSink
     std::ofstream(ini) << "[General]\nFirstRun = False\nCheckForNewVersion = False\nEnableLogging = False\n"
                           "[Graphics]\nFullScreen = False\n";
   }
+  // Key bindings are project data: ProjectSettings/Emulators/ppsspp/controls.ini replaces the sandbox copy
+  // on every launch (configDir is <project>/Library/Emulators).
+  fs::path bindings = spec.configDir.parent_path().parent_path() / "ProjectSettings" / "Emulators" / "ppsspp" / "controls.ini";
+  if (fs::exists(bindings)) fs::copy_file(bindings, ini.parent_path() / "controls.ini", fs::copy_options::overwrite_existing, ec);
   fs::path logFile = spec.workingDir / "rensga.log";
   fs::remove(logFile, ec);
   {
