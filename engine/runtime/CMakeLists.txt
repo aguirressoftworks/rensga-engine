@@ -12,7 +12,10 @@ if(RENSGA_TARGET STREQUAL "psp")
         target_link_libraries(rensga_game PRIVATE ${backend})
       endif()
     endforeach()
-    target_link_libraries(rensga_game PRIVATE pspdebug pspdisplay pspge pspgu pspctrl psppower pspsdk m)
+    # PSP system libraries: link each once, in pspsdk dependency order (users before providers).
+    # If a module's import stubs end up split (e.g. pspdisplay pulled in twice from different
+    # positions), psp-fixup-imports assigns the wrong NIDs and calls silently hit other functions.
+    target_link_libraries(rensga_game PRIVATE pspgum pspgu pspge pspdisplay pspctrl psppower pspdebug pspsdk m)
     target_include_directories(rensga_game PRIVATE ${RENSGA_GENERATED_DIR})
     rensga_runtime_target(rensga_game)
     set(RENSGA_EXIT_AFTER_FRAMES 0 CACHE STRING "PSP: exit the game after N frames (screenshots/CI); 0 = never")
