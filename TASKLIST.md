@@ -178,7 +178,7 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 
 Recorded deviations:
 
-- **Native PSP platform instead of SDL2.** The PSP backend uses sceCtrl/sceDisplay directly (pspsdk); SDL2 stays on the editor and host side. Reason: the PSP has no usable SDL2 port for the 333 MHz budget and the design doc's `IPlatform` already isolates it.
+- **Native PSP platform instead of SDL2.** The PSP backend uses sceCtrl/sceDisplay directly (pspsdk); SDL2 stays on the editor and host side. Reason: pspdev does ship SDL2, but running SDL2 input/timing alongside raw GU rendering was deferred to keep the MVP to one day; `IPlatform` isolates it, and PSP Engine 1 (F4.03) moves the platform layer to SDL2 as the design doc specifies.
 - **Project scripts are compiled into the cooker, CLI and editor at build time** (`RENSGA_PROJECT_DIR`, `rensga_cooker_scripts`). Reason: reflection registers types at static init, so scenes can only be read by an executable that links the scripts. Step 2 replaces this with the header-scanner codegen (F1.05).
 - **Project scripts are sources of the runtime executables, not a static library.** Reason: static registrars would otherwise be dropped by the linker.
 - **Dev Play boots the ELF directly with assets from `host0:`;** the release PRX/EBOOT is only built by `rensga build` (placeholder ICON0).
