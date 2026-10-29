@@ -35,14 +35,38 @@
         "CMAKE_BUILD_TYPE": "Release"
       }
     },
-    { "name": "windows", "displayName": "Windows (slot for F1 and later)", "inherits": "base", "hidden": true, "cacheVariables": { "RENSGA_TARGET": "windows" } },
-    { "name": "android", "displayName": "Android (slot for F1 and later)", "inherits": "base", "hidden": true, "cacheVariables": { "RENSGA_TARGET": "android" } },
-    { "name": "ps2", "displayName": "PS2 (slot for F1 and later)", "inherits": "base", "hidden": true, "cacheVariables": { "RENSGA_TARGET": "ps2" } },
+    {
+      "name": "windows",
+      "displayName": "Windows x64 cross-build: MinGW-w64 + SDL2, run inside tools/docker/windows.sh",
+      "inherits": "base",
+      "generator": "Unix Makefiles",
+      "toolchainFile": "${sourceDir}/cmake/toolchains/mingw-w64.cmake",
+      "cacheVariables": { "RENSGA_TARGET": "windows", "RENSGA_BUILD_TESTS": "OFF", "RENSGA_BUILD_TOOLS": "OFF", "RENSGA_BUILD_EDITOR": "OFF", "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "android",
+      "displayName": "Android arm64: NDK + SDL2 libmain.so; the APK comes from tools/android (Gradle), run inside tools/docker/android.sh",
+      "inherits": "base",
+      "generator": "Unix Makefiles",
+      "toolchainFile": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",
+      "cacheVariables": { "RENSGA_TARGET": "android", "ANDROID_ABI": "arm64-v8a", "ANDROID_PLATFORM": "android-24", "RENSGA_BUILD_TESTS": "OFF", "RENSGA_BUILD_TOOLS": "OFF", "RENSGA_BUILD_EDITOR": "OFF", "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "ps2",
+      "displayName": "PS2: EE ELF with gsKit, run inside tools/docker/ps2.sh",
+      "inherits": "base",
+      "generator": "Unix Makefiles",
+      "toolchainFile": "$env{PS2SDK}/ps2dev.cmake",
+      "cacheVariables": { "RENSGA_TARGET": "ps2", "RENSGA_BUILD_TESTS": "OFF", "RENSGA_BUILD_TOOLS": "OFF", "RENSGA_BUILD_EDITOR": "OFF", "CMAKE_BUILD_TYPE": "Release" }
+    },
     { "name": "psx", "displayName": "PSX (slot for F1 and later)", "inherits": "base", "hidden": true, "cacheVariables": { "RENSGA_TARGET": "psx" } }
   ],
   "buildPresets": [
     { "name": "linux-host", "configurePreset": "linux-host" },
-    { "name": "psp", "configurePreset": "psp" }
+    { "name": "psp", "configurePreset": "psp" },
+    { "name": "windows", "configurePreset": "windows" },
+    { "name": "android", "configurePreset": "android" },
+    { "name": "ps2", "configurePreset": "ps2" }
   ],
   "testPresets": [
     { "name": "linux-host", "configurePreset": "linux-host", "output": { "outputOnFailure": true } }

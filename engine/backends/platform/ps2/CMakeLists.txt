@@ -1,0 +1,4 @@
+add_library(rensga_platform_ps2 STATIC src/ps2_platform.cpp)
+target_include_directories(rensga_platform_ps2 PUBLIC include)
+target_link_libraries(rensga_platform_ps2 PUBLIC rensga_core)
+rensga_runtime_target(rensga_platform_ps2)

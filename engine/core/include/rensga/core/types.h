@@ -43,7 +43,9 @@ constexpr size_t alignUp(size_t v, size_t a) { return (v + a - 1) & ~(a - 1); }
 
 }  // namespace rensga
 
-#if defined(__GNUC__)
+#if defined(__MINGW32__)
+#define RENSGA_PRINTF_LIKE(f, a) __attribute__((format(gnu_printf, f, a)))  // we link the C99 printf (__USE_MINGW_ANSI_STDIO)
+#elif defined(__GNUC__)
 #define RENSGA_PRINTF_LIKE(f, a) __attribute__((format(printf, f, a)))
 #else
 #define RENSGA_PRINTF_LIKE(f, a)

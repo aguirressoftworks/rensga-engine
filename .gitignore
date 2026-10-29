@@ -16,3 +16,6 @@ imgui.ini
 *.log
 # local tooling
 .claude/settings.local.json
+tools/android/local.properties
+tools/android/.gradle/
+tools/android/app/.cxx/

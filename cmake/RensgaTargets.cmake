@@ -5,7 +5,10 @@ function(rensga_apply_defaults target)
   target_compile_features(${target} PUBLIC cxx_std_17)
   target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
   # PSP newlib: uint32_t is long, so %u/%x on u32 trips -Wformat; keep it a warning there.
-  if(RENSGA_TARGET STREQUAL "psp")
+  if(RENSGA_TARGET STREQUAL "windows")
+    target_compile_definitions(${target} PRIVATE __USE_MINGW_ANSI_STDIO=1)  # %zu / %llu in printf
+  endif()
+  if(RENSGA_TARGET MATCHES "^(psp|ps2|windows)$")
     target_compile_options(${target} PRIVATE -Wno-error=format)
   endif()
 endfunction()

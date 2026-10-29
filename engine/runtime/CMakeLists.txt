@@ -2,6 +2,32 @@
 # executables (not a static lib) so their static REFLECT registrars survive linking.
 file(GLOB RENSGA_PROJECT_SCRIPTS CONFIGURE_DEPENDS "${RENSGA_PROJECT_DIR}/Assets/Scripts/*.cpp")
 
+# Engine 0 hello: one main on linux-host (needs SDL2), windows, android and ps2.
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_hello.cpp AND NOT RENSGA_TARGET STREQUAL "psp")
+  if(RENSGA_TARGET STREQUAL "android")
+    add_library(rensga_hello SHARED main_hello.cpp)  # SDLActivity loads libmain.so
+    set_target_properties(rensga_hello PROPERTIES OUTPUT_NAME main)
+    target_link_libraries(rensga_hello PRIVATE log)
+  elseif(RENSGA_TARGET STREQUAL "ps2")
+    add_executable(rensga_hello main_hello.cpp)
+    target_compile_definitions(rensga_hello PRIVATE RENSGA_PLATFORM_PS2)
+    target_link_libraries(rensga_hello PRIVATE rensga_platform_ps2 rensga_render_gs gskit dmakit c)
+    set_target_properties(rensga_hello PROPERTIES SUFFIX ".elf")
+  elseif(TARGET rensga_platform_sdl)
+    add_executable(rensga_hello main_hello.cpp)
+    if(RENSGA_TARGET STREQUAL "windows")
+      target_link_options(rensga_hello PRIVATE -static-libgcc -static-libstdc++)
+    endif()
+  endif()
+  if(TARGET rensga_hello)
+    target_link_libraries(rensga_hello PRIVATE rensga_core)
+    if(TARGET rensga_platform_sdl)
+      target_link_libraries(rensga_hello PRIVATE rensga_platform_sdl rensga_render_gl)
+    endif()
+    rensga_runtime_target(rensga_hello)
+  endif()
+endif()
+
 if(RENSGA_TARGET STREQUAL "psp")
   # PSP ELF. Backends come from engine/backends/*; the PSP role owns main_psp.cpp.
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_psp.cpp)
@@ -40,7 +66,7 @@ if(RENSGA_TARGET STREQUAL "psp")
         COMMENT "psp-prxgen rensga_game")
     endif()
   endif()
-else()
+elseif(RENSGA_TARGET STREQUAL "linux-host")
   # Linux-host simulation: null backends + stdio file system, no window.
   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_headless.cpp)
     add_executable(rensga_headless main_headless.cpp ${RENSGA_PROJECT_SCRIPTS})

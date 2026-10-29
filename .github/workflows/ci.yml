@@ -1,0 +1,44 @@
+# Same jobs as tools/ci/run_local.sh: each job runs the script in tools/ci, which uses the pinned docker wrappers.
+name: ci
+on:
+  push:
+  pull_request:
+jobs:
+  linux-host:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cmake g++ make libsdl2-dev xvfb libgl1-mesa-dri libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
+      - run: tools/ci/linux_host.sh
+  psp:
+    runs-on: ubuntu-24.04
+    needs: linux-host
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cmake g++ make libsdl2-dev xvfb libgl1-mesa-dri libgl-dev libx11-dev libxext-dev
+      - uses: actions/cache@v4
+        with: { path: "~/.local/bin", key: ppsspp-headless-v1.17.1 }
+      - run: tools/ci/build_ppsspp_headless.sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: tools/ci/psp.sh
+      - run: tools/ci/psp_gpu_check.sh
+  windows:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: tools/ci/windows.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: rensga-hello-windows, path: build/ci/windows/engine/runtime/ }
+  android:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: tools/ci/android.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: rensga-hello-apk, path: build/ci/android/rensga-hello.apk }
+  ps2:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: tools/ci/ps2.sh
+      - uses: actions/upload-artifact@v4
+        with: { name: rensga-hello-ps2, path: "build/ci/ps2/rensga.iso\nbuild/ci/ps2/engine/runtime/rensga_hello.elf" }

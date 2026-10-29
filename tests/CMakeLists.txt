@@ -18,3 +18,9 @@ add_test(NAME check_api_rules COMMAND ${CMAKE_SOURCE_DIR}/tools/check_api_rules.
 if(NOT TEST check_editor_core)
   add_test(NAME check_editor_core COMMAND ${CMAKE_SOURCE_DIR}/tools/check_editor_core.sh)
 endif()
+
+# PSP GPU-renderer check (MVP black-screen bug class). Skipped (exit 77) when Docker / PPSSPPHeadless / xvfb are unavailable.
+if(RENSGA_TARGET STREQUAL "linux-host")
+  add_test(NAME psp_gpu_check COMMAND ${CMAKE_SOURCE_DIR}/tools/ci/psp_gpu_check.sh)
+  set_tests_properties(psp_gpu_check PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900 LABELS "slow;psp")
+endif()

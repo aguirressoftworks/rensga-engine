@@ -1,0 +1,5 @@
+add_library(rensga_render_gs STATIC src/gs_renderer.cpp)
+target_include_directories(rensga_render_gs PUBLIC include $ENV{PS2DEV}/gsKit/include)
+target_link_libraries(rensga_render_gs PUBLIC rensga_core)
+target_link_directories(rensga_render_gs PUBLIC $ENV{PS2DEV}/gsKit/lib)
+rensga_runtime_target(rensga_render_gs)

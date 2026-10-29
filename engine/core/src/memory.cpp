@@ -1,11 +1,14 @@
 #include "rensga/core/memory.h"
 
 #include <stdlib.h>
-#if defined(__PSP__)
+#if defined(__PSP__) || defined(__ANDROID__)  // aligned_alloc needs API 28; memalign is older
 #include <malloc.h>
 #endif
 
 #include "rensga/core/log.h"
+#if defined(_WIN32)
+#include <malloc.h>
+#endif
 
 namespace rensga {
 
@@ -14,10 +17,19 @@ namespace {
 void* alignedAlloc(size_t size, size_t align) {
   if (align < kDmaAlignment) align = kDmaAlignment;
   size = alignUp(size, align);
-#if defined(__PSP__)
+#if defined(__PSP__) || defined(__ANDROID__)  // aligned_alloc needs API 28; memalign is older
   return memalign(align, size);
+#elif defined(_WIN32)
+  return _aligned_malloc(size, align);
 #else
   return aligned_alloc(align, size);
+#endif
+}
+void freeBlock(void* p) {
+#if defined(_WIN32)
+  _aligned_free(p);
+#else
+  free(p);
 #endif
 }
 }  // namespace
@@ -47,7 +59,7 @@ void Arena::init(void* memory, size_t capacity) {
 }
 
 void Arena::release() {
-  if (owns_ && base_) free(base_);
+  if (owns_ && base_) freeBlock(base_);
   base_ = nullptr;
   capacity_ = used_ = highWater_ = 0;
   owns_ = false;
@@ -91,7 +103,11 @@ bool g_inFrame = false;
 
 void* countedAlloc(size_t size, size_t align) {
   if (size == 0) size = 1;
+#if defined(_WIN32)
+  void* p = alignedAlloc(size, align);  // every block is freed with _aligned_free
+#else
   void* p = align <= alignof(max_align_t) ? malloc(size) : alignedAlloc(size, align);
+#endif
   if (p) {
     ++g_allocCount;
     g_totalBytes += size;
@@ -150,13 +166,13 @@ void* operator new[](size_t size, std::align_val_t a) {
 }
 void* operator new(size_t size, const std::nothrow_t&) noexcept { return rensga::countedAlloc(size, 0); }
 void* operator new[](size_t size, const std::nothrow_t&) noexcept { return rensga::countedAlloc(size, 0); }
-void operator delete(void* p) noexcept { free(p); }
-void operator delete[](void* p) noexcept { free(p); }
-void operator delete(void* p, size_t) noexcept { free(p); }
-void operator delete[](void* p, size_t) noexcept { free(p); }
-void operator delete(void* p, std::align_val_t) noexcept { free(p); }
-void operator delete[](void* p, std::align_val_t) noexcept { free(p); }
-void operator delete(void* p, size_t, std::align_val_t) noexcept { free(p); }
-void operator delete[](void* p, size_t, std::align_val_t) noexcept { free(p); }
-void operator delete(void* p, const std::nothrow_t&) noexcept { free(p); }
-void operator delete[](void* p, const std::nothrow_t&) noexcept { free(p); }
+void operator delete(void* p) noexcept { rensga::freeBlock(p); }
+void operator delete[](void* p) noexcept { rensga::freeBlock(p); }
+void operator delete(void* p, size_t) noexcept { rensga::freeBlock(p); }
+void operator delete[](void* p, size_t) noexcept { rensga::freeBlock(p); }
+void operator delete(void* p, std::align_val_t) noexcept { rensga::freeBlock(p); }
+void operator delete[](void* p, std::align_val_t) noexcept { rensga::freeBlock(p); }
+void operator delete(void* p, size_t, std::align_val_t) noexcept { rensga::freeBlock(p); }
+void operator delete[](void* p, size_t, std::align_val_t) noexcept { rensga::freeBlock(p); }
+void operator delete(void* p, const std::nothrow_t&) noexcept { rensga::freeBlock(p); }
+void operator delete[](void* p, const std::nothrow_t&) noexcept { rensga::freeBlock(p); }
