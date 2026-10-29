@@ -15,7 +15,7 @@ jobs:
     needs: linux-host
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y cmake g++ make libsdl2-dev xvfb libgl1-mesa-dri libgl-dev libx11-dev libxext-dev
+      - run: sudo apt-get update && sudo apt-get install -y cmake g++ make libsdl2-dev xvfb libgl1-mesa-dri libgl-dev libx11-dev libxext-dev libglu1-mesa-dev
       - uses: actions/cache@v4
         with: { path: "~/.local/bin", key: ppsspp-headless-v1.17.1 }
       - run: tools/ci/build_ppsspp_headless.sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
