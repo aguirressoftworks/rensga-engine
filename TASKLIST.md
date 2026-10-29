@@ -22,7 +22,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | Step / milestone | Weight | Cumulative | Status |
 | --- | --- | --- | --- |
 | **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..57) done after the review, 13/13 tests |
-| F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 4.8% (F1.01-F1.05 done; F1.G1 awaits first CI run on GitHub) |
+| F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 4.8% — closed (all tasks and gates) |
 | F2 · Shared core | 9.3% | 14.1% | 0% |
 | F3 · Editor core | 9.3% | 23.4% | 0% |
 | F4 · 2D slice everywhere + PSP base | 8.0% | 31.4% | 0% |
@@ -212,7 +212,7 @@ Recorded deviations:
 - **PPSSPP is the distro package (`/usr/bin/PPSSPPSDL`) found by `fetch_ppsspp.sh`, never linked.** Reason: GPL, separate process only.
 - **MVP-43 screenshot comes from the game, not a window grab.** PPSSPP's GL window reads black to xwd/import/ffmpeg under Xvfb and PPSSPPHeadless cannot compare/emit screenshots. `tools/emulators/screenshot.sh` builds the ELF with `RENSGA_EXIT_AFTER_FRAMES` (dumps the displayed frame to `host0:/rensga_shot.bmp` on exit), runs it in PPSSPPHeadless (software renderer) and converts it to `docs/rensga-engine/mvp/psp-template.png`.
 - **Script changes rebuild the editor and restart it.** Scripts compile into the editor, CLI, cooker and headless runtime at build time (see the entry above), so there is no hot reload. After a change the editor runs CMake on its own build tree and re-executes itself with the scene, selection, camera and tab restored; undo history is not kept across the restart. Finished by Editor 4 hot reload (F3.03).
-- **F1 CI is written but unrun on GitHub** (no gh CLI, nothing pushed). `tools/ci/run_local.sh` runs every job locally; F1.G1 stays open until the first green push. Reflection codegen needs Python 3 on the host (cross images have none; `tools/reflect/prescan.sh` writes the tables).
+- **F1 CI runs on GitHub** (private repo `aguirressoftworks/rensga-engine`). The first run failed only in the psp job (runner lacked GLU headers to build PPSSPPHeadless; fixed in `ce67819`), then all 5 jobs went green. `tools/ci/run_local.sh` runs the same jobs locally. Reflection codegen needs Python 3 on the host (cross images have none; `tools/reflect/prescan.sh` writes the tables).
 - **Editor exit code** (fixed in MVP-53): `rensga-editor --play` now exits 1 when the pipeline fails or cannot start.
 - **Bugs found in the user's play-testing of the MVP** (all fixed; none was caught by acceptance):
   - PSP imports got their NIDs from link order, so the game booted to a black screen in PPSSPP.
@@ -242,7 +242,7 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/ren
 
 **Gates**
 
-- [ ] **F1.G1** CI builds every enabled preset on every push. *Workflows written, local run green (`tools/ci/run_local.sh`: linux-host, psp + headless boot + GPU-renderer syscall check, windows, android, ps2 + ISO), awaiting first push.*
+- [x] **F1.G1** CI builds every enabled preset on every push. *Green on GitHub Actions: linux-host, psp (+ headless boot + GPU-renderer syscall check), windows, android, ps2 + ISO.*
 - [x] **F1.G2** `tools/check_editor_core.sh` runs in CI.
 - [x] **F1.G3** The API design rules are written up as a page under `docs/` before API 1 begins.
 - [x] **F1.G4** Every MVP hook in the register has an owner task in this list.
