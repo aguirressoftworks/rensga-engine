@@ -1,5 +1,5 @@
 // MVP-47: the editable scene. The scene JSON (ordered, so saves keep key order and diffs small) is the
-// source of truth; scene() is a typed view rebuilt after every change. Undo/redo are JSON snapshots.
+// source of truth; scene() is a typed view rebuilt after every change. Undo/redo are commands on an UndoStack (JSON snapshot commands).
 // No ImGui, no console names.
 #pragma once
 #include <filesystem>
@@ -9,6 +9,7 @@
 #include <nlohmann/json.hpp>
 
 #include "rensga/editor/project.h"
+#include "rensga/editor/undo.h"
 
 namespace rensga {
 namespace editor {
@@ -17,13 +18,13 @@ std::string generateGuid();  // random (v4) GUID, lowercase 8-4-4-4-12
 
 class SceneDocument {
  public:
-  static constexpr size_t kMaxUndo = 200;
+  static constexpr size_t kMaxUndo = UndoStack::kDefaultLimit;
 
   bool load(const std::filesystem::path& file, std::string& err);
   bool save(std::string& err);  // writes to path()
   bool loaded() const { return loaded_; }
   const std::filesystem::path& path() const { return path_; }
-  bool dirty() const { return dirty_; }
+  bool dirty() const { return forcedDirty_ || stack_.dirty(); }
   const Scene& scene() const { return view_; }
   const nlohmann::ordered_json& document() const { return doc_; }
   // Replaces the document with `j` as if loaded from `file` (editor restart): undo history is dropped, dirty is kept.
@@ -55,9 +56,10 @@ class SceneDocument {
   void beginGesture();
   void endGesture();
 
-  bool canUndo() const { return !undo_.empty(); }
-  bool canRedo() const { return !redo_.empty(); }
-  size_t undoDepth() const { return undo_.size(); }
+  bool canUndo() const { return stack_.canUndo(); }
+  bool canRedo() const { return stack_.canRedo(); }
+  size_t undoDepth() const { return stack_.depth(); }
+  UndoStack& undoStack() { return stack_; }  // for other editing paths that record their own commands
   bool undo();
   bool redo();
 
@@ -68,15 +70,20 @@ class SceneDocument {
   nlohmann::ordered_json* findJson(const std::string& guid);
   size_t jsonIndex(const std::string& guid) const;
   void collectSubtree(const std::string& guid, std::vector<std::string>& out) const;
-  void pushUndo();
+  void pushUndo(const std::string& mergeKey = std::string());  // call before mutating doc_; changed() records the step
+  friend class SnapshotCommand;
+  void applySnapshot(const nlohmann::ordered_json& j);  // undo/redo target
   void changed();  // rebuild the view, mark dirty, fix the selection
 
   nlohmann::ordered_json doc_;
-  std::vector<nlohmann::ordered_json> undo_, redo_;
+  UndoStack stack_;
+  nlohmann::ordered_json before_;
+  std::string beforeKey_;
+  bool hasBefore_ = false;
   Scene view_;
   std::filesystem::path path_;
   std::string selected_;
-  bool loaded_ = false, dirty_ = false, inGesture_ = false, gesturePushed_ = false;
+  bool loaded_ = false, forcedDirty_ = false;
 };
 
 }  // namespace editor

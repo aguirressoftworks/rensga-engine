@@ -11,7 +11,8 @@ fi
 PROJ="$REPO/templates/psp"; B="$CI_OUT/psp"; ROOT="$CI_OUT/psp-root"
 step "cook"; "$CLI" cook "$PROJ"
 step "psp build"
-tools/docker/psp.sh cmake --preset psp -B "$B" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_GENERATED_DIR="$PROJ/Library/Generated/psp" -DRENSGA_EXIT_AFTER_FRAMES=240 >/dev/null
+reflect_prescan "$B/reflect" "$PROJ"
+tools/docker/psp.sh cmake --preset psp -B "$B" -DRENSGA_REFLECT_DIR="$B/reflect" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_GENERATED_DIR="$PROJ/Library/Generated/psp" -DRENSGA_EXIT_AFTER_FRAMES=240 >/dev/null
 tools/docker/psp.sh cmake --build "$B" --target rensga_game -j"$JOBS"
 rm -rf "$ROOT"; mkdir -p "$ROOT"; cp "$B/engine/runtime/rensga_game.elf" "$PROJ/Library/Cooked/psp/game.rpak" "$ROOT/"
 step "headless boot smoke test"

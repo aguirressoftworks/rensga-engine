@@ -20,4 +20,8 @@ nlohmann::json fieldsToJson(const TypeInfo& type, const void* object);
 // Unknown field names and type mismatches fail and fill `error` (names the field).
 bool fieldsFromJson(const TypeInfo& type, void* object, const nlohmann::json& fields, std::string* error = nullptr);
 
+// Same, with the reflection declaration order kept (scene files, diffs, prefab overrides use ordered_json).
+nlohmann::ordered_json fieldsToOrderedJson(const TypeInfo& type, const void* object);
+bool fieldsFromJson(const TypeInfo& type, void* object, const nlohmann::ordered_json& fields, std::string* error = nullptr);
+
 }  // namespace rensga

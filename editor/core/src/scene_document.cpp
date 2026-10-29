@@ -142,12 +142,12 @@ bool SceneDocument::load(const fs::path& file, std::string& err) {
   if (j.is_discarded() || !j.is_object()) { err = "invalid scene JSON in " + file.string(); return false; }
   doc_ = std::move(j);
   path_ = file;
-  undo_.clear();
-  redo_.clear();
+  stack_.clear();
+  hasBefore_ = false;
   loaded_ = true;
-  inGesture_ = gesturePushed_ = false;
   changed();
-  dirty_ = false;
+  forcedDirty_ = false;
+  stack_.markClean();
   return true;
 }
 
@@ -155,12 +155,12 @@ bool SceneDocument::restore(const fs::path& file, ordered_json j, bool dirty) {
   if (!j.is_object()) return false;
   doc_ = std::move(j);
   path_ = file;
-  undo_.clear();
-  redo_.clear();
+  stack_.clear();
+  hasBefore_ = false;
   loaded_ = true;
-  inGesture_ = gesturePushed_ = false;
   changed();
-  dirty_ = dirty;
+  forcedDirty_ = dirty;
+  stack_.markClean();
   return true;
 }
 
@@ -171,7 +171,8 @@ bool SceneDocument::save(std::string& err) {
   f << doc_.dump(1, ' ', false) << "\n";
   f.flush();
   if (!f) { err = "write failed for " + path_.string(); return false; }
-  dirty_ = false;
+  forcedDirty_ = false;
+  stack_.markClean();
   return true;
 }
 
@@ -228,43 +229,54 @@ void SceneDocument::collectSubtree(const std::string& guid, std::vector<std::str
     if (o.parentGuid == guid && std::find(out.begin(), out.end(), o.guid) == out.end()) collectSubtree(o.guid, out);
 }
 
-void SceneDocument::pushUndo() {
-  if (inGesture_) {
-    if (gesturePushed_) return;
-    gesturePushed_ = true;
+// One undo step = the document before and after an edit. Consecutive edits with the same key (a drag) merge;
+// inside a group (gesture) every snapshot merges, so a whole gesture keeps only its first "before" and last "after".
+class SnapshotCommand : public Command {
+ public:
+  SnapshotCommand(SceneDocument* d, ordered_json before, ordered_json after, std::string key)
+      : doc_(d), before_(std::move(before)), after_(std::move(after)), key_(std::move(key)) {}
+  const char* name() const override { return key_.empty() ? "Edit scene" : "Edit scene (merged)"; }
+  void undo() override { doc_->applySnapshot(before_); }
+  void redo() override { doc_->applySnapshot(after_); }
+  const std::string& mergeKey() const override { return key_; }
+  bool groupMerge() const override { return true; }
+  bool mergeWith(const Command& next) override {
+    after_ = static_cast<const SnapshotCommand&>(next).after_;
+    return true;
   }
-  undo_.push_back(doc_);
-  if (undo_.size() > kMaxUndo) undo_.erase(undo_.begin());
-  redo_.clear();
+
+ private:
+  SceneDocument* doc_;
+  ordered_json before_, after_;
+  std::string key_;
+};
+
+void SceneDocument::applySnapshot(const ordered_json& j) {
+  doc_ = j;
+  changed();
+}
+
+void SceneDocument::pushUndo(const std::string& mergeKey) {
+  before_ = doc_;
+  beforeKey_ = mergeKey;
+  hasBefore_ = true;
 }
 
 void SceneDocument::changed() {
   view_ = parseScene(json::parse(doc_.dump()));
   view_.path = path_.string();
-  dirty_ = true;
   if (!selected_.empty() && indexOf(selected_) < 0) selected_.clear();
+  if (hasBefore_) {
+    hasBefore_ = false;
+    stack_.record(std::make_unique<SnapshotCommand>(this, std::move(before_), doc_, beforeKey_));
+  }
 }
 
-void SceneDocument::beginGesture() { inGesture_ = true; gesturePushed_ = false; }
-void SceneDocument::endGesture() { inGesture_ = false; gesturePushed_ = false; }
+void SceneDocument::beginGesture() { stack_.beginGroup("Edit scene"); }
+void SceneDocument::endGesture() { stack_.endGroup(); }
 
-bool SceneDocument::undo() {
-  if (undo_.empty()) return false;
-  redo_.push_back(std::move(doc_));
-  doc_ = std::move(undo_.back());
-  undo_.pop_back();
-  changed();
-  return true;
-}
-
-bool SceneDocument::redo() {
-  if (redo_.empty()) return false;
-  undo_.push_back(std::move(doc_));
-  doc_ = std::move(redo_.back());
-  redo_.pop_back();
-  changed();
-  return true;
-}
+bool SceneDocument::undo() { return stack_.undo(); }
+bool SceneDocument::redo() { return stack_.redo(); }
 
 bool SceneDocument::setTransform(const std::string& guid, const float pos[3], const float rot[4], const float scale[3]) {
   ordered_json* o = findJson(guid);
@@ -276,7 +288,7 @@ bool SceneDocument::setTransform(const std::string& guid, const float pos[3], co
   if (t && t->value("position", ordered_json()) == np && t->value("rotation", ordered_json()) == nr &&
       t->value("scale", ordered_json()) == ns)
     return true;  // nothing changed
-  pushUndo();
+  pushUndo("xform:" + guid);
   ordered_json& tr = (*o)["transform"];
   if (!tr.is_object()) tr = ordered_json::object();
   tr["position"] = np;
@@ -321,7 +333,7 @@ bool SceneDocument::setField(const std::string& guid, int component, const std::
   ordered_json nv = toOrdered(value);
   ordered_json& c = (*o)["components"][component];
   if (c.contains("fields") && c["fields"].contains(field) && c["fields"][field] == nv) return true;
-  pushUndo();
+  pushUndo("field:" + guid + ":" + std::to_string(component) + ":" + field);
   if (!c.contains("fields") || !c["fields"].is_object()) c["fields"] = ordered_json::object();
   c["fields"][field] = std::move(nv);
   changed();

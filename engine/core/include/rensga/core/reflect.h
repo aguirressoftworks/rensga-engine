@@ -8,10 +8,15 @@
 //   };
 //
 // Rules: REFLECT must be the first line in the class body and leaves the class in `public:`.
-// HEADER and RANGE apply to the NEXT SERIALIZE_FIELD. Every macro ends with its own ';', so a
-// trailing ';' after it is harmless. Registration happens at static init (the F1.05 editor codegen
-// replaces registration, not the macros). Reflected types must be default-constructible, hold at
-// most kMaxFields fields, and not use multiple inheritance.
+// HEADER, TOOLTIP and RANGE apply to the NEXT SERIALIZE_FIELD; REQUIRE_COMPONENT(Type) applies to the class.
+// Every macro ends with its own ';', so a trailing ';' after it is harmless.
+//
+// F1.05: the macros only declare. tools/reflect/reflect_scan.py reads the source at build time and writes
+// <file>.reflect.gen.cpp, which #includes the file and registers the type table (names, offsets, editor metadata).
+// A thin static registrar in the generated file calls that table. A reflected type that was never scanned
+// is simply not registered. Defining RENSGA_STRIP_EDITOR_METADATA (runtime builds) leaves headers,
+// tooltips, ranges and required components out of the generated tables.
+// Reflected types must be default-constructible, hold at most kMaxFields fields, and not use multiple inheritance.
 #pragma once
 #include <new>
 
@@ -37,7 +42,8 @@ struct FieldDesc {
   u32 size = 0;    // sizeof(field)
   bool hasRange = false;
   Scalar rangeMin = 0, rangeMax = 0;
-  const char* header = nullptr;
+  const char* header = nullptr;   // editor metadata: null when RENSGA_STRIP_EDITOR_METADATA
+  const char* tooltip = nullptr;  // editor metadata
 };
 
 constexpr u32 kMaxFields = 32;
@@ -50,6 +56,8 @@ struct TypeInfo {
   u32 align = 0;
   FieldDesc* fields = nullptr;
   u32 fieldCount = 0;
+  const char* requireNames[4] = {};  // editor metadata: REQUIRE_COMPONENT type names
+  u32 requireCount = 0;
   void (*construct)(void* where) = nullptr;
   void (*destruct)(void* obj) = nullptr;
   Component* (*asComponent)(void* obj) = nullptr;  // null if not a Component
@@ -85,6 +93,24 @@ bool readBlob(const TypeInfo& t, void* obj, const u8* blob, u32 size);
 // True if both objects have equal reflected field values.
 bool fieldsEqual(const TypeInfo& t, const void* a, const void* b);
 
+// ---- hot-reload state transfer (Editor 4 uses it) and field paths (prefab overrides, Editor 6 builds on them) ----
+
+// Serializes the reflected fields of `obj` as a name-keyed state blob: [u32 count] then per field
+// [u32 nameHash][u8 type][value bytes]. Returns the byte count, or 0 if `cap` is too small.
+u32 stateBlobSize(const TypeInfo& t);
+u32 saveState(const TypeInfo& t, const void* obj, u8* out, u32 cap);
+// Restores by field name and type, so a recompiled type that added, removed or reordered fields keeps what still
+// matches. Returns the number of fields restored, or -1 when the blob is malformed (object untouched).
+int loadState(const TypeInfo& t, void* obj, const u8* data, u32 size);
+
+// Field path syntax: "<field>" or "<field>.<part>" with part x|y|z|w (Vector3, Quaternion) or r|g|b|a (Color32).
+// Scene-level paths prepend "<ComponentType>." (prefab overrides, Editor 6).
+struct FieldPath {
+  const FieldDesc* field = nullptr;
+  int part = -1;  // -1 = whole field
+};
+bool parseFieldPath(const TypeInfo& t, const char* path, FieldPath& out);
+
 // ---- machinery behind the macros -------------------------------------------
 
 namespace reflect {
@@ -97,21 +123,6 @@ template <> struct FieldTypeOf<Vector3> { static constexpr FieldType value = Fie
 template <> struct FieldTypeOf<Quaternion> { static constexpr FieldType value = FieldType::Quaternion; };
 template <> struct FieldTypeOf<Color32> { static constexpr FieldType value = FieldType::Color32; };
 template <> struct FieldTypeOf<Guid> { static constexpr FieldType value = FieldType::Guid; };
-
-struct PendingMods {
-  const char* header = nullptr;
-  bool hasRange = false;
-  Scalar min = 0, max = 0;
-};
-PendingMods& pending();
-inline bool setHeader(const char* text) { pending().header = text; return true; }
-inline bool setRange(Scalar lo, Scalar hi) {
-  PendingMods& p = pending();
-  p.hasRange = true; p.min = lo; p.max = hi;
-  return true;
-}
-// Adds a field to a type under construction (consumes the pending HEADER/RANGE).
-void addField(TypeInfo* info, const char* name, FieldType type, u32 offset, u32 size);
 
 template <class C>
 struct TypeBuilder {
@@ -127,9 +138,9 @@ u32 offsetOfMember(T C::*member) {
 }
 
 template <class C>
-bool registerType(const char* name) {
+TypeInfo* beginType(const char* name) {
   TypeInfo* info = TypeRegistry::instance().add(name, sizeof(C), alignof(C));
-  if (!info) return false;
+  if (!info) return nullptr;
   info->fields = TypeBuilder<C>::fields;
   info->construct = [](void* where) { new (where) C(); };
   info->destruct = [](void* obj) { static_cast<C*>(obj)->~C(); };
@@ -140,33 +151,31 @@ bool registerType(const char* name) {
     info->asBehaviour = [](void* obj) -> Behaviour* { return static_cast<C*>(obj); };
   }
   TypeBuilder<C>::info = info;
-  return true;
+  return info;
 }
 
+// Adds a field to a type under construction. Returns the new descriptor (metadata is set by the generated table).
+FieldDesc* addFieldDesc(TypeInfo* info, const char* name, FieldType type, u32 offset, u32 size);
+void requireComponent(TypeInfo* info, const char* typeName);
+
 template <class C, class T>
-bool registerField(const char* name, T C::*member) {
-  addField(TypeBuilder<C>::info, name, FieldTypeOf<T>::value, offsetOfMember<C, T>(member), sizeof(T));
-  return true;
+FieldDesc* addField(TypeInfo* info, const char* name, FieldType type, T C::*member) {
+  return addFieldDesc(info, name, type, offsetOfMember<C, T>(member), sizeof(T));
 }
 
 }  // namespace reflect
 }  // namespace rensga
 
-#define REFLECT(Type)                                                                       \
- public:                                                                                    \
-  using Self = Type;                                                                        \
-  static const ::rensga::TypeInfo* staticTypeInfo() {                                       \
-    return ::rensga::reflect::TypeBuilder<Type>::info;                                      \
-  }                                                                                         \
-  static inline const bool RENSGA_CAT(_rg_type_, Type) = ::rensga::reflect::registerType<Type>(#Type);
+#define REFLECT(Type)                                              \
+ public:                                                           \
+  using Self = Type;                                               \
+  static const ::rensga::TypeInfo* staticTypeInfo() {              \
+    return ::rensga::reflect::TypeBuilder<Type>::info;             \
+  }
 
-#define SERIALIZE_FIELD(type, name, def)                                                        \
-  type name = def;                                                                              \
-  static inline const bool RENSGA_CAT(_rg_field_, name) =                                       \
-      ::rensga::reflect::registerField<Self, type>(#name, &Self::name);
-
-#define RANGE(lo, hi) \
-  static inline const bool RENSGA_CAT(_rg_range_, __LINE__) = ::rensga::reflect::setRange(lo, hi);
-
-#define HEADER(text) \
-  static inline const bool RENSGA_CAT(_rg_header_, __LINE__) = ::rensga::reflect::setHeader(text);
+// Declarations only: the scanner reads these lines. They expand to nothing a compiler needs.
+#define SERIALIZE_FIELD(type, name, def) type name = def;
+#define RANGE(lo, hi) static_assert(true, "");
+#define HEADER(text) static_assert(true, "");
+#define TOOLTIP(text) static_assert(true, "");
+#define REQUIRE_COMPONENT(Type) static_assert(true, "");

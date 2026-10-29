@@ -88,8 +88,9 @@ TEST(scene_doc_undo_limit) {
   std::string err;
   CHECK(d.load(templateScene(), err));
   std::string g = d.scene().objects[0].guid;
-  for (int i = 0; i < 250; ++i) d.rename(g, "n" + std::to_string(i));
-  CHECK_EQ(d.undoDepth(), size_t(200));
+  for (int i = 0; i < 300; ++i) d.rename(g, "n" + std::to_string(i));
+  CHECK_EQ(d.undoDepth(), SceneDocument::kMaxUndo);
+  CHECK(SceneDocument::kMaxUndo >= 200);
 }
 
 TEST(scene_doc_duplicate_and_delete_with_children) {

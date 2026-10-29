@@ -4,11 +4,12 @@
 
 namespace rensga {
 
-using nlohmann::json;
+namespace {
+template <class json>
+json colorToJson(const Color32& c) { return json::array({c.r, c.g, c.b, c.a}); }
 
-static json colorToJson(const Color32& c) { return json::array({c.r, c.g, c.b, c.a}); }
-
-json fieldsToJson(const TypeInfo& type, const void* object) {
+template <class json>
+json toJsonT(const TypeInfo& type, const void* object) {
   json out = json::object();
   const u8* base = static_cast<const u8*>(object);
   for (u32 i = 0; i < type.fieldCount; ++i) {
@@ -28,7 +29,7 @@ json fieldsToJson(const TypeInfo& type, const void* object) {
         out[f.name] = json::array({q->x, q->y, q->z, q->w});
         break;
       }
-      case FieldType::Color32: out[f.name] = colorToJson(*reinterpret_cast<const Color32*>(p)); break;
+      case FieldType::Color32: out[f.name] = colorToJson<json>(*reinterpret_cast<const Color32*>(p)); break;
       case FieldType::Guid: {
         char text[Guid::kTextLength + 1];
         reinterpret_cast<const Guid*>(p)->format(text);
@@ -40,16 +41,18 @@ json fieldsToJson(const TypeInfo& type, const void* object) {
   return out;
 }
 
-static bool numArray(const json& j, size_t n, Scalar* out) {
+template <class json>
+bool numArray(const json& j, size_t n, Scalar* out) {
   if (!j.is_array() || j.size() != n) return false;
   for (size_t i = 0; i < n; ++i) {
     if (!j[i].is_number()) return false;
-    out[i] = j[i].get<Scalar>();
+    out[i] = j[i].template get<Scalar>();
   }
   return true;
 }
 
-bool fieldsFromJson(const TypeInfo& type, void* object, const json& fields, std::string* error) {
+template <class json>
+bool fromJsonT(const TypeInfo& type, void* object, const json& fields, std::string* error) {
   auto fail = [&](const std::string& field, const char* why) {
     if (error) *error = std::string(type.name) + "." + field + ": " + why;
     return false;
@@ -66,31 +69,31 @@ bool fieldsFromJson(const TypeInfo& type, void* object, const json& fields, std:
     switch (f->type) {
       case FieldType::Scalar:
         if (!v.is_number()) return fail(it.key(), "expected a number");
-        *reinterpret_cast<Scalar*>(p) = v.get<Scalar>();
+        *reinterpret_cast<Scalar*>(p) = v.template get<Scalar>();
         break;
       case FieldType::I32:
         if (!v.is_number_integer()) return fail(it.key(), "expected an integer");
-        *reinterpret_cast<i32*>(p) = v.get<i32>();
+        *reinterpret_cast<i32*>(p) = v.template get<i32>();
         break;
       case FieldType::Bool:
         if (!v.is_boolean()) return fail(it.key(), "expected true or false");
-        *reinterpret_cast<bool*>(p) = v.get<bool>();
+        *reinterpret_cast<bool*>(p) = v.template get<bool>();
         break;
       case FieldType::Vector3: {
         Scalar a[3];
-        if (!numArray(v, 3, a)) return fail(it.key(), "expected [x,y,z]");
+        if (!numArray<json>(v, 3, a)) return fail(it.key(), "expected [x,y,z]");
         *reinterpret_cast<Vector3*>(p) = Vector3(a[0], a[1], a[2]);
         break;
       }
       case FieldType::Quaternion: {
         Scalar a[4];
-        if (!numArray(v, 4, a)) return fail(it.key(), "expected [x,y,z,w]");
+        if (!numArray<json>(v, 4, a)) return fail(it.key(), "expected [x,y,z,w]");
         *reinterpret_cast<Quaternion*>(p) = Quaternion(a[0], a[1], a[2], a[3]);
         break;
       }
       case FieldType::Color32: {
         Scalar a[4];
-        if (!numArray(v, 4, a)) return fail(it.key(), "expected [r,g,b,a]");
+        if (!numArray<json>(v, 4, a)) return fail(it.key(), "expected [r,g,b,a]");
         bool anyFloat = false;
         for (const json& e : v) anyFloat = anyFloat || e.is_number_float();
         Scalar k = anyFloat ? 255.0f : 1.0f;
@@ -104,7 +107,7 @@ bool fieldsFromJson(const TypeInfo& type, void* object, const json& fields, std:
       }
       case FieldType::Guid: {
         Guid g;
-        if (!v.is_string() || !Guid::parse(v.get<std::string>().c_str(), g)) return fail(it.key(), "expected a GUID string");
+        if (!v.is_string() || !Guid::parse(v.template get<std::string>().c_str(), g)) return fail(it.key(), "expected a GUID string");
         *reinterpret_cast<Guid*>(p) = g;
         break;
       }
@@ -112,5 +115,11 @@ bool fieldsFromJson(const TypeInfo& type, void* object, const json& fields, std:
   }
   return true;
 }
+}  // namespace
+
+nlohmann::json fieldsToJson(const TypeInfo& t, const void* o) { return toJsonT<nlohmann::json>(t, o); }
+nlohmann::ordered_json fieldsToOrderedJson(const TypeInfo& t, const void* o) { return toJsonT<nlohmann::ordered_json>(t, o); }
+bool fieldsFromJson(const TypeInfo& t, void* o, const nlohmann::json& f, std::string* e) { return fromJsonT(t, o, f, e); }
+bool fieldsFromJson(const TypeInfo& t, void* o, const nlohmann::ordered_json& f, std::string* e) { return fromJsonT(t, o, f, e); }
 
 }  // namespace rensga

@@ -48,6 +48,17 @@ bool dockerRun(const BuildContext& ctx, Stage stage, const EventSink& sink, std:
   return rc == 0;
 }
 
+// Reflection codegen runs on the host (the pspdev image has no Python); the Docker configure reads its output.
+bool prescanReflection(const BuildContext& ctx, const EventSink& sink, const fs::path& reflectDir) {
+  ProcessSpec ps;
+  ps.argv = {(repoRoot() / "tools" / "reflect" / "prescan.sh").string(), reflectDir.string(), ctx.project.string()};
+  ps.cwd = repoRoot();
+  int rc = pipeline::runProcess(
+      ps, [&](const std::string& l) { note(sink, Stage::Compile, Status::Progress, l); }, ctx.cancel);
+  if (rc != 0) note(sink, Stage::Compile, Status::Failed, "reflection codegen failed (exit " + std::to_string(rc) + ")");
+  return rc == 0;
+}
+
 class PspTargetModule : public TargetModule {
  public:
   std::string_view id() const override { return "psp"; }
@@ -80,7 +91,10 @@ class PspTargetModule : public TargetModule {
   bool compile(const BuildContext& ctx, EventSink sink) override {
     fs::path cmakeDir = ctx.buildDir.parent_path() / ("cmake-" + ctx.buildDir.filename().string());
     note(sink, Stage::Compile, Status::Progress, "configuring psp preset in Docker (" + cmakeDir.string() + ")");
+    note(sink, Stage::Compile, Status::Progress, "reflection codegen");
+    if (!prescanReflection(ctx, sink, cmakeDir / "reflect")) return false;
     std::vector<std::string> cfg = {"cmake", "--preset", "psp", "-B", cmakeDir.string(),
+                                    "-DRENSGA_REFLECT_DIR=" + (cmakeDir / "reflect").string(),
                                     "-DRENSGA_PROJECT_DIR=" + ctx.project.string(),
                                     "-DRENSGA_GENERATED_DIR=" + ctx.generatedDir.string(),
                                     std::string("-DRENSGA_PSP_PRX=") + (ctx.release ? "ON" : "OFF")};

@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+
 #include "rensga/core/log.h"
 
 namespace rensga {
@@ -74,32 +75,24 @@ TypeInfo* TypeRegistry::add(const char* name, u32 size, u32 align) {
 
 namespace reflect {
 
-PendingMods& pending() {
-  static PendingMods p;
-  return p;
-}
-
-void addField(TypeInfo* info, const char* name, FieldType type, u32 offset, u32 size) {
-  PendingMods& p = pending();
-  if (!info) {
-    p = PendingMods();
-    return;
-  }
+FieldDesc* addFieldDesc(TypeInfo* info, const char* name, FieldType type, u32 offset, u32 size) {
+  if (!info) return nullptr;
   if (info->fieldCount >= kMaxFields) {
     RLOG_ERROR("reflect", "type '%s' has more than %u fields", info->name, kMaxFields);
-    p = PendingMods();
-    return;
+    return nullptr;
   }
   FieldDesc& f = info->fields[info->fieldCount++];
+  f = FieldDesc();
   f.name = name;
   f.type = type;
   f.offset = offset;
   f.size = size;
-  f.hasRange = p.hasRange;
-  f.rangeMin = p.min;
-  f.rangeMax = p.max;
-  f.header = p.header;
-  p = PendingMods();
+  return &f;
+}
+
+void requireComponent(TypeInfo* info, const char* typeName) {
+  if (!info || info->requireCount >= 4) return;
+  info->requireNames[info->requireCount++] = typeName;
 }
 
 }  // namespace reflect
@@ -151,6 +144,93 @@ bool fieldsEqual(const TypeInfo& t, const void* a, const void* b) {
     // Compare value bytes of the in-memory representation (all field types are plain data).
     if (memcmp(pa + f.offset, pb + f.offset, fieldBlobSize(f.type)) != 0) return false;
   }
+  return true;
+}
+
+u32 stateBlobSize(const TypeInfo& t) {
+  u32 n = 4;
+  for (u32 i = 0; i < t.fieldCount; ++i) n += 5 + fieldBlobSize(t.fields[i].type);
+  return n;
+}
+
+u32 saveState(const TypeInfo& t, const void* obj, u8* out, u32 cap) {
+  u32 total = stateBlobSize(t);
+  if (cap < total) return 0;
+  memcpy(out, &t.fieldCount, 4);
+  u8* p = out + 4;
+  const u8* base = static_cast<const u8*>(obj);
+  for (u32 i = 0; i < t.fieldCount; ++i) {
+    const FieldDesc& f = t.fields[i];
+    u32 h = fnv1a32(f.name), n = fieldBlobSize(f.type);
+    memcpy(p, &h, 4);
+    p[4] = static_cast<u8>(f.type);
+    if (f.type == FieldType::Color32) {
+      const Color32* c = reinterpret_cast<const Color32*>(base + f.offset);
+      p[5] = c->r; p[6] = c->g; p[7] = c->b; p[8] = c->a;
+    } else {
+      memcpy(p + 5, base + f.offset, n);
+    }
+    p += 5 + n;
+  }
+  return total;
+}
+
+int loadState(const TypeInfo& t, void* obj, const u8* data, u32 size) {
+  if (size < 4) return -1;
+  u32 count;
+  memcpy(&count, data, 4);
+  // First pass validates the framing so a bad blob leaves the object untouched.
+  u32 off = 4;
+  for (u32 i = 0; i < count; ++i) {
+    if (size - off < 5 || data[off + 4] > static_cast<u8>(FieldType::Guid)) return -1;
+    u32 n = fieldBlobSize(static_cast<FieldType>(data[off + 4]));
+    if (size - off - 5 < n) return -1;
+    off += 5 + n;
+  }
+  if (off != size) return -1;
+  u8* base = static_cast<u8*>(obj);
+  int restored = 0;
+  off = 4;
+  for (u32 i = 0; i < count; ++i) {
+    u32 h;
+    memcpy(&h, data + off, 4);
+    FieldType ty = static_cast<FieldType>(data[off + 4]);
+    u32 n = fieldBlobSize(ty);
+    for (u32 k = 0; k < t.fieldCount; ++k) {
+      const FieldDesc& f = t.fields[k];
+      if (f.type != ty || fnv1a32(f.name) != h) continue;
+      const u8* v = data + off + 5;
+      if (ty == FieldType::Color32) *reinterpret_cast<Color32*>(base + f.offset) = Color32(v[0], v[1], v[2], v[3]);
+      else memcpy(base + f.offset, v, n);
+      ++restored;
+      break;
+    }
+    off += 5 + n;
+  }
+  return restored;
+}
+
+bool parseFieldPath(const TypeInfo& t, const char* path, FieldPath& out) {
+  out = FieldPath();
+  if (!path || !*path) return false;
+  const char* dot = strchr(path, '.');
+  size_t len = dot ? static_cast<size_t>(dot - path) : strlen(path);
+  const FieldDesc* f = nullptr;
+  for (u32 i = 0; i < t.fieldCount; ++i)
+    if (strlen(t.fields[i].name) == len && strncmp(t.fields[i].name, path, len) == 0) f = &t.fields[i];
+  if (!f) return false;
+  int part = -1;
+  if (dot) {
+    const char* s = dot + 1;
+    if (!s[0] || s[1]) return false;
+    int cnt = f->type == FieldType::Vector3 ? 3 : f->type == FieldType::Quaternion ? 4 : f->type == FieldType::Color32 ? 4 : 0;
+    const char* names = f->type == FieldType::Color32 ? "rgba" : "xyzw";
+    for (int i = 0; i < cnt; ++i)
+      if (names[i] == s[0]) part = i;
+    if (part < 0) return false;
+  }
+  out.field = f;
+  out.part = part;
   return true;
 }
 

@@ -5,5 +5,6 @@ set -eu
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 "$HERE/provision_sdk.sh"
 printf 'sdk.dir=%s\ncmake.dir=/opt/cmake-3.28.6\n' "$ANDROID_HOME" > "$HERE/local.properties"
+# Reflection codegen needs Python, which the image lacks: the host runs it (tools/ci/android.sh) before this script.
 cd "$HERE" && gradle --no-daemon -q assembleDebug
 ls -la app/build/outputs/apk/debug/app-debug.apk

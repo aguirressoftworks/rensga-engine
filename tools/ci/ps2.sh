@@ -3,6 +3,7 @@
 set -eu
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$REPO"; B="$CI_OUT/ps2"
-tools/docker/ps2.sh sh -c "cmake --preset ps2 -B '$B' >/dev/null && cmake --build '$B' -j$JOBS --target rensga_hello"
+reflect_prescan "$B/reflect"
+tools/docker/ps2.sh sh -c "cmake --preset ps2 -B '$B' -DRENSGA_REFLECT_DIR='$B/reflect' >/dev/null && cmake --build '$B' -j$JOBS --target rensga_hello"
 tools/docker/ps2.sh tools/ps2/make_iso.sh "$B/engine/runtime/rensga_hello.elf" "$B/rensga.iso"
 ls -la "$B/engine/runtime/rensga_hello.elf" "$B/rensga.iso"

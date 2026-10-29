@@ -45,6 +45,10 @@ elseif(RENSGA_TARGET STREQUAL "linux-host")
 endif()
 
 include(cmake/RensgaTargets.cmake)
+include(cmake/RensgaReflect.cmake)
+# Reflection tables: engine components and the project scripts (used by core, runtime, cooker, tests).
+rensga_reflect_scan(engine RENSGA_REFLECT_ENGINE_SRCS "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/components.h")
+rensga_reflect_scan(project RENSGA_REFLECT_PROJECT_SRCS "${RENSGA_PROJECT_DIR}/Assets/Scripts")
 include(CTest)  # defines BUILD_TESTING; tests are still gated by RENSGA_BUILD_TESTS
 
 # Every planned directory is added when it has a CMakeLists.txt, so roles can land

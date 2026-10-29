@@ -174,7 +174,7 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | `IRenderer` with sort keys | `engine/core`, `backends/render/gu` | GU 3D + overlay quads, null | **F2.02**&nbsp;Engine 2, **F5.01**&nbsp;PSP Engine 6, **F9.04**&nbsp;PSX Engine 3 |
 | `IAudioBackend` | `engine/core` | null only | **F2.04**&nbsp;Engine 4, **F9.06**&nbsp;PSX Engine 5 |
 | `Scalar` | `engine/core/math` | `float` | **F9.02**&nbsp;PSX Engine 1 (20.12 fixed-point) |
-| Reflection macros | `engine/core/reflect` | static-init registration | **F1.05**&nbsp;Editor 1 (header scanner codegen, undo) |
+| Reflection macros | `engine/core/reflect` | build-time codegen tables (`tools/reflect`), thin static registrar | done in F1.05 |
 | `Ref<T>`, object model | `engine/core` | GameObject, Transform, GetComponent | **F2.07**&nbsp;API 2 |
 | Lifecycle | `engine/api` | Awake, Start, FixedUpdate, Update, LateUpdate | **F2.08**&nbsp;API 3 |
 | Input actions | `InputActions.json`, `engine/api` | Move, Jump, Camera | **F3.06**&nbsp;API 5, **F6.04**&nbsp;Editor 10 |
@@ -206,7 +206,7 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 Recorded deviations:
 
 - **Native PSP platform instead of SDL2.** The PSP backend uses sceCtrl/sceDisplay directly (pspsdk); SDL2 stays on the editor and host side. Reason: pspdev does ship SDL2, but running SDL2 input/timing alongside raw GU rendering was deferred to keep the MVP to one day; `IPlatform` isolates it, and PSP Engine 1 (F4.03) moves the platform layer to SDL2 as the design doc specifies.
-- **Project scripts are compiled into the cooker, CLI and editor at build time** (`RENSGA_PROJECT_DIR`, `rensga_cooker_scripts`). Reason: reflection registers types at static init, so scenes can only be read by an executable that links the scripts. Step 2 replaces this with the header-scanner codegen (F1.05).
+- **Project scripts are compiled into the cooker, CLI and editor at build time** (`RENSGA_PROJECT_DIR`, `rensga_cooker_scripts`). Reason: reflection registers types at static init, so scenes can only be read by an executable that links the scripts. F1.05 replaced static-init field registration with build-time codegen (`tools/reflect/reflect_scan.py` writes `*.reflect.gen.cpp`; the macros only declare), which closes the reflection deviation. Scripts are still linked in until hot reload (Editor 4) loads them dynamically.
 - **Project scripts are sources of the runtime executables, not a static library.** Reason: static registrars would otherwise be dropped by the linker.
 - **Dev Play boots the ELF directly with assets from `host0:`;** the release PRX/EBOOT is only built by `rensga build` (placeholder ICON0).
 - **PPSSPP is the distro package (`/usr/bin/PPSSPPSDL`) found by `fetch_ppsspp.sh`, never linked.** Reason: GPL, separate process only.
@@ -235,7 +235,9 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/ren
 - [ ] **F1.03** Editor 0 · Editor shell and projects — docking UI, project folders, console · `0.84%` 🔶
 - [x] **F1.04** Editor 0.5 · TargetModule interface — console plug-in boundary · `0.84%` 🔶
   - Reviewed: preview and inspector rules are now data from ConsoleTarget.json; `docs/rensga-engine/target-module.md`; test-only `editor/targets/dummy`. Left for F5.04: the cooker CLI default `--target psp` and its PSP plugin registration.
-- [ ] **F1.05** Editor 1 · Reflection, serialization and undo — the backbone everything else needs · `1.69%` 🔶
+- [x] **F1.05** Editor 1 · Reflection, serialization and undo — the backbone everything else needs · `1.69%` 🔶
+  - Codegen: `tools/reflect/reflect_scan.py` (Python 3; the cross images have none, so cross builds read tables written by `tools/reflect/prescan.sh` on the host, run by the PSP target module and `tools/ci/*.sh`). Macros: `REFLECT`, `SERIALIZE_FIELD`, `RANGE`, `HEADER`, `TOOLTIP`, `REQUIRE_COMPONENT`; `RENSGA_STRIP_EDITOR_METADATA` (on for cross/runtime builds) strips headers, tooltips, ranges and required components. For a scanned `.cpp` the generated file includes it and replaces it in the source list.
+  - One description feeds the inspector, JSON (`fieldsToOrderedJson`), the FDAT blob, field paths (`parseFieldPath`: `speed`, `offset.x`) and hot-reload state transfer (`saveState` / `loadState`, name-keyed). Undo is command-based (`editor/core/undo.h`: merge by key, groups, 256 steps, dirty tracking); `SceneDocument` runs on it.
 
 **Gates**
 

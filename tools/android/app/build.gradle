@@ -19,7 +19,8 @@ android {
         externalNativeBuild {
             cmake {
                 arguments '-DRENSGA_TARGET=android', '-DRENSGA_BUILD_TESTS=OFF', '-DRENSGA_BUILD_TOOLS=OFF',
-                          '-DRENSGA_BUILD_EDITOR=OFF', "-DSDL2_ROOT=${sdlRoot}"
+                          '-DRENSGA_BUILD_EDITOR=OFF', "-DSDL2_ROOT=${sdlRoot}",
+                          "-DRENSGA_REFLECT_DIR=${rootProject.projectDir}/build/reflect"  // host prescan (tools/android/build.sh)
             }
         }
     }

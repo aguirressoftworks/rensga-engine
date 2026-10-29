@@ -1,6 +1,6 @@
 # Runtime executables. Project scripts (<project>/Assets/Scripts/*.cpp) are compiled as SOURCES of the
 # executables (not a static lib) so their static REFLECT registrars survive linking.
-file(GLOB RENSGA_PROJECT_SCRIPTS CONFIGURE_DEPENDS "${RENSGA_PROJECT_DIR}/Assets/Scripts/*.cpp")
+set(RENSGA_PROJECT_SCRIPTS ${RENSGA_REFLECT_PROJECT_SRCS})  # generated tables replace the reflected .cpp files
 
 # Engine 0 hello: one main on linux-host (needs SDL2), windows, android and ps2.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_hello.cpp AND NOT RENSGA_TARGET STREQUAL "psp")

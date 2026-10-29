@@ -1,6 +1,6 @@
 # Game/API tests: the template project's scripts are compiled in (static registration), like the runtime.
-file(GLOB RENSGA_GAME_TESTS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp")
-file(GLOB RENSGA_PROJECT_SCRIPTS_T CONFIGURE_DEPENDS "${RENSGA_PROJECT_DIR}/Assets/Scripts/*.cpp")
+set(RENSGA_PROJECT_SCRIPTS_T ${RENSGA_REFLECT_PROJECT_SRCS})
+rensga_reflect_scan(tests_game RENSGA_GAME_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/test_game.cpp)
 add_executable(rensga_game_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp ${RENSGA_GAME_TESTS} ${RENSGA_PROJECT_SCRIPTS_T})
 target_link_libraries(rensga_game_tests PRIVATE rensga_api rensga_core)
 target_include_directories(rensga_game_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests)
@@ -17,7 +17,7 @@ endif()
 
 # Host-side check that TestLevel.scene parses and matches the level built in code.
 if(TARGET rensga_reflect_json)
-  add_executable(rensga_scene_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp scene_check/check_scene.cpp ${RENSGA_PROJECT_SCRIPTS_T})
+  add_executable(rensga_scene_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp scene_check/check_scene.cpp scene_check/check_roundtrip.cpp ${RENSGA_PROJECT_SCRIPTS_T})
   target_link_libraries(rensga_scene_tests PRIVATE rensga_api rensga_core rensga_reflect_json)
   target_include_directories(rensga_scene_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests)
   target_compile_definitions(rensga_scene_tests PRIVATE RENSGA_PROJECT_DIR_STR="${RENSGA_PROJECT_DIR}")

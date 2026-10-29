@@ -16,7 +16,7 @@ target_link_libraries(rensga_cooker_lib INTERFACE rensga_cooker_core "$<LINK_LIB
 
 # Project scripts (Assets/Scripts/*.cpp) register their reflected types here so scenes can be read.
 # They derive from engine/core classes, so they are built with the runtime flags (-fno-rtti).
-file(GLOB RENSGA_COOKER_SCRIPTS CONFIGURE_DEPENDS "${RENSGA_PROJECT_DIR}/Assets/Scripts/*.cpp")
+set(RENSGA_COOKER_SCRIPTS ${RENSGA_REFLECT_PROJECT_SRCS})
 if(RENSGA_COOKER_SCRIPTS)
   add_library(rensga_cooker_scripts STATIC ${RENSGA_COOKER_SCRIPTS})
   target_link_libraries(rensga_cooker_scripts PUBLIC rensga_api rensga_core)

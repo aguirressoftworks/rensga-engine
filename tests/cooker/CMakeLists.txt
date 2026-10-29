@@ -1,4 +1,5 @@
-add_executable(rensga_cooker_tests ../test_main.cpp test_cooker.cpp test_primitives.cpp)
+rensga_reflect_scan(tests_cooker RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_cooker.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_primitives.cpp)
+add_executable(rensga_cooker_tests ../test_main.cpp ${RENSGA_COOKER_TEST_SRCS})
 target_link_libraries(rensga_cooker_tests PRIVATE rensga_cooker_lib rensga_api)
 target_include_directories(rensga_cooker_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. )
 target_compile_definitions(rensga_cooker_tests PRIVATE RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"

@@ -1,16 +1,13 @@
 #include "rensga/core/components.h"
 
+void rensga_reflect_register_components_h();  // generated
+
 namespace rensga {
 
 void registerBuiltinComponents() {
-  // Static registrars in this TU have already run (inline static members); touching the
-  // type info here makes the linker keep this file when only World is referenced.
-  (void)MeshRenderer::staticTypeInfo();
-  (void)BoxCollider::staticTypeInfo();
-  (void)SphereCollider::staticTypeInfo();
-  (void)CharacterController::staticTypeInfo();
-  (void)Camera::staticTypeInfo();
-  (void)DirectionalLight::staticTypeInfo();
+  // The table is generated from components.h by tools/reflect (components_h.reflect.gen.cpp); referencing it
+  // here also keeps that object file linked when only World is used.
+  ::rensga_reflect_register_components_h();
 }
 
 }  // namespace rensga
