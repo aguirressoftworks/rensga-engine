@@ -16,16 +16,6 @@ bool App::saveScene() {
   return true;
 }
 
-static void doDuplicate(App& a) { if (!a.doc.selected().empty()) a.doc.duplicate(a.doc.selected()); }
-static void doDelete(App& a) { if (!a.doc.selected().empty()) a.doc.remove(a.doc.selected()); }
-
-static void doCreateEmpty(App& a, bool child) {
-  if (!a.doc.loaded()) return;
-  std::string parent = child ? a.doc.selected() : std::string();
-  std::string g = a.doc.createObject("GameObject", parent);
-  if (!g.empty()) a.doc.select(g);
-}
-
 static void handleShortcuts(App& a) {
   ImGuiIO& io = ImGui::GetIO();
   if (io.WantTextInput) return;
@@ -33,8 +23,9 @@ static void handleShortcuts(App& a) {
   if (chord(ImGuiMod_Ctrl | ImGuiKey_S)) a.saveScene();
   if (chord(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z) || chord(ImGuiMod_Ctrl | ImGuiKey_Y)) a.doc.redo();
   else if (chord(ImGuiMod_Ctrl | ImGuiKey_Z)) a.doc.undo();
-  if (chord(ImGuiMod_Ctrl | ImGuiKey_D)) doDuplicate(a);
-  if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) doDelete(a);
+  if (chord(ImGuiMod_Ctrl | ImGuiKey_D)) duplicateSelected(a);
+  if (ImGui::IsKeyPressed(ImGuiKey_Delete, false)) deleteSelected(a);
+  if (ImGui::IsKeyPressed(ImGuiKey_F2, false) && !a.doc.selected().empty()) beginRename(a, a.doc.selected());
 }
 
 void drawMenuBar(App& a) {
@@ -52,13 +43,17 @@ void drawMenuBar(App& a) {
     if (ImGui::MenuItem("Undo", "Ctrl+Z", false, a.doc.canUndo())) a.doc.undo();
     if (ImGui::MenuItem("Redo", "Ctrl+Y / Ctrl+Shift+Z", false, a.doc.canRedo())) a.doc.redo();
     ImGui::Separator();
-    if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, hasSel)) doDuplicate(a);
-    if (ImGui::MenuItem("Delete", "Del", false, hasSel)) doDelete(a);
+    if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, hasSel)) duplicateSelected(a);
+    if (ImGui::MenuItem("Delete", "Del", false, hasSel)) deleteSelected(a);
     ImGui::EndMenu();
   }
   if (ImGui::BeginMenu("GameObject")) {
-    if (ImGui::MenuItem("Create Empty", nullptr, false, a.doc.loaded())) doCreateEmpty(a, false);
-    if (ImGui::MenuItem("Create Empty Child", nullptr, false, hasSel)) doCreateEmpty(a, true);
+    drawCreateMenuItems(a, "");
+    if (ImGui::MenuItem("Create Empty Child", nullptr, false, hasSel)) createEmptyObject(a, a.doc.selected());
+    ImGui::Separator();
+    if (ImGui::MenuItem("Rename", "F2", false, hasSel)) beginRename(a, a.doc.selected());
+    if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, hasSel)) duplicateSelected(a);
+    if (ImGui::MenuItem("Delete", "Del", false, hasSel)) deleteSelected(a);
     ImGui::EndMenu();
   }
   if (ImGui::BeginMenu("Window")) {

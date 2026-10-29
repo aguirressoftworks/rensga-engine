@@ -179,6 +179,7 @@ bool EditorCamera::save(const fs::path& file) const {
 void MeshLibrary::setProject(const fs::path& root) {
   root_ = root;
   files_.clear();
+  shapes_.clear();
   cache_.clear();
   tess_ = Tess();
   try {
@@ -196,8 +197,19 @@ void MeshLibrary::setProject(const fs::path& root) {
       fs::path asset = p;
       asset.replace_extension("");  // drop .meta
       files_[j.at("guid").get<std::string>()] = asset;
+      try {
+        std::ifstream ain(asset);
+        nlohmann::json aj = nlohmann::json::parse(ain);
+        std::string shape = aj.value("shape", "");
+        if (!shape.empty() && !shapes_.count(shape)) shapes_[shape] = j.at("guid").get<std::string>();
+      } catch (...) {}
     } catch (...) {}
   }
+}
+
+std::string MeshLibrary::guidForShape(const std::string& shape) const {
+  auto it = shapes_.find(shape);
+  return it == shapes_.end() ? std::string() : it->second;
 }
 
 std::shared_ptr<const MeshData> MeshLibrary::get(const std::string& guid) {

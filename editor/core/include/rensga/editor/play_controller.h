@@ -24,6 +24,8 @@ class PlayController {
   void stop();
   bool busy() const;
   PlayStatus status() const { return status_.load(); }
+  bool finished() const { return done_.load(); }   // the last session has ended
+  bool lastOk() const { return ok_.load(); }        // ... and this is its result
   // Moves game log + pipeline events into EditorLog; call once per frame from the UI thread.
   void pump();
 
@@ -33,6 +35,7 @@ class PlayController {
   std::thread thread_;
   std::atomic<PlayStatus> status_{PlayStatus::Idle};
   std::atomic<bool> done_{false};
+  std::atomic<bool> ok_{true};
   std::mutex mu_;
   std::vector<pipeline::Event> events_;
 };

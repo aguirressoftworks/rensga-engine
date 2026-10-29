@@ -21,7 +21,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 
 | Step / milestone | Weight | Cumulative | Status |
 | --- | --- | --- | --- |
-| **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, 12/12 tests, play + editor Play + build, screenshot) |
+| **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..53) done after the review, 13/13 tests |
 | F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 0% |
 | F2 · Shared core | 9.3% | 14.1% | 0% |
 | F3 · Editor core | 9.3% | 23.4% | 0% |
@@ -145,9 +145,19 @@ In the game, a primitive capsule character moves with the analog nub around a pr
   - Put the real build, test and run commands in AGENTS.md.
   - Tick the 🔶 head-start notes into the Step 2 tasks they affect.
 
-- [x] **MVP-45** Editor brand theme: colors from the embedded `palette.json`, Inter and JetBrains Mono, pequi icon, gold Play.
+### S7 · Editor usability (added after the MVP review)
+
+The MVP review found three blockers: Dear ImGui default look, loose overlapping panels, no Scene view. This stage fixes them (full basic editing, Unity-style).
+
+- [x] **MVP-45** Editor brand theme: colors from the embedded `palette.json` (semantic tokens only, gold = Play), Inter and JetBrains Mono, pequi icon.
 - [x] **MVP-46** Unity default layout: menu bar, toolbar strip, Hierarchy / Inspector / Project / Console / Scene / Game docked, saved per project in `Library/Editor/layout.ini`; Window > Reset Layout.
-- [x] **MVP-47** `SceneDocument` in `editor/core`: load and save, selection, dirty flag, undo and redo, edit operations.
+- [x] **MVP-47** `SceneDocument` in `editor/core`: load and save (ordered JSON, key order kept), selection, dirty flag, undo and redo, edit operations.
+- [x] **MVP-48** Scene view: GL scene renderer into an FBO, Unity-style camera (fly, orbit, pan, zoom, frame), grid, orientation cube.
+- [x] **MVP-49** Scene editing: click picking, Move / Rotate / Scale gizmos (ImGuizmo), one undo step per drag.
+- [x] **MVP-50** Game tab: preview at the target's resolution (`previewRules()`) through the scene's Camera and light.
+- [x] **MVP-51** Inspector editing via reflection: name, active, Transform (Euler degrees), every component field with a widget (slider for RANGE, combo for Guid), HEADER labels, one undo step per edit; Add Component lists registered types (those outside the target's allowed list are disabled with the reason); Remove Component from the header context menu.
+- [x] **MVP-52** Hierarchy editing: drag-and-drop reparent, F2 / double-click rename, context menu and GameObject menu (Create Empty, 3D Object > Cube / Sphere / Capsule / Plane / Ramp, Duplicate, Delete), Ctrl+D / Delete. New primitives get MeshRenderer and a collider and appear 5 units in front of the Scene camera.
+- [x] **MVP-53** Play integration and close-out: Play saves a dirty scene first (Console line), so edits reach the build. Checked end to end on a scratch copy of `templates/psp`: a test moves a pickup and adds a cube, saves; `rensga cook` and `rensga_headless --pack` load 22 objects (template: 21). `rensga-editor --play` exits non-zero when the pipeline fails. Screenshot tooling: `--screenshot`, `--select`, `--focus`, `--ui-event`.
 
 ### MVP hook register
 
@@ -174,7 +184,12 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | `EmulatorLauncher` | `tools/pipeline` | PPSSPP; log via file tail | **F5.19**&nbsp;Emulator Play 0, **F5.22**&nbsp;Emulator Play 3 |
 | EBOOT packaging | `editor/targets/psp` packager | placeholder icon | **F5.03**&nbsp;PSP Engine 8 |
 | `TargetModule` | `editor/core`, `editor/targets/psp` | PSP only | **F1.04**&nbsp;Editor 0.5, **F5.04**&nbsp;PSP Editor 0 |
-| Inspector | `editor/core` | read-only | **F3.01**&nbsp;Editor 2 |
+| Inspector | `editor/app`, `editor/core` | reflection-driven editing, Add / Remove Component; no prefabs, multi-edit or custom drawers | **F3.01**&nbsp;Editor 2 |
+| GL scene renderer | `editor/app/render` | OpenGL 3.3, vertex color x lambert, no textures | **F2.02**&nbsp;Engine 2 / Engine 7 GL backend |
+| `SceneDocument` undo | `editor/core` | JSON snapshots, 200 steps | **F1.05**&nbsp;Editor 1 |
+| Scene editing | `editor/app/panels` | pick, gizmos, hierarchy and inspector edits | **F3.01**&nbsp;Editor 2 |
+| Game tab preview | `editor/app/panels/game_view.cpp` | GL approximation at the target resolution | **F3.04**&nbsp;Editor 5, PSP Editor 3 preview look |
+| Editor theme | `editor/app/theme.cpp` | built from `brand/palette.json` at configure time | **F6.12**&nbsp;Editor 13 polish |
 | Play dropdown | `editor/core` | "Play in editor" greyed out | **F3.04**&nbsp;Editor 5 |
 | CLI `--json` events | `tools/cli` | `validate`, `cook`, `build`, `play` | **F6.05**&nbsp;Editor 11 and CI |
 | Template project | `templates/psp` | test level and controller | **F7.04**&nbsp;PSP Template 3 |
@@ -188,7 +203,12 @@ Recorded deviations:
 - **Dev Play boots the ELF directly with assets from `host0:`;** the release PRX/EBOOT is only built by `rensga build` (placeholder ICON0).
 - **PPSSPP is the distro package (`/usr/bin/PPSSPPSDL`) found by `fetch_ppsspp.sh`, never linked.** Reason: GPL, separate process only.
 - **MVP-43 screenshot comes from the game, not a window grab.** PPSSPP's GL window reads black to xwd/import/ffmpeg under Xvfb and PPSSPPHeadless cannot compare/emit screenshots. `tools/emulators/screenshot.sh` builds the ELF with `RENSGA_EXIT_AFTER_FRAMES` (dumps the displayed frame to `host0:/rensga_shot.bmp` on exit), runs it in PPSSPPHeadless (software renderer) and converts it to `docs/rensga-engine/mvp/psp-template.png`.
-- **Editor exit code** is 0 even when the Play pipeline fails; the failure is only in the Console log (fix in F3/F6 editor work).
+- **Editor exit code** (fixed in MVP-53): `rensga-editor --play` now exits 1 when the pipeline fails or cannot start.
+- **Bugs found in the user's play-testing of the MVP** (all fixed; none was caught by acceptance):
+  - PSP imports got their NIDs from link order, so the game booted to a black screen in PPSSPP.
+  - The 2-triangle ground plane was dropped by the GU; the plane primitive now takes `cellSize` and the cooker subdivides it.
+  - Strafe and camera orbit were mirrored; the template now takes the right axis from the camera.
+- **Open gap: acceptance never ran PPSSPP's GPU renderer.** MVP-43 used PPSSPPHeadless (software renderer), which hid the three bugs above. A GPU-renderer run (windowed or a GL-capable headless) must join the acceptance checks in F5.
 
 ---
 

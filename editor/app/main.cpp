@@ -1,6 +1,6 @@
 // rensga-editor: SDL2 + OpenGL 3.3 + Dear ImGui (docking). Brand theme, Unity-style default layout.
 // Usage: rensga-editor [--project <dir>] [--play] [--quit-after N]
-//                      [--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window>]]
+//                      [--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window>] [--ui-event click|rclick|move:x,y ...]]
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <imgui.h>
@@ -14,6 +14,7 @@
 #include <cstring>
 #include <fstream>
 #include <string>
+#include <vector>
 
 #include "app.h"
 #include "rensga/editor/editor_log.h"
@@ -58,6 +59,7 @@ static void saveLayout(App& a) {
 
 int main(int argc, char** argv) {
   std::string projectDir, shotFile, selectName, focusName;
+  std::vector<std::string> uiEvents;  // screenshot tooling: click|rclick|move:x,y, one every 6 frames from frame 6
   bool autoPlay = false;
   double quitAfter = -1;
   int shotFrames = 30;
@@ -69,9 +71,10 @@ int main(int argc, char** argv) {
     else if (!std::strcmp(argv[i], "--screenshot-frames") && i + 1 < argc) shotFrames = std::atoi(argv[++i]);
     else if ((!std::strcmp(argv[i], "--focus") || !std::strcmp(argv[i], "--tab")) && i + 1 < argc) focusName = argv[++i];
     else if (!std::strcmp(argv[i], "--select") && i + 1 < argc) selectName = argv[++i];
+    else if (!std::strcmp(argv[i], "--ui-event") && i + 1 < argc) uiEvents.push_back(argv[++i]);
     else {
       std::fprintf(stderr, "usage: rensga-editor [--project <dir>] [--play] [--quit-after N] "
-                           "[--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window> | --tab <window>]]\n");
+                           "[--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window> | --tab <window>] [--ui-event click|rclick|move:x,y ...]]\n");
       return 2;
     }
   }
@@ -138,10 +141,20 @@ int main(int argc, char** argv) {
       if (ev.type == SDL_QUIT) running = false;
     }
     double t = static_cast<double>(SDL_GetPerformanceCounter() - start) / freq;
-    if (autoPlay && !playTriggered && t > 0.3) { playTriggered = true; doPlay(app); }
+    if (autoPlay && !playTriggered && t > 0.3) {
+      playTriggered = true;
+      doPlay(app);
+      if (app.play.status() == PlayStatus::Idle) { exitCode = 1; running = false; }  // could not even start
+    }
     if (quitAfter >= 0 && t >= quitAfter) running = false;
     if (app.quitRequested) running = false;
     app.play.pump();
+    if (autoPlay && playTriggered && app.play.finished() && !app.play.lastOk()) {
+      log.error("play: the pipeline failed");
+      std::fprintf(stderr, "rensga-editor: --play pipeline failed\n");
+      exitCode = 1;
+      running = false;
+    }
     if (!app.pendingProject.empty()) {
       saveLayout(app);
       app.saveCamera();
@@ -152,6 +165,20 @@ int main(int argc, char** argv) {
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame();
+    if (shotMode && frame >= 6 && (frame - 6) % 6 == 0 && static_cast<size_t>((frame - 6) / 6) < uiEvents.size()) {
+      const std::string& e = uiEvents[(frame - 6) / 6];
+      float x = 0, y = 0;
+      size_t c = e.find(':');
+      if (c != std::string::npos && std::sscanf(e.c_str() + c + 1, "%f,%f", &x, &y) == 2) {
+        io.AddMousePosEvent(x, y);
+        std::string act = e.substr(0, c);
+        if (act == "click" || act == "rclick") {
+          int b = act == "click" ? 0 : 1;
+          io.AddMouseButtonEvent(b, true);
+          io.AddMouseButtonEvent(b, false);
+        }
+      }
+    }
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
     drawMenuBar(app);

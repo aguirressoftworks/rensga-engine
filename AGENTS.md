@@ -32,7 +32,8 @@ build/host/tools/cli/rensga cook templates/psp                            # cook
 build/host/engine/runtime/rensga_headless --pack templates/psp/Library/Cooked/psp/game.rpak --frames 400 --hash
 xvfb-run -a build/host/tools/cli/rensga play --target psp templates/psp --json --quit-after 25   # dev build in Docker, boots in PPSSPP
 build/host/tools/cli/rensga build --target psp templates/psp              # release: EBOOT.PBP in Library/Build/psp-release/
-build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after 30]
+build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after 30]   # --play exits 1 if the pipeline fails
+xvfb-run -a -s "-screen 0 1600x900x24" build/host/editor/app/rensga-editor --project templates/psp --screenshot out.png [--screenshot-frames N] [--select <object>] [--ui-event click|rclick|move:x,y ...]   # editor PNG, never opens a window on the desktop
 tools/emulators/screenshot.sh                       # PPSSPP screenshot into docs/rensga-engine/mvp/ (needs a prior cook)
 tools/check_editor_core.sh                                                # editor/core must not name a console
 ```

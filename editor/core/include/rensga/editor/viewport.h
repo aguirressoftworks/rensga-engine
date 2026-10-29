@@ -62,10 +62,13 @@ class MeshLibrary {
  public:
   void setProject(const std::filesystem::path& root);
   std::shared_ptr<const MeshData> get(const std::string& guid);  // nullptr if unknown/invalid
+  const std::map<std::string, std::filesystem::path>& files() const { return files_; }  // mesh asset guid -> file
+  std::string guidForShape(const std::string& shape) const;  // "cube", "sphere"... -> asset guid or ""
 
  private:
   std::filesystem::path root_;
   std::map<std::string, std::filesystem::path> files_;
+  std::map<std::string, std::string> shapes_;
   std::map<std::string, std::shared_ptr<const MeshData>> cache_;
   struct Tess { int sphere = 12, capsule = 12; } tess_;
 };

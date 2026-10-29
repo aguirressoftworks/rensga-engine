@@ -13,7 +13,10 @@ const TargetModule* App::targetModule() const { return TargetRegistry::find(targ
 void doPlay(App& a) {
   if (!a.loaded) { EditorLog::instance().error("play: no project loaded"); return; }
   if (a.target.empty()) { EditorLog::instance().error("play: no target registered"); return; }
-  if (a.doc.dirty()) a.saveScene();  // the cook reads scene files from disk
+  if (a.doc.dirty()) {  // the cook reads scene files from disk, so unsaved edits must land first
+    EditorLog::instance().info("play: saving modified scene before the build");
+    if (!a.saveScene()) return;
+  }
   if (!a.play.play(a.project.root, a.target)) EditorLog::instance().warn("play: already running");
 }
 

@@ -5,7 +5,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RENSGA_PALETTE_
 
 add_executable(rensga-editor
   main.cpp theme.cpp screenshot.cpp render/scene_renderer.cpp
-  panels/layout.cpp panels/menus.cpp panels/toolbar.cpp panels/hierarchy.cpp panels/inspector.cpp
+  panels/actions.cpp panels/layout.cpp panels/menus.cpp panels/toolbar.cpp panels/hierarchy.cpp panels/inspector.cpp
   panels/console.cpp panels/project_panel.cpp panels/scene_view.cpp panels/game_view.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/brand_palette.cpp)
 target_include_directories(rensga-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

@@ -182,3 +182,34 @@ TEST(scene_doc_saved_scene_still_cooks) {
   CookResult res = cookProject(o, [](const CookMessage& m) { fprintf(stderr, "    [cook] %s\n", m.text.c_str()); });
   CHECK(res.ok);
 }
+
+// MVP-53: edit a scratch copy of the template (move a pickup, add a cube) and save. The tmp project is then cooked by
+// `rensga cook` and loaded by `rensga-headless --pack` (see TASKLIST S7); the object count must be +1.
+TEST(scene_doc_template_edit_save_reload) {
+  fs::path proj = tmpDir("ux-edit") / "proj";
+  fs::copy(RENSGA_TEMPLATE_DIR, proj, fs::copy_options::recursive);
+  fs::path sc = proj / "Assets/Scenes/TestLevel.scene";
+  SceneDocument d;
+  std::string err;
+  CHECK(d.load(sc, err));
+  const size_t before = d.scene().objects.size();
+  std::string pick;
+  for (const SceneObject& o : d.scene().objects) if (o.name == "Pickup1") pick = o.guid;
+  CHECK(!pick.empty());
+  const SceneObject* po = d.find(pick);
+  float p[3] = {2, 1, 6}, r[4] = {0, 0, 0, 1}, s[3] = {po->scale[0], po->scale[1], po->scale[2]};
+  CHECK(d.setTransform(pick, p, r, s));
+  SceneComponent mr, bc;
+  mr.type = "MeshRenderer";
+  mr.fields = {{"mesh", "00000000-0000-4000-8000-00000000c001"}, {"color", {200, 200, 200, 255}}};
+  bc.type = "BoxCollider";
+  bc.fields = {{"center", {0, 0, 0}}, {"size", {1, 1, 1}}, {"isTrigger", false}};
+  std::string cube = d.createObject("Cube", "", {mr, bc});
+  CHECK(!cube.empty());
+  CHECK(d.save(err));
+  SceneDocument e;
+  CHECK(e.load(sc, err));
+  CHECK_EQ(e.scene().objects.size(), before + 1);
+  CHECK_NEAR(e.find(pick)->position[2], 6.0, 1e-5);
+  CHECK(e.find(cube) != nullptr);
+}

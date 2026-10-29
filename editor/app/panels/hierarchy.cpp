@@ -1,3 +1,5 @@
+#include <cfloat>
+#include <cstdio>
 #include <cstring>
 
 #include "app.h"
@@ -13,12 +15,29 @@ static void drawObject(App& a, const std::string& guid) {
   if (kids.empty()) fl |= ImGuiTreeNodeFlags_Leaf;
   if (a.doc.selected() == guid) fl |= ImGuiTreeNodeFlags_Selected;
   ImGui::PushID(guid.c_str());
+  const bool renaming = a.renameGuid == guid;
   if (!o->active) ImGui::PushStyleColor(ImGuiCol_Text, brandToken("muted"));
-  bool open = ImGui::TreeNodeEx(o->name.empty() ? "(unnamed)" : o->name.c_str(), fl);
+  bool open = ImGui::TreeNodeEx(renaming ? "##node" : (o->name.empty() ? "(unnamed)" : o->name.c_str()), fl);
   if (!o->active) ImGui::PopStyleColor();
   if (ImGui::IsItemClicked(ImGuiMouseButton_Left) || ImGui::IsItemClicked(ImGuiMouseButton_Right)) a.doc.select(guid);
+  if (!renaming && ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) beginRename(a, guid);
 
-  if (ImGui::BeginDragDropSource()) {
+  if (renaming) {
+    static char buf[128];
+    ImGui::SameLine();
+    if (a.renameFocus) {
+      std::snprintf(buf, sizeof buf, "%s", o->name.c_str());
+      ImGui::SetKeyboardFocusHere();
+      a.renameFocus = false;
+    }
+    ImGui::SetNextItemWidth(-FLT_MIN);
+    bool enter = ImGui::InputText("##rename", buf, sizeof buf, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
+    const bool escape = ImGui::IsKeyPressed(ImGuiKey_Escape);
+    if (enter || (ImGui::IsItemDeactivated() && !escape)) { if (buf[0]) a.doc.rename(guid, buf); a.renameGuid.clear(); }
+    else if (escape) a.renameGuid.clear();
+  }
+
+  if (!renaming && ImGui::BeginDragDropSource()) {
     ImGui::SetDragDropPayload("RENSGA_OBJECT", guid.c_str(), guid.size() + 1);
     ImGui::TextUnformatted(o->name.c_str());
     ImGui::EndDragDropSource();
@@ -30,7 +49,9 @@ static void drawObject(App& a, const std::string& guid) {
   }
   std::string toDelete, toDup;
   if (ImGui::BeginPopupContextItem("ctx")) {
-    if (ImGui::MenuItem("Create Empty Child")) { std::string g = a.doc.createObject("GameObject", guid); a.doc.select(g); }
+    drawCreateMenuItems(a, guid);
+    ImGui::Separator();
+    if (ImGui::MenuItem("Rename", "F2")) beginRename(a, guid);
     if (ImGui::MenuItem("Duplicate", "Ctrl+D")) toDup = guid;
     if (ImGui::MenuItem("Delete", "Del")) toDelete = guid;
     ImGui::EndPopup();
@@ -40,7 +61,7 @@ static void drawObject(App& a, const std::string& guid) {
     ImGui::TreePop();
   }
   ImGui::PopID();
-  if (!toDup.empty()) a.doc.duplicate(toDup);
+  if (!toDup.empty()) { a.doc.select(toDup); duplicateSelected(a); }
   if (!toDelete.empty()) a.doc.remove(toDelete);
 }
 
@@ -56,7 +77,7 @@ void drawHierarchy(App& a) {
   ImGui::SameLine(ImGui::GetContentRegionAvail().x - 4);
   if (ImGui::SmallButton("+")) ImGui::OpenPopup("hier_add");
   if (ImGui::BeginPopup("hier_add")) {
-    if (ImGui::MenuItem("Create Empty")) { std::string g = a.doc.createObject("GameObject", ""); a.doc.select(g); }
+    drawCreateMenuItems(a, "");
     ImGui::EndPopup();
   }
   ImGui::Separator();
@@ -66,6 +87,10 @@ void drawHierarchy(App& a) {
   if (avail.y > 8) {
     ImGui::InvisibleButton("##hier_empty", ImVec2(avail.x, avail.y));
     if (ImGui::IsItemClicked()) a.doc.select("");
+    if (ImGui::BeginPopupContextItem("##hier_empty_ctx")) {
+      drawCreateMenuItems(a, "");
+      ImGui::EndPopup();
+    }
     if (ImGui::BeginDragDropTarget()) {
       if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("RENSGA_OBJECT"))
         a.doc.reparent(static_cast<const char*>(p->Data), "");

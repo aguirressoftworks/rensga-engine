@@ -78,6 +78,10 @@ struct App {
 
   std::string status;             // last editor message for the status area
 
+  // Hierarchy rename in progress (F2 / double-click)
+  std::string renameGuid;
+  bool renameFocus = false;
+
   bool openProject(const std::string& dir);  // loads project + first scene, sets up layout persistence
   bool saveScene();
   void refreshAssets();
@@ -85,6 +89,14 @@ struct App {
 };
 
 void doPlay(App& a);
+
+// scene editing actions shared by the Hierarchy, the GameObject menu and the shortcuts (panels/actions.cpp)
+std::string createEmptyObject(App& a, const std::string& parent);
+std::string createPrimitiveObject(App& a, const std::string& shape, const std::string& parent);  // 5 units ahead of the Scene camera
+void duplicateSelected(App& a);
+void deleteSelected(App& a);
+void beginRename(App& a, const std::string& guid);
+void drawCreateMenuItems(App& a, const std::string& parent);  // Create Empty + 3D Object submenu
 
 // panels (each draws its own ImGui window)
 void drawMenuBar(App& a);

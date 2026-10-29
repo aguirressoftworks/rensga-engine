@@ -62,6 +62,7 @@ void PlayController::worker(pipeline::BuildRequest req) {
     std::lock_guard<std::mutex> g(mu_);
     events_.push_back(e);
   }
+  ok_ = ok;
   status_ = PlayStatus::Stopped;
   done_ = true;
 }
