@@ -4,6 +4,10 @@
 function(rensga_apply_defaults target)
   target_compile_features(${target} PUBLIC cxx_std_17)
   target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  # PSP newlib: uint32_t is long, so %u/%x on u32 trips -Wformat; keep it a warning there.
+  if(RENSGA_TARGET STREQUAL "psp")
+    target_compile_options(${target} PRIVATE -Wno-error=format)
+  endif()
 endfunction()
 
 # Runtime targets: no exceptions, no RTTI (RULES section 3).

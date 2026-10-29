@@ -1,0 +1,9 @@
+{
+  "format": 1,
+  "actions": [
+    { "name": "Move", "kind": "axis2", "source": "nub" },
+    { "name": "Jump", "kind": "button", "source": "south" },
+    { "name": "CameraLeft", "kind": "button", "source": "l" },
+    { "name": "CameraRight", "kind": "button", "source": "r" }
+  ]
+}

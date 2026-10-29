@@ -8,6 +8,8 @@ namespace physics {
 // Moves CharacterControllers (gravity + AABB collision against static BoxColliders) and sends
 // OnTriggerEnter for SphereCollider/BoxCollider triggers. Pass to GameLoop::setFixedStepHook.
 void fixedStep(World& world, Scalar fixedDelta, void* user);
+// Forgets which trigger pairs overlapped (call when starting a fresh world).
+void resetTriggerMemory();
 
 }  // namespace physics
 }  // namespace rensga

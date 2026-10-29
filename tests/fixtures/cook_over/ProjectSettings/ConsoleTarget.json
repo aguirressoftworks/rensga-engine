@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "profile": "psp",
+  "scalar": "float",
+  "resolution": [
+    480,
+    272
+  ],
+  "budgets": {
+    "ramBytes": 25165824,
+    "vramBytes": 2097152,
+    "trianglesPerFrame": 50,
+    "maxObjects": 256,
+    "maxComponentsPerType": 256
+  },
+  "textureFormats": [],
+  "depth": "zbuffer",
+  "media": "eboot",
+  "allowedComponents": [
+    "MeshRenderer",
+    "BoxCollider",
+    "SphereCollider",
+    "CharacterController",
+    "Camera",
+    "DirectionalLight",
+    "PlayerController",
+    "FollowCamera",
+    "Pickup",
+    "PickupCounter",
+    "TestMover"
+  ],
+  "tessellation": {
+    "sphereSegments": 12,
+    "capsuleSegments": 12
+  }
+}

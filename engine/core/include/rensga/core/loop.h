@@ -43,6 +43,10 @@ class GameLoop {
   void* hookUser_ = nullptr;
 };
 
+// Optional callback run by renderWorld after all meshes, before endFrame (HUD overlay quads).
+using OverlayHook = void (*)(IRenderer& renderer);
+void setOverlayHook(OverlayHook hook);
+
 // Submits the first Camera and every MeshRenderer of `world` to the renderer (one frame).
 // sortKey = view-space distance in 1/16 units, clamped (front to back).
 void renderWorld(World& world, IRenderer& renderer, Color32 clear = Color32(40, 60, 90, 255));

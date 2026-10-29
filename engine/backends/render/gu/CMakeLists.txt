@@ -1,0 +1,4 @@
+add_library(rensga_render_gu STATIC src/gu_renderer.cpp)
+target_include_directories(rensga_render_gu PUBLIC include)
+target_link_libraries(rensga_render_gu PUBLIC rensga_core pspgum pspgu pspge pspdisplay)
+rensga_runtime_target(rensga_render_gu)

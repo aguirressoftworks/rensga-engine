@@ -1,0 +1,166 @@
+{
+  "format": 1,
+  "guid": "00000000-0000-4000-8000-00000000d0f1",
+  "objects": [
+    {
+      "guid": "00000000-0000-4000-8000-0000000000a2",
+      "name": "Hat",
+      "parent": "00000000-0000-4000-8000-0000000000a1",
+      "active": true,
+      "transform": {
+        "position": [
+          0,
+          1.2,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "components": [
+        {
+          "type": "MeshRenderer",
+          "fields": {
+            "mesh": "00000000-0000-4000-8000-00000000c002",
+            "color": [
+              255,
+              0,
+              0,
+              255
+            ]
+          }
+        }
+      ],
+      "prefab": null
+    },
+    {
+      "guid": "00000000-0000-4000-8000-0000000000a1",
+      "name": "Player",
+      "parent": null,
+      "active": true,
+      "transform": {
+        "position": [
+          1,
+          2,
+          3
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": [
+        {
+          "type": "MeshRenderer",
+          "fields": {
+            "mesh": "00000000-0000-4000-8000-00000000c003",
+            "color": [
+              10,
+              20,
+              30,
+              255
+            ]
+          }
+        },
+        {
+          "type": "CharacterController",
+          "fields": {
+            "gravity": -15.5
+          }
+        }
+      ],
+      "prefab": null
+    },
+    {
+      "guid": "00000000-0000-4000-8000-0000000000a3",
+      "name": "Ground",
+      "parent": null,
+      "active": true,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": [
+        {
+          "type": "MeshRenderer",
+          "fields": {
+            "mesh": "00000000-0000-4000-8000-00000000c004",
+            "color": [
+              0,
+              200,
+              0,
+              255
+            ]
+          }
+        }
+      ],
+      "prefab": null
+    },
+    {
+      "guid": "00000000-0000-4000-8000-0000000000a4",
+      "name": "Sun",
+      "parent": null,
+      "active": true,
+      "transform": {
+        "position": [
+          0,
+          10,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "components": [
+        {
+          "type": "DirectionalLight",
+          "fields": {
+            "direction": [
+              0,
+              -1,
+              0
+            ]
+          }
+        }
+      ],
+      "prefab": null
+    }
+  ]
+}

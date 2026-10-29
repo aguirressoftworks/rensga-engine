@@ -1,0 +1,6 @@
+# the emulator binary is never committed
+*
+!VERSION
+!LICENSE
+!SOURCE
+!.gitignore

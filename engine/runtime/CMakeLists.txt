@@ -15,7 +15,12 @@ if(RENSGA_TARGET STREQUAL "psp")
     target_link_libraries(rensga_game PRIVATE pspdebug pspdisplay pspge pspgu pspctrl psppower pspsdk m)
     target_include_directories(rensga_game PRIVATE ${RENSGA_GENERATED_DIR})
     rensga_runtime_target(rensga_game)
-    set_target_properties(rensga_game PROPERTIES OUTPUT_NAME rensga_game)
+    set_target_properties(rensga_game PROPERTIES OUTPUT_NAME rensga_game SUFFIX ".elf")
+    # PSP stubs must be fixed up or the imports stay unresolved (PPSSPP and hardware both need it).
+    target_link_options(rensga_game PRIVATE -Wl,-q)
+    add_custom_command(TARGET rensga_game POST_BUILD
+      COMMAND "$ENV{PSPDEV}/bin/psp-fixup-imports" "$<TARGET_FILE:rensga_game>"
+      COMMENT "psp-fixup-imports rensga_game")
   endif()
 else()
   # Linux-host simulation: null backends + stdio file system, no window.

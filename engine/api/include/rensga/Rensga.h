@@ -27,3 +27,4 @@ inline void Destroy(Component* c) { if (c) c->gameObject()->world->destroy(c); }
 // Physics (engine/api): static-box world queries and the CharacterController are in
 // rensga/Physics.h.
 #include "rensga/Physics.h"
+#include "rensga/Hud.h"

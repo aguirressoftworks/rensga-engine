@@ -58,6 +58,9 @@ void GameLoop::run(IPlatform& platform, IRenderer* renderer, u32 maxFrames) {
   }
 }
 
+static OverlayHook g_overlayHook = nullptr;
+void setOverlayHook(OverlayHook hook) { g_overlayHook = hook; }
+
 void renderWorld(World& world, IRenderer& renderer, Color32 clear) {
   renderer.beginFrame(clear);
   Camera* cam = nullptr;
@@ -80,6 +83,7 @@ void renderWorld(World& world, IRenderer& renderer, Color32 clear) {
     u32 sortKey = key > 16777215.0f ? 16777215u : static_cast<u32>(key);
     renderer.drawMesh(mr.meshIndex, w, sortKey);
   });
+  if (g_overlayHook) g_overlayHook(renderer);
   renderer.endFrame();
 }
 
