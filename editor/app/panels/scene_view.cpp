@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "app.h"
+#include "rensga/editor/editor_log.h"
 
 namespace rensga {
 namespace editor {
@@ -73,21 +74,27 @@ void drawSceneView(App& a) {
   const bool inView = windowHot && inRect(p0, p1) && !inRect(ovMin, ovMax) && !inRect(cubePos, ImVec2(cubePos.x + cubeSize, cubePos.y + cubeSize));
   const bool focusedOrHot = ImGui::IsWindowFocused() || windowHot;
   if (sv.drag == 0 && inView && !ImGuizmo::IsUsing()) {
-    if (io.MouseClicked[1]) sv.drag = 1;
+    if (io.MouseClicked[1]) { sv.drag = 1; sv.rmbClick = true; sv.rmbPos = io.MousePos; }
     else if (io.MouseClicked[2]) sv.drag = 2;
     else if (io.MouseClicked[0] && io.KeyAlt) sv.drag = 3;
   }
-  if (sv.drag == 1 && !io.MouseDown[1]) sv.drag = 0;
+  if (sv.drag == 1 && !io.MouseDown[1]) {  // a click without drag opens the create menu; a drag was fly-look
+    if (sv.rmbClick && a.doc.loaded()) sv.openCreateMenu = true;
+    sv.rmbClick = false;
+    sv.drag = 0;
+  }
   if (sv.drag == 2 && !io.MouseDown[2]) sv.drag = 0;
   if (sv.drag == 3 && !io.MouseDown[0]) sv.drag = 0;
   const float dt = io.DeltaTime;
   if (sv.drag == 1) {
+    const float mx = io.MousePos.x - sv.rmbPos.x, my = io.MousePos.y - sv.rmbPos.y;
+    if (mx * mx + my * my > 16 || io.MouseWheel != 0) sv.rmbClick = false;
     sv.cam.look(io.MouseDelta.x, io.MouseDelta.y);
     float r = (ImGui::IsKeyDown(ImGuiKey_D) ? 1.f : 0.f) - (ImGui::IsKeyDown(ImGuiKey_A) ? 1.f : 0.f);
     float f = (ImGui::IsKeyDown(ImGuiKey_W) ? 1.f : 0.f) - (ImGui::IsKeyDown(ImGuiKey_S) ? 1.f : 0.f);
     float u = (ImGui::IsKeyDown(ImGuiKey_E) ? 1.f : 0.f) - (ImGui::IsKeyDown(ImGuiKey_Q) ? 1.f : 0.f);
     float speed = 8.0f * (io.KeyShift ? 3.5f : 1.0f);
-    if (r != 0 || f != 0 || u != 0) sv.cam.fly(r, u, f, speed * dt);
+    if (r != 0 || f != 0 || u != 0) { sv.cam.fly(r, u, f, speed * dt); sv.rmbClick = false; }
     sv.camDirty = true;
   } else if (sv.drag == 2) {
     sv.cam.pan(io.MouseDelta.x, io.MouseDelta.y);
@@ -129,6 +136,34 @@ void drawSceneView(App& a) {
   setCol(ro.selectColor, brandToken("primary"));
   a.renderer.render(a.sceneRT, sd, ro);
   ImGui::Image(static_cast<ImTextureID>(a.sceneRT.tex), sz, ImVec2(0, 1), ImVec2(1, 0));
+  auto rayAt = [&](ImVec2 m) { return rayFromScreen(ro.view, ro.proj, (m.x - p0.x) / sz.x, (m.y - p0.y) / sz.y); };
+
+  // a script dragged from the Project window onto an object in the view
+  if (ImGui::BeginDragDropTarget()) {
+    if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("RENSGA_SCRIPT")) {
+      const std::string hit = pickObject(sd, rayAt(io.MousePos));
+      if (hit.empty()) EditorLog::instance().warn("drop a script on an object in the Scene view");
+      else addScriptToObject(a, hit, static_cast<const char*>(p->Data));
+    }
+    ImGui::EndDragDropTarget();
+  }
+
+  // right-click (no drag): the same create menu as the Hierarchy; the object goes where the cursor ray lands
+  if (sv.openCreateMenu) {
+    sv.openCreateMenu = false;
+    Ray ray = rayAt(sv.rmbPos);
+    float len = std::sqrt(ray.d[0] * ray.d[0] + ray.d[1] * ray.d[1] + ray.d[2] * ray.d[2]);
+    if (len < 1e-8f) len = 1;
+    float dist = 5.0f, t = 0;
+    if (!pickObject(sd, ray, &t).empty()) dist = t * len;
+    else if (ray.d[1] * ray.o[1] < 0) dist = (-ray.o[1] / ray.d[1]) * len;  // ground plane y = 0
+    for (int i = 0; i < 3; ++i) sv.ctxPoint[i] = ray.o[i] + ray.d[i] / len * dist;
+    ImGui::OpenPopup("scene_ctx");
+  }
+  if (ImGui::BeginPopup("scene_ctx")) {
+    drawCreateMenuItems(a, "", sv.ctxPoint);
+    ImGui::EndPopup();
+  }
 
   // ---- overlay toolbar ----
   ImGui::SetCursorScreenPos(ovMin);

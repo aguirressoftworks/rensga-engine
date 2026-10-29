@@ -41,7 +41,7 @@ class TargetModule {
  public:
   virtual ~TargetModule() = default;
   virtual std::string_view id() const = 0;           // short target id
-  virtual std::string_view displayName() const = 0;  // "PlayStation Portable"
+  virtual std::string_view displayName() const = 0;  // short product name shown in the toolbar
   virtual ICookerFormatPlugin& cookerPlugin() = 0;
   virtual PreviewRules previewRules() const = 0;
   virtual InspectorRules inspectorRules() const = 0;

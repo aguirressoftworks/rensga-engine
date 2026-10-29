@@ -68,6 +68,7 @@ void drawMenuBar(App& a) {
 }
 
 void drawDialogs(App& a) {
+  drawScriptDialogs(a);
   if (a.openAbout) { ImGui::OpenPopup("About Rensga Engine"); a.openAbout = false; }
   if (a.openProjectDialog) { ImGui::OpenPopup("Open Project"); a.openProjectDialog = false; }
   ImVec2 c = ImGui::GetMainViewport()->GetCenter();

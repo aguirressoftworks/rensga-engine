@@ -151,6 +151,19 @@ bool SceneDocument::load(const fs::path& file, std::string& err) {
   return true;
 }
 
+bool SceneDocument::restore(const fs::path& file, ordered_json j, bool dirty) {
+  if (!j.is_object()) return false;
+  doc_ = std::move(j);
+  path_ = file;
+  undo_.clear();
+  redo_.clear();
+  loaded_ = true;
+  inGesture_ = gesturePushed_ = false;
+  changed();
+  dirty_ = dirty;
+  return true;
+}
+
 bool SceneDocument::save(std::string& err) {
   if (!loaded_) { err = "no scene loaded"; return false; }
   std::ofstream f(path_, std::ios::binary | std::ios::trunc);

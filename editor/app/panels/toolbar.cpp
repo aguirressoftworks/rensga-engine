@@ -13,6 +13,15 @@ const TargetModule* App::targetModule() const { return TargetRegistry::find(targ
 void doPlay(App& a) {
   if (!a.loaded) { EditorLog::instance().error("play: no project loaded"); return; }
   if (a.target.empty()) { EditorLog::instance().error("play: no target registered"); return; }
+  if (a.scripts.enabled) {  // changed scripts must be compiled in first; the restart that follows resumes the Play
+    ScriptSync sync = scriptsSync(a);
+    if (sync == ScriptSync::Building) {
+      a.scripts.playAfter = true;
+      EditorLog::instance().info("play: waiting for the script rebuild");
+      return;
+    }
+    if (sync == ScriptSync::Failed) { EditorLog::instance().error("play: fix script compile errors first"); return; }
+  }
   if (a.doc.dirty()) {  // the cook reads scene files from disk, so unsaved edits must land first
     EditorLog::instance().info("play: saving modified scene before the build");
     if (!a.saveScene()) return;
@@ -69,9 +78,11 @@ void drawToolbar(App& a) {
     const float pw = 84, sw = 64, aw = 30, gap = 6, total = pw + sw + aw + gap * 2;
     ImGui::SetCursorPos(ImVec2((W - total) * 0.5f, top));
     bool busy = a.play.busy();
-    ImGui::BeginDisabled(busy);
+    const bool blocked = scriptsBlockPlay(a);
+    ImGui::BeginDisabled(busy || blocked);
     if (primaryButton("      Play", ImVec2(pw, bh))) doPlay(a);
     ImGui::EndDisabled();
+    if (blocked && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Fix script compile errors first");
     ImGui::SameLine(0, gap);
     ImGui::BeginDisabled(!busy);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8);
@@ -92,8 +103,10 @@ void drawToolbar(App& a) {
     }
 
     // right: status then target combo
-    char st[64];
-    snprintf(st, sizeof st, "%s%s", playStatusName(a.play.status()), a.doc.dirty() ? "   * unsaved" : "");
+    char st[96];
+    const bool compiling = a.scripts.builder.busy();
+    if (compiling) snprintf(st, sizeof st, "Compiling scripts %d%%", a.scripts.builder.percent());
+    else snprintf(st, sizeof st, "%s%s", playStatusName(a.play.status()), a.doc.dirty() ? "   * unsaved" : "");
     const float cw = 190, stw = ImGui::CalcTextSize(st).x;
     ImGui::SetCursorPos(ImVec2(W - 12 - stw - 14 - cw, top));
     ImGui::SetNextItemWidth(cw);
@@ -108,7 +121,13 @@ void drawToolbar(App& a) {
     // drawn directly: the combo leaves a frame-padding baseline offset that would push a Text item down
     ImVec2 sp = ImGui::GetWindowPos();
     dl->AddText(ImVec2(sp.x + W - 12 - stw, sp.y + (h - ImGui::GetTextLineHeight()) * 0.5f),
-                ImGui::GetColorU32(brandToken("text-2")), st);
+                ImGui::GetColorU32(compiling ? brandToken("primary") : brandToken("text-2")), st);
+    if (compiling) {  // thin progress bar under the status text
+      const float x0 = sp.x + W - 12 - stw, y0 = sp.y + (h + ImGui::GetTextLineHeight()) * 0.5f + 3;
+      dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x0 + stw, y0 + 3), ImGui::GetColorU32(brandToken("border")), 2);
+      dl->AddRectFilled(ImVec2(x0, y0), ImVec2(x0 + stw * a.scripts.builder.percent() / 100.0f, y0 + 3),
+                        ImGui::GetColorU32(brandToken("primary")), 2);
+    }
   }
   ImGui::End();
 }

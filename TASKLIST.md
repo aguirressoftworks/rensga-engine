@@ -21,7 +21,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 
 | Step / milestone | Weight | Cumulative | Status |
 | --- | --- | --- | --- |
-| **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..53) done after the review, 13/13 tests |
+| **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..57) done after the review, 13/13 tests |
 | F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 0% |
 | F2 · Shared core | 9.3% | 14.1% | 0% |
 | F3 · Editor core | 9.3% | 23.4% | 0% |
@@ -158,6 +158,11 @@ The MVP review found three blockers: Dear ImGui default look, loose overlapping 
 - [x] **MVP-51** Inspector editing via reflection: name, active, Transform (Euler degrees), every component field with a widget (slider for RANGE, combo for Guid), HEADER labels, one undo step per edit; Add Component lists registered types (those outside the target's allowed list are disabled with the reason); Remove Component from the header context menu.
 - [x] **MVP-52** Hierarchy editing: drag-and-drop reparent, F2 / double-click rename, context menu and GameObject menu (Create Empty, 3D Object > Cube / Sphere / Capsule / Plane / Ramp, Duplicate, Delete), Ctrl+D / Delete. New primitives get MeshRenderer and a collider and appear 5 units in front of the Scene camera.
 - [x] **MVP-53** Play integration and close-out: Play saves a dirty scene first (Console line), so edits reach the build. Checked end to end on a scratch copy of `templates/psp`: a test moves a pickup and adds a cube, saves; `rensga cook` and `rensga_headless --pack` load 22 objects (template: 21). `rensga-editor --play` exits non-zero when the pipeline fails. Screenshot tooling: `--screenshot`, `--select`, `--focus`, `--ui-event`.
+- [x] **MVP-54** Assign scripts: the Project window lists `Assets/` and shows scripts by class name (file name = class name). Drag a script onto a Hierarchy row, onto an object in the Scene view (pick under the cursor) or onto the Inspector to add that Behaviour (one undo step; the class is also added to the project's `allowedComponents` so the cook accepts it). Add Component has a Scripts submenu; scripts on disk but not yet compiled into this editor are greyed with "compiling..." or "needs rebuild". Double-click opens the file in `$VISUAL`, `$EDITOR` or `xdg-open`.
+- [x] **MVP-55** Create objects from the Scene view: a right-click without drag opens the Hierarchy create menu (Create Empty, 3D Object, Camera, Light); the object lands where the cursor ray hits the scene or the ground, else 5 units ahead, and is selected. Right-drag stays fly-look.
+- [x] **MVP-56** Project window > Create > C++ Script: name prompt (C++ identifier, unique), writes `Assets/Scripts/<Name>.cpp` from a template (Behaviour, REFLECT, HEADER, `SERIALIZE_FIELD(Scalar, speed, 1.0f)`, Start, Update) and its `.meta` with a new GUID.
+- [x] **MVP-57** Auto rebuild like Unity: on window focus gain, on project open and before Play, the editor hashes `Assets/Scripts/*.{cpp,h}` against `Library/Editor/scripts.hash` (written after the last good build). If changed it rebuilds `rensga-editor`, `rensga`, `rensga-cooker` and `rensga_headless` in the background (reconfiguring its own build dir for the project if needed), shows progress in the toolbar, and streams the compiler output to the Console with errors as `file:line` at Error level. On success it saves `Library/Editor/reload_state.json` (unsaved scene incl. dirty flag, selection, Scene camera, focused tab), re-executes itself with `--restore-state` and restores. On failure there is no restart; Play is disabled with "Fix script compile errors first" until the files change and the editor regains focus. Play with changed scripts waits for the rebuild and resumes after the restart. Flags: `--no-auto-rebuild`, `--auto-rebuild` (off by default in `--screenshot` runs).
+- [x] **Fix** The target shows as "PSP" in the toolbar, not "PlayStation Portable" (RULES §5: no Sony marks in the UI).
 
 ### MVP hook register
 
@@ -192,6 +197,9 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | Editor theme | `editor/app/theme.cpp` | built from `brand/palette.json` at configure time | **F6.12**&nbsp;Editor 13 polish |
 | Play dropdown | `editor/core` | "Play in editor" greyed out | **F3.04**&nbsp;Editor 5 |
 | CLI `--json` events | `tools/cli` | `validate`, `cook`, `build`, `play` | **F6.05**&nbsp;Editor 11 and CI |
+| Script rebuild + restart | `editor/app/panels/scripts.cpp`, `editor/core/script_build` | rebuilds the editor build tree and re-executes the editor with its state restored | **F3.03**&nbsp;Editor 4 (hot reload) |
+| Create C++ Script | `editor/core/script_assets` | fixed template, `Assets/Scripts/<Name>.cpp` | **F3.03**&nbsp;Editor 4 |
+| Script drag-and-drop | `editor/app/panels` | Project to Hierarchy, Scene view, Inspector; scripts found by regex scan for `REFLECT` | **F3.01**&nbsp;Editor 2, **F3.02**&nbsp;Editor 3 (asset database) |
 | Template project | `templates/psp` | test level and controller | **F7.04**&nbsp;PSP Template 3 |
 | CMake presets | `CMakePresets.json` | `psp`, `linux-host`; others declared | **F1.01**&nbsp;Engine 0 |
 
@@ -203,6 +211,7 @@ Recorded deviations:
 - **Dev Play boots the ELF directly with assets from `host0:`;** the release PRX/EBOOT is only built by `rensga build` (placeholder ICON0).
 - **PPSSPP is the distro package (`/usr/bin/PPSSPPSDL`) found by `fetch_ppsspp.sh`, never linked.** Reason: GPL, separate process only.
 - **MVP-43 screenshot comes from the game, not a window grab.** PPSSPP's GL window reads black to xwd/import/ffmpeg under Xvfb and PPSSPPHeadless cannot compare/emit screenshots. `tools/emulators/screenshot.sh` builds the ELF with `RENSGA_EXIT_AFTER_FRAMES` (dumps the displayed frame to `host0:/rensga_shot.bmp` on exit), runs it in PPSSPPHeadless (software renderer) and converts it to `docs/rensga-engine/mvp/psp-template.png`.
+- **Script changes rebuild the editor and restart it.** Scripts compile into the editor, CLI, cooker and headless runtime at build time (see the entry above), so there is no hot reload. After a change the editor runs CMake on its own build tree and re-executes itself with the scene, selection, camera and tab restored; undo history is not kept across the restart. Finished by Editor 4 hot reload (F3.03).
 - **Editor exit code** (fixed in MVP-53): `rensga-editor --play` now exits 1 when the pipeline fails or cannot start.
 - **Bugs found in the user's play-testing of the MVP** (all fixed; none was caught by acceptance):
   - PSP imports got their NIDs from link order, so the game booted to a black screen in PPSSPP.

@@ -51,7 +51,7 @@ bool dockerRun(const BuildContext& ctx, Stage stage, const EventSink& sink, std:
 class PspTargetModule : public TargetModule {
  public:
   std::string_view id() const override { return "psp"; }
-  std::string_view displayName() const override { return "PlayStation Portable"; }
+  std::string_view displayName() const override { return "PSP"; }
 
   ICookerFormatPlugin& cookerPlugin() override {
     ICookerFormatPlugin* p = CookerPluginRegistry::instance().find("psp");

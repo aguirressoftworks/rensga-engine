@@ -25,6 +25,9 @@ class SceneDocument {
   const std::filesystem::path& path() const { return path_; }
   bool dirty() const { return dirty_; }
   const Scene& scene() const { return view_; }
+  const nlohmann::ordered_json& document() const { return doc_; }
+  // Replaces the document with `j` as if loaded from `file` (editor restart): undo history is dropped, dirty is kept.
+  bool restore(const std::filesystem::path& file, nlohmann::ordered_json j, bool dirty);
   const SceneObject* find(const std::string& guid) const;
   int indexOf(const std::string& guid) const;  // index in scene().objects or -1
   std::vector<std::string> childrenOf(const std::string& parentGuid) const;  // "" = roots, in file order

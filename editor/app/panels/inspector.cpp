@@ -9,6 +9,8 @@
 #include <new>
 #include <set>
 
+#include <imgui_internal.h>
+
 #include "app.h"
 #include "rensga/core/reflect.h"
 #include "rensga/core/reflect_json.h"
@@ -66,27 +68,15 @@ std::string pretty(const char* n) {  // jumpSpeed -> "Jump Speed"
   return out;
 }
 
-json defaultsFor(const TypeInfo& ti) {
-  static std::map<std::string, json> cache;
-  auto it = cache.find(ti.name);
-  if (it != cache.end()) return it->second;
-  json j = json::object();
-  if (ti.construct) {
-    void* m = ::operator new(ti.size, std::align_val_t(ti.align));
-    ti.construct(m);
-    j = fieldsToJson(ti, m);
-    if (ti.destruct) ti.destruct(m);
-    ::operator delete(m, std::align_val_t(ti.align));
-  }
-  cache[ti.name] = j;
-  return j;
-}
+json defaultsFor(const TypeInfo& ti) { return defaultFieldsFor(ti); }
 
 // Component types the target accepts: its inspector rules plus the project's own ConsoleTarget list (scripts).
 std::set<std::string> allowedComponents(App& a) {
   static std::string cachedFor;
   static std::set<std::string> cached;
-  const std::string key = a.project.root.string() + "|" + a.target;
+  std::error_code ec;
+  auto mt = std::filesystem::last_write_time(a.project.root / "ProjectSettings" / "ConsoleTarget.json", ec);
+  const std::string key = a.project.root.string() + "|" + a.target + "|" + std::to_string(ec ? 0 : mt.time_since_epoch().count());
   if (key == cachedFor) return cached;
   cachedFor = key;
   cached.clear();
@@ -328,10 +318,26 @@ void drawInspector(App& a) {
   if (ImGui::Button("Add Component", ImVec2(-FLT_MIN, 0))) ImGui::OpenPopup("addcomp");
   ImGui::SetNextWindowSizeConstraints(ImVec2(240, 0), ImVec2(FLT_MAX, 360));
   if (ImGui::BeginPopup("addcomp")) {
+    std::set<std::string> projectScripts;
+    for (const ScriptInfo& sc : a.scripts.list) projectScripts.insert(sc.name);
+    if (ImGui::BeginMenu("Scripts")) {
+      if (a.scripts.list.empty()) ImGui::TextDisabled("No scripts in Assets/");
+      for (const ScriptInfo& sc : a.scripts.list) {
+        const std::string why = scriptStatus(a, sc.name);
+        ImGui::BeginDisabled(!why.empty());
+        if (ImGui::MenuItem(sc.name.c_str(), why.empty() ? nullptr : why.c_str())) {
+          addScriptToObject(a, guid, sc.name);
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndDisabled();
+      }
+      ImGui::EndMenu();
+    }
+    ImGui::Separator();
     std::vector<const TypeInfo*> types;
     const TypeRegistry& reg = TypeRegistry::instance();
     for (u32 i = 0; i < reg.count(); ++i)
-      if (const TypeInfo* ti = reg.byId(i)) if (ti->asComponent) types.push_back(ti);
+      if (const TypeInfo* ti = reg.byId(i)) if (ti->asComponent && !projectScripts.count(ti->name)) types.push_back(ti);
     std::sort(types.begin(), types.end(), [](const TypeInfo* x, const TypeInfo* y) { return std::strcmp(x->name, y->name) < 0; });
     for (const TypeInfo* ti : types) {
       const bool ok = allowed.empty() || allowed.count(ti->name);
@@ -342,6 +348,12 @@ void drawInspector(App& a) {
         ImGui::SetTooltip("Not in the component list of %s (ConsoleTarget allowedComponents).", targetName.c_str());
     }
     ImGui::EndPopup();
+  }
+  // a script dragged from the Project window onto the Inspector goes on the selected object
+  ImGuiWindow* win = ImGui::GetCurrentWindow();
+  if (ImGui::BeginDragDropTargetCustom(win->Rect(), win->ID)) {
+    if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("RENSGA_SCRIPT")) addScriptToObject(a, guid, static_cast<const char*>(p->Data));
+    ImGui::EndDragDropTarget();
   }
   ImGui::End();
 }
