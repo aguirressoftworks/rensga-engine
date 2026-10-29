@@ -145,9 +145,9 @@ TEST(physics_sphere_trigger_fires_once) {
 namespace {
 void walkAndJump(InputScript& in) {
   in.add(0, 0, 1, 0);                              // forward: pickup 1 at z=4
-  in.add(30, -1, 0, 0);                            // left toward Platform1 (x -5.5..-2.5)
-  in.add(50, -1, 0, InputScript::South);           // jump while pushing into the platform
-  in.add(55, -1, 0, 0);
+  in.add(30, 1, 0, 0);                             // screen-right toward Platform1 (x -5.5..-2.5; camera looks +z, so screen right is -x)
+  in.add(50, 1, 0, InputScript::South);            // jump while pushing into the platform
+  in.add(55, 1, 0, 0); 
   in.add(90, 0, 0, 0);
 }
 }  // namespace
@@ -205,7 +205,7 @@ TEST(game_camera_looks_at_player_and_orbits) {
   Vector3 v = view.transformPoint(player->transform.position());
   CHECK(v.z < -5.0f);                    // in front of the camera (-Z forward)
   CHECK(Mathf::Abs(v.x) < 0.1f);         // centred
-  CHECK(cam->transform.position().x < -1.0f);  // orbited away from the start (-Z side)
+  CHECK(cam->transform.position().x > 1.0f);   // R turns the view right: camera swings from -Z toward +X
 }
 
 TEST(game_two_identical_runs_same_hash) {

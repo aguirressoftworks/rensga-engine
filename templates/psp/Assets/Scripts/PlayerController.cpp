@@ -23,16 +23,19 @@ struct PlayerController : Behaviour {
     CharacterController* cc = gameObject()->GetComponent<CharacterController>();
     if (!cc) return;
     // Camera-relative basis on the ground plane.
-    Vector3 fwd(0, 0, 1);
+    // Both axes come from the camera itself: the view looks down its local -Z with +X as screen right.
+    Vector3 fwd(0, 0, 1), right(-1, 0, 0);
     World* w = gameObject()->world;
     Camera* cam = nullptr;
     w->forEach<Camera>([&](Camera& c) { if (!cam) cam = &c; });
     if (cam) {
       Vector3 look = cam->transform()->rotation() * Vector3(0, 0, -1);
+      Vector3 side = cam->transform()->rotation() * Vector3(1, 0, 0);
       look.y = 0;
+      side.y = 0;
       if (look.sqrMagnitude() > Mathf::Epsilon) fwd = look.normalized();
+      if (side.sqrMagnitude() > Mathf::Epsilon) right = side.normalized();
     }
-    Vector3 right(fwd.z, 0, -fwd.x);
     Vector3 dir = right * stick.x + fwd * stick.y;
     if (dir.sqrMagnitude() > 1.0f) dir = dir.normalized();
 

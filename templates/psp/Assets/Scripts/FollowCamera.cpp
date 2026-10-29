@@ -22,7 +22,8 @@ struct FollowCamera : Behaviour {
       if (!t) return;
       targetRef = t->ref();
     }
-    yaw += ((Input::GetButton("CameraRight") ? 1.0f : 0.0f) - (Input::GetButton("CameraLeft") ? 1.0f : 0.0f)) *
+    // R turns the view to the right; with the camera behind the target that means decreasing yaw.
+    yaw += ((Input::GetButton("CameraLeft") ? 1.0f : 0.0f) - (Input::GetButton("CameraRight") ? 1.0f : 0.0f)) *
            orbitSpeed * Time::deltaTime;
     Vector3 focus = targetRef->transform.position();
     Scalar rad = yaw * Mathf::Deg2Rad;
