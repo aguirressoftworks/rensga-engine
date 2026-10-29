@@ -6,7 +6,7 @@ Guide for AI coding agents working in this repository. Read [RULES.md](RULES.md)
 
 Rensga Engine is a planned open-source (MIT) engine, editor and Unity-style C++17 API for making games that ship as PSX, PSP and PS2 disc images plus Windows, Linux and Android builds.
 
-**Right now it contains only documentation.** There is no engine, editor or API code, no CMake, and no tests. Do not invent build commands, source files or features that don't exist. If a task needs code that isn't there, say so.
+**The repository holds the docs plus the Step 1 MVP** (engine/core, engine/api, PSP and GU backends, cooker, pipeline, CLI, minimal editor, `templates/psp`, tests). Do not invent build commands, source files or features that don't exist; see TASKLIST.md for what is done.
 
 - `docs/rensga-engine/design-doc/rensga-engine-design-doc.md` is the main design reference. Read it before any design or architecture work.
 - `docs/rensga-engine/roadmaps/` has 13 roadmaps (phases, estimates, Claude prompts), generated from Python data.
@@ -22,6 +22,21 @@ Rensga Engine is a planned open-source (MIT) engine, editor and Unity-style C++1
 The icon is the `ICON` string in `build.py`. Page CSS and JS are the `CSS` and `JS` strings there too.
 
 ## Commands
+
+Code (MVP; Docker image via `tools/docker/psp.sh`, PPSSPP via `tools/emulators/fetch_ppsspp.sh`):
+
+```bash
+cmake --preset linux-host -B build/host && cmake --build build/host -j4   # tests, cooker, pipeline, CLI, editor, headless sim
+ctest --test-dir build/host                                               # all tests
+build/host/tools/cli/rensga cook templates/psp                            # cook + budget check
+build/host/engine/runtime/rensga_headless --pack templates/psp/Library/Cooked/psp/game.rpak --frames 400 --hash
+xvfb-run -a build/host/tools/cli/rensga play --target psp templates/psp --json --quit-after 25   # dev build in Docker, boots in PPSSPP
+build/host/tools/cli/rensga build --target psp templates/psp              # release: EBOOT.PBP in Library/Build/psp-release/
+build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after 30]
+tools/check_editor_core.sh                                                # editor/core must not name a console
+```
+
+Docs:
 
 Run from `docs/rensga-engine/roadmaps/src/`. The argument is the output folder, `docs/rensga-engine`.
 

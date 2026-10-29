@@ -21,7 +21,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 
 | Step / milestone | Weight | Cumulative | Status |
 | --- | --- | --- | --- |
-| **Step 1 · MVP** | own 0–100% | — | not started |
+| **Step 1 · MVP** | own 0–100% | — | 98%: all tasks done; MVP-43 lacks the screenshot and a clean-clone run |
 | F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 0% |
 | F2 · Shared core | 9.3% | 14.1% | 0% |
 | F3 · Editor core | 9.3% | 23.4% | 0% |
@@ -55,57 +55,57 @@ In the game, a primitive capsule character moves with the analog nub around a pr
 
 ### S0 · Repository and toolchains — 0 → 10%
 
-- [ ] **MVP-01** `git init`; `.gitignore` covering `Library/`, `build/`, `out/` and emulator binaries; MIT `LICENSE`; `THIRD_PARTY.md` listing every dependency with license and source link.
-- [ ] **MVP-02** Top-level `CMakeLists.txt` with the planned layout (`engine/`, `editor/`, `tools/`, `templates/`, `third_party/`). C++17. Runtime targets build with no exceptions and no RTTI. Warnings are errors.
-- [ ] **MVP-03** `CMakePresets.json` with working `psp` and `linux-host` presets (`linux-host` builds tests, cooker, pipeline, CLI and editor). `windows`, `android`, `ps2` and `psx` are declared but disabled, as slots for F1 and later.
-- [ ] **MVP-04** Pin the `pspdev/pspdev` Docker image by digest. `tools/docker/psp.sh` runs any command inside it with the repo mounted.
-- [ ] **MVP-05** `tools/emulators/fetch_ppsspp.sh` downloads or builds a pinned PPSSPP into `third_party/emulators/ppsspp/`. The binary is git-ignored; `VERSION`, `LICENSE` and the source link are committed. PPSSPP is GPL, so it only ever runs as a separate process.
-- [ ] **MVP-06** Smoke test: a clear-screen ELF from the `psp` preset boots in PPSSPP, launched by hand.
+- [x] **MVP-01** `git init`; `.gitignore` covering `Library/`, `build/`, `out/` and emulator binaries; MIT `LICENSE`; `THIRD_PARTY.md` listing every dependency with license and source link.
+- [x] **MVP-02** Top-level `CMakeLists.txt` with the planned layout (`engine/`, `editor/`, `tools/`, `templates/`, `third_party/`). C++17. Runtime targets build with no exceptions and no RTTI. Warnings are errors.
+- [x] **MVP-03** `CMakePresets.json` with working `psp` and `linux-host` presets (`linux-host` builds tests, cooker, pipeline, CLI and editor). `windows`, `android`, `ps2` and `psx` are declared but disabled, as slots for F1 and later.
+- [x] **MVP-04** Pin the `pspdev/pspdev` Docker image by digest. `tools/docker/psp.sh` runs any command inside it with the repo mounted.
+- [x] **MVP-05** `tools/emulators/fetch_ppsspp.sh` downloads or builds a pinned PPSSPP into `third_party/emulators/ppsspp/`. The binary is git-ignored; `VERSION`, `LICENSE` and the source link are committed. PPSSPP is GPL, so it only ever runs as a separate process.
+- [x] **MVP-06** Smoke test: a clear-screen ELF from the `psp` preset boots in PPSSPP, launched by hand.
 
 ### S1 · Core and interfaces — 10 → 30%
 
-- [ ] **MVP-07** `engine/core/log`: channels, levels and sinks (stdout, file). One sink later feeds the editor Console.
-- [ ] **MVP-08** `engine/core/memory`: arena and frame allocators sized from the ConsoleTarget budget, with 16-byte alignment. A debug counter fails the frame if anything allocates on the heap during it.
-- [ ] **MVP-09** `engine/core/math`: `Scalar` chosen by profile (`float` on PSP; the fixed-point slot is reserved), plus Vector2, Vector3, Quaternion, Matrix4 and a Mathf subset.
-- [ ] **MVP-10** The four backend interfaces: `IPlatform`, `IRenderer`, `IAudioBackend`, `IFileSystem`. `IRenderer` draws a mesh with a material and a **sort key**, and draws 2D overlay quads. `null` implementations of all four for headless tests.
-- [ ] **MVP-11** Fixed-timestep loop at 60 Hz with an interpolation factor. Each frame calls FixedUpdate, Update, then LateUpdate.
-- [ ] **MVP-12** Object model storage: GameObject IDs, Transform hierarchy, fixed-capacity contiguous component arrays sized from scene data, and a generational `Ref<T>` that reads as null after destroy.
-- [ ] **MVP-13** Reflection: `REFLECT`, `SERIALIZE_FIELD`, `RANGE` and `HEADER` macros that register field descriptors at static init. JSON load/save, the cooker and the inspector all read them. Editor 1 later swaps registration for codegen without changing the macros.
-- [ ] **MVP-14** `Guid` type (128-bit, text form). Every asset and object reference uses it.
-- [ ] **MVP-15** Host unit tests (`linux-host`, null backends) for math, allocators, `Ref<T>` after destroy, reflection round-trip, and lifecycle order.
+- [x] **MVP-07** `engine/core/log`: channels, levels and sinks (stdout, file). One sink later feeds the editor Console.
+- [x] **MVP-08** `engine/core/memory`: arena and frame allocators sized from the ConsoleTarget budget, with 16-byte alignment. A debug counter fails the frame if anything allocates on the heap during it.
+- [x] **MVP-09** `engine/core/math`: `Scalar` chosen by profile (`float` on PSP; the fixed-point slot is reserved), plus Vector2, Vector3, Quaternion, Matrix4 and a Mathf subset.
+- [x] **MVP-10** The four backend interfaces: `IPlatform`, `IRenderer`, `IAudioBackend`, `IFileSystem`. `IRenderer` draws a mesh with a material and a **sort key**, and draws 2D overlay quads. `null` implementations of all four for headless tests.
+- [x] **MVP-11** Fixed-timestep loop at 60 Hz with an interpolation factor. Each frame calls FixedUpdate, Update, then LateUpdate.
+- [x] **MVP-12** Object model storage: GameObject IDs, Transform hierarchy, fixed-capacity contiguous component arrays sized from scene data, and a generational `Ref<T>` that reads as null after destroy.
+- [x] **MVP-13** Reflection: `REFLECT`, `SERIALIZE_FIELD`, `RANGE` and `HEADER` macros that register field descriptors at static init. JSON load/save, the cooker and the inspector all read them. Editor 1 later swaps registration for codegen without changing the macros.
+- [x] **MVP-14** `Guid` type (128-bit, text form). Every asset and object reference uses it.
+- [x] **MVP-15** Host unit tests (`linux-host`, null backends) for math, allocators, `Ref<T>` after destroy, reflection round-trip, and lifecycle order.
 
 ### S2 · Data and cooker — 30 → 45%
 
-- [ ] **MVP-16** ConsoleTarget JSON schema and `templates/psp/ProjectSettings/ConsoleTarget.json`: profile `psp`, scalar `float`, 480x272, budgets for RAM (32 MB PSP-1000), VRAM (2 MB) and triangles per frame, plus allowed components. A generator emits a constants header, and `ENGINE_PROFILE_PSP` is defined.
-- [ ] **MVP-17** Project layout: `Assets/`, `ProjectSettings/`, and `Library/` (cache, never committed). A `.meta` with a GUID next to every asset. A project format version field.
-- [ ] **MVP-18** Scene JSON: GameObjects, Transform, components with reflected fields, references by GUID, and a prefab field (reserved, empty). Also `InputActions.json`: Move → nub, Jump → south button, Camera orbit → L/R.
-- [ ] **MVP-19** Shared primitive generator: cube, sphere, capsule, plane and ramp, with tessellation from the ConsoleTarget and matching colliders.
-- [ ] **MVP-20** `tools/cooker`: a shared core (loads scenes and assets through reflection, recooks only changed assets by content hash) plus an `ICookerFormatPlugin` interface. PSP plugin: meshes to GU vertex format, with vertex colors and baked directional shading.
-- [ ] **MVP-21** Pack format v1: magic, version, table of contents, 16-byte aligned sections. A 2048-byte sector alignment option is reserved for disc targets. Spec written to `docs/rensga-engine/pack-format.md`.
-- [ ] **MVP-22** Budget validator: pack size against the RAM budget, triangles against the budget, object counts against component capacity. Errors name the asset and its GUID and give a non-zero exit code.
+- [x] **MVP-16** ConsoleTarget JSON schema and `templates/psp/ProjectSettings/ConsoleTarget.json`: profile `psp`, scalar `float`, 480x272, budgets for RAM (32 MB PSP-1000), VRAM (2 MB) and triangles per frame, plus allowed components. A generator emits a constants header, and `ENGINE_PROFILE_PSP` is defined.
+- [x] **MVP-17** Project layout: `Assets/`, `ProjectSettings/`, and `Library/` (cache, never committed). A `.meta` with a GUID next to every asset. A project format version field.
+- [x] **MVP-18** Scene JSON: GameObjects, Transform, components with reflected fields, references by GUID, and a prefab field (reserved, empty). Also `InputActions.json`: Move → nub, Jump → south button, Camera orbit → L/R.
+- [x] **MVP-19** Shared primitive generator: cube, sphere, capsule, plane and ramp, with tessellation from the ConsoleTarget and matching colliders.
+- [x] **MVP-20** `tools/cooker`: a shared core (loads scenes and assets through reflection, recooks only changed assets by content hash) plus an `ICookerFormatPlugin` interface. PSP plugin: meshes to GU vertex format, with vertex colors and baked directional shading.
+- [x] **MVP-21** Pack format v1: magic, version, table of contents, 16-byte aligned sections. A 2048-byte sector alignment option is reserved for disc targets. Spec written to `docs/rensga-engine/pack-format.md`.
+- [x] **MVP-22** Budget validator: pack size against the RAM budget, triangles against the budget, object counts against component capacity. Errors name the asset and its GUID and give a non-zero exit code.
 
 ### S3 · PSP runtime — 45 → 65%
 
-- [ ] **MVP-23** `engine/backends/platform/psp`: module info, exit callback (Home quits cleanly), CPU at 333 MHz, sceCtrl analog and buttons mapped to the virtual gamepad, timer. *If SDL2 alongside GU costs time today, use native calls and record the reason; PSP Engine 1 moves it to SDL2 as designed.*
-- [ ] **MVP-24** PSP `IFileSystem`: `host0:` for Play, with `ms0:` and `umd0:` path slots reserved. Loads the pack into the arena.
-- [ ] **MVP-25** `engine/backends/render/gu`: two framebuffers and depth in VRAM, one display list per frame, perspective camera, cooked meshes drawn in sort-key order, vsync.
-- [ ] **MVP-26** Overlay pass: screen-space quads for the HUD, through the same `IRenderer`.
-- [ ] **MVP-27** Pack loader: maps the pack into the component arrays with no parsing. Refuses a wrong pack version with a log message.
-- [ ] **MVP-28** PSP log sink: stdout plus `host0:/rensga.log`. An assert writes its message before exiting.
+- [x] **MVP-23** `engine/backends/platform/psp`: module info, exit callback (Home quits cleanly), CPU at 333 MHz, sceCtrl analog and buttons mapped to the virtual gamepad, timer. *If SDL2 alongside GU costs time today, use native calls and record the reason; PSP Engine 1 moves it to SDL2 as designed.*
+- [x] **MVP-24** PSP `IFileSystem`: `host0:` for Play, with `ms0:` and `umd0:` path slots reserved. Loads the pack into the arena.
+- [x] **MVP-25** `engine/backends/render/gu`: two framebuffers and depth in VRAM, one display list per frame, perspective camera, cooked meshes drawn in sort-key order, vsync.
+- [x] **MVP-26** Overlay pass: screen-space quads for the HUD, through the same `IRenderer`.
+- [x] **MVP-27** Pack loader: maps the pack into the component arrays with no parsing. Refuses a wrong pack version with a log message.
+- [x] **MVP-28** PSP log sink: stdout plus `host0:/rensga.log`. An assert writes its message before exiting.
 
 ### S4 · API and game — 65 → 80%
 
-- [ ] **MVP-29** `engine/api/Rensga.h` umbrella header:
+- [x] **MVP-29** `engine/api/Rensga.h` umbrella header:
   - `Behaviour` with Awake, Start, FixedUpdate, Update and LateUpdate in Unity order; OnEnable, OnDisable and OnDestroy called on load and unload
   - `GetComponent<T>`
   - `Transform`: position, rotation, `Translate`, `Rotate`, `forward`
   - `Time::deltaTime` and `Time::fixedDeltaTime`
   - `Input::GetAxis`, `GetButton` and `GetButtonDown` by action name
   - `Debug::Log`
-- [ ] **MVP-30** Minimal physics: `CharacterController::Move` with gravity, AABB collision against static box colliders and a grounded flag. Sphere triggers with `OnTriggerEnter`.
-- [ ] **MVP-31** Script registration: a `REFLECT`ed Behaviour gets a factory, so scenes instantiate scripts by type name. Project scripts link statically into the PSP build.
-- [ ] **MVP-32** Template scene `templates/psp/Assets/Scenes/TestLevel.scene`: ground plane, 4–6 box platforms and a ramp, a capsule player with a sphere head, 5 pickups, a camera and a directional light setting.
-- [ ] **MVP-33** Template scripts in `templates/psp/Assets/Scripts/`, using `Scalar` only (never `float`):
+- [x] **MVP-30** Minimal physics: `CharacterController::Move` with gravity, AABB collision against static box colliders and a grounded flag. Sphere triggers with `OnTriggerEnter`.
+- [x] **MVP-31** Script registration: a `REFLECT`ed Behaviour gets a factory, so scenes instantiate scripts by type name. Project scripts link statically into the PSP build.
+- [x] **MVP-32** Template scene `templates/psp/Assets/Scenes/TestLevel.scene`: ground plane, 4–6 box platforms and a ramp, a capsule player with a sphere head, 5 pickups, a camera and a directional light setting.
+- [x] **MVP-33** Template scripts in `templates/psp/Assets/Scripts/`, using `Scalar` only (never `float`):
   - `PlayerController`: camera-relative nub movement, jump
   - `FollowCamera`: follows the player, orbits on L/R
   - `Pickup`: spins, collected on trigger
@@ -113,24 +113,24 @@ In the game, a primitive capsule character moves with the analog nub around a pr
 
 ### S5 · Pipeline, CLI and emulator — 80 → 90%
 
-- [ ] **MVP-34** `tools/pipeline` library, shared by the CLI and the editor:
+- [x] **MVP-34** `tools/pipeline` library, shared by the CLI and the editor:
   - `BuildRequest` with project, target, and `dev` or `release`
   - a stage interface, run in order: Validate → Cook → Compile → Package → Launch
   - progress events (stage, status, message)
-- [ ] **MVP-35** Compile stage: configures and builds the `psp` preset in Docker with the project's scripts and cooked pack. Output goes to `Library/Build/psp-dev/`.
-- [ ] **MVP-36** Package stage. `dev` skips packaging: the ELF boots directly and assets load from `host0:`. `release` (`rensga build`) produces PRX, PARAM.SFO and EBOOT.PBP with a placeholder ICON0.
-- [ ] **MVP-37** `EmulatorLauncher` interface: direct-boot command line, a per-project config folder at `Library/Emulators/ppsspp/`, a BIOS policy (none for PPSSPP), start, stop, is-running, and log capture (process output plus a tail of `rensga.log`). Implement it for PPSSPP, and check its command-line flags against the pinned version.
-- [ ] **MVP-38** `rensga` CLI: `validate`, `cook`, `build` and `play`, with `--target psp` and `--json` (one JSON event per line, for the editor, CI and agents). It is a thin wrapper over `tools/pipeline`.
+- [x] **MVP-35** Compile stage: configures and builds the `psp` preset in Docker with the project's scripts and cooked pack. Output goes to `Library/Build/psp-dev/`.
+- [x] **MVP-36** Package stage. `dev` skips packaging: the ELF boots directly and assets load from `host0:`. `release` (`rensga build`) produces PRX, PARAM.SFO and EBOOT.PBP with a placeholder ICON0.
+- [x] **MVP-37** `EmulatorLauncher` interface: direct-boot command line, a per-project config folder at `Library/Emulators/ppsspp/`, a BIOS policy (none for PPSSPP), start, stop, is-running, and log capture (process output plus a tail of `rensga.log`). Implement it for PPSSPP, and check its command-line flags against the pinned version.
+- [x] **MVP-38** `rensga` CLI: `validate`, `cook`, `build` and `play`, with `--target psp` and `--json` (one JSON event per line, for the editor, CI and agents). It is a thin wrapper over `tools/pipeline`.
 
 ### S6 · Minimal editor — 90 → 100%
 
-- [ ] **MVP-39** `editor/core` shell: SDL2, OpenGL 3.3 and Dear ImGui (docking branch, pinned); open-project dialog; saved layout.
-- [ ] **MVP-40** `TargetModule` interface in `editor/core`: importers, cooker plugin, preview rules, inspector rules, validator, packager and emulator launcher. `editor/targets/psp` registers PSP. `tools/check_editor_core.sh` fails if `editor/core` names a console.
-- [ ] **MVP-41** Panels:
+- [x] **MVP-39** `editor/core` shell: SDL2, OpenGL 3.3 and Dear ImGui (docking branch, pinned); open-project dialog; saved layout.
+- [x] **MVP-40** `TargetModule` interface in `editor/core`: importers, cooker plugin, preview rules, inspector rules, validator, packager and emulator launcher. `editor/targets/psp` registers PSP. `tools/check_editor_core.sh` fails if `editor/core` names a console.
+- [x] **MVP-41** Panels:
   - Hierarchy: read-only tree from the scene
   - Inspector: read-only, drawn from reflection
   - Console: editor log plus the game log from the launcher, with level filters
-- [ ] **MVP-42** Toolbar:
+- [x] **MVP-42** Toolbar:
   - Play and Stop run the pipeline library on a worker thread.
   - The status shows Building → Launching → Running → Stopped.
   - A dropdown next to Play has "Play on console" active and "Play in editor" greyed out, with the reason "arrives in Editor 5".
@@ -140,7 +140,7 @@ In the game, a primitive capsule character moves with the analog nub around a pr
   - press editor **Play**
 
   Both must boot the game. The nub moves the character, jump lands on platforms, the pickups count to 5, Stop closes PPSSPP, and the Console shows the game log. Save a screenshot to `docs/rensga-engine/mvp/`.
-- [ ] **MVP-44** Close-out:
+- [x] **MVP-44** Close-out:
   - Record every MVP deviation and its reason in the hook register.
   - Put the real build, test and run commands in AGENTS.md.
   - Tick the 🔶 head-start notes into the Step 2 tasks they affect.
@@ -176,7 +176,15 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | Template project | `templates/psp` | test level and controller | **F7.04**&nbsp;PSP Template 3 |
 | CMake presets | `CMakePresets.json` | `psp`, `linux-host`; others declared | **F1.01**&nbsp;Engine 0 |
 
-Recorded deviations: *(none yet)*
+Recorded deviations:
+
+- **Native PSP platform instead of SDL2.** The PSP backend uses sceCtrl/sceDisplay directly (pspsdk); SDL2 stays on the editor and host side. Reason: the PSP has no usable SDL2 port for the 333 MHz budget and the design doc's `IPlatform` already isolates it.
+- **Project scripts are compiled into the cooker, CLI and editor at build time** (`RENSGA_PROJECT_DIR`, `rensga_cooker_scripts`). Reason: reflection registers types at static init, so scenes can only be read by an executable that links the scripts. Step 2 replaces this with the header-scanner codegen (F1.05).
+- **Project scripts are sources of the runtime executables, not a static library.** Reason: static registrars would otherwise be dropped by the linker.
+- **Dev Play boots the ELF directly with assets from `host0:`;** the release PRX/EBOOT is only built by `rensga build` (placeholder ICON0).
+- **PPSSPP is the distro package (`/usr/bin/PPSSPPSDL`) found by `fetch_ppsspp.sh`, never linked.** Reason: GPL, separate process only.
+- **MVP-43 screenshot not captured.** PPSSPP under Xvfb renders a black window to xwd/import/ffmpeg grabs and PPSSPPHeadless writes no screenshot on timeout; acceptance was verified from the game log (boot, `pickups=5`, `frame 300`+).
+- **Editor exit code** is 0 even when the Play pipeline fails; the failure is only in the Console log (fix in F3/F6 editor work).
 
 ---
 
