@@ -16,6 +16,8 @@ Open `index.html` in a browser to start.
 | `brand/visual-identity.md` | Same guide as Markdown |
 | `brand/rensga-tokens.css`, `brand/palette.json` | Design tokens as CSS custom properties and as data |
 | `brand/rensga-icon-mono-*.svg` | One-color icons, dark and light |
+| `api-rules.md` | Scripting API design rules (API 0), checked by `tools/check_api_rules.sh` |
+| `target-module.md` | The TargetModule interface and how to add a console (Editor 0.5) |
 | `roadmaps/*.html` | The 13 roadmaps: expandable phases, estimates, prompt pills |
 | `roadmaps/data/roadmaps.json` | All roadmap content as data |
 | `roadmaps/src/` | The data and the scripts that generate the pages |

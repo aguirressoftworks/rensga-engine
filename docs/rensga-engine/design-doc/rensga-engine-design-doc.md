@@ -195,7 +195,7 @@ class PlayerController : public Behaviour {
 };
 ```
 
-**Design rules.** Unity names are kept (`GetComponent`, `Instantiate`, `Destroy`, `Raycast`, `StartCoroutine`). C++ has no properties, so properties become getters and setters. No exceptions, no per-frame allocation. (API 0)
+**Design rules.** Unity names are kept (`GetComponent`, `Instantiate`, `Destroy`, `Raycast`, `StartCoroutine`). C++ has no properties, so properties become getters and setters. No exceptions, no per-frame allocation. The full rule set is in [api-rules.md](../api-rules.md). (API 0)
 
 **Ref handles.** Scripts hold `Ref<T>`, a generational handle that reads as null after `Destroy`, like Unity's fake null, so scripts never touch a dangling pointer. (API 0 and 2)
 

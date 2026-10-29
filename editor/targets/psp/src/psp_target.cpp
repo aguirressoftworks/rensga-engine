@@ -59,14 +59,6 @@ class PspTargetModule : public TargetModule {
     return p ? *p : none;
   }
 
-  // PSP hardware profile defaults; the per-project values live in ConsoleTarget.json and are
-  // enforced by the cooker (editor/core has no project handle in this MVP interface).
-  PreviewRules previewRules() const override { return PreviewRules{480, 272}; }
-  InspectorRules inspectorRules() const override {
-    return InspectorRules{{"MeshRenderer", "BoxCollider", "SphereCollider", "CharacterController", "Camera",
-                           "DirectionalLight"}};
-  }
-
   bool validate(const BuildContext& ctx, EventSink sink) override {
     try {
       ConsoleTargetData t = loadConsoleTarget(ctx.project / "ProjectSettings" / "ConsoleTarget.json");

@@ -9,6 +9,7 @@
 #include <string_view>
 #include <vector>
 
+#include "rensga/cooker/cooker.h"
 #include "rensga/cooker/plugin.h"
 #include "rensga/pipeline/emulator_launcher.h"
 #include "rensga/pipeline/pipeline.h"
@@ -43,8 +44,10 @@ class TargetModule {
   virtual std::string_view id() const = 0;           // short target id
   virtual std::string_view displayName() const = 0;  // short product name shown in the toolbar
   virtual ICookerFormatPlugin& cookerPlugin() = 0;
-  virtual PreviewRules previewRules() const = 0;
-  virtual InspectorRules inspectorRules() const = 0;
+  // Rules are data: by default they come from the project's ConsoleTarget.json (F1.04). A module
+  // overrides them only to add rules the file cannot express.
+  virtual PreviewRules previewRules(const ConsoleTargetData& ct) const { return PreviewRules{static_cast<int>(ct.width), static_cast<int>(ct.height)}; }
+  virtual InspectorRules inspectorRules(const ConsoleTargetData& ct) const { return InspectorRules{ct.allowedComponents}; }
   virtual bool validate(const BuildContext& ctx, EventSink sink) = 0;
   virtual bool compile(const BuildContext& ctx, EventSink sink) = 0;
   virtual bool package(const BuildContext& ctx, EventSink sink) = 0;
@@ -57,6 +60,10 @@ class TargetRegistry {
   static TargetModule* find(std::string_view id);
   static void add(TargetModule* module);  // called by RENSGA_REGISTER_TARGET
 };
+
+// ConsoleTarget.json of a project, cached by file mtime (cheap enough to call every frame).
+// Returns a default-constructed (zero) ConsoleTargetData when the file is missing or invalid.
+const ConsoleTargetData& consoleTargetFor(const std::filesystem::path& projectRoot);
 
 struct TargetRegistrar {
   explicit TargetRegistrar(TargetModule* m) { TargetRegistry::add(m); }

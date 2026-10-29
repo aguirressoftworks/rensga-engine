@@ -64,5 +64,8 @@ if(RENSGA_BUILD_EDITOR)
 endif()
 
 if(RENSGA_BUILD_TESTS)
+  if(TARGET rensga_editor_core)
+    rensga_add_if_present(editor/targets/dummy)  # test-only second target module (F1.04)
+  endif()
   rensga_add_if_present(tests)
 endif()

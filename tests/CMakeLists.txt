@@ -12,3 +12,9 @@ foreach(child ${children})
     add_subdirectory(${child})
   endif()
 endforeach()
+
+# Source-tree rule checks (RULES.md, docs/rensga-engine/api-rules.md).
+add_test(NAME check_api_rules COMMAND ${CMAKE_SOURCE_DIR}/tools/check_api_rules.sh)
+if(NOT TEST check_editor_core)
+  add_test(NAME check_editor_core COMMAND ${CMAKE_SOURCE_DIR}/tools/check_editor_core.sh)
+endif()

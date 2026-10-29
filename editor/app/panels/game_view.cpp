@@ -19,7 +19,7 @@ void drawGameView(App& a) {
   dl->AddRectFilled(p0, ImVec2(p0.x + sz.x, p0.y + sz.y), ImGui::GetColorU32(brandToken("bg")));
 
   const TargetModule* tm = a.targetModule();
-  PreviewRules pr = tm ? tm->previewRules() : PreviewRules();
+  PreviewRules pr = tm ? tm->previewRules(consoleTargetFor(a.project.root)) : PreviewRules();
   const int rw = pr.width > 0 ? pr.width : 640, rh = pr.height > 0 ? pr.height : 360;
   SceneDraw sd = gatherScene(a.doc, a.meshes);
   const float labelH = ImGui::GetTextLineHeight() + 16;

@@ -190,10 +190,10 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | EBOOT packaging | `editor/targets/psp` packager | placeholder icon | **F5.03**&nbsp;PSP Engine 8 |
 | `TargetModule` | `editor/core`, `editor/targets/psp` | PSP only | **F1.04**&nbsp;Editor 0.5, **F5.04**&nbsp;PSP Editor 0 |
 | Inspector | `editor/app`, `editor/core` | reflection-driven editing, Add / Remove Component; no prefabs, multi-edit or custom drawers | **F3.01**&nbsp;Editor 2 |
-| GL scene renderer | `editor/app/render` | OpenGL 3.3, vertex color x lambert, no textures | **F2.02**&nbsp;Engine 2 / Engine 7 GL backend |
+| GL scene renderer | `editor/app/render` | OpenGL 3.3, vertex color x lambert, no textures | **F2.02**&nbsp;Engine 2, **F8.01**&nbsp;Engine 7 (matching GL look) |
 | `SceneDocument` undo | `editor/core` | JSON snapshots, 200 steps | **F1.05**&nbsp;Editor 1 |
 | Scene editing | `editor/app/panels` | pick, gizmos, hierarchy and inspector edits | **F3.01**&nbsp;Editor 2 |
-| Game tab preview | `editor/app/panels/game_view.cpp` | GL approximation at the target resolution | **F3.04**&nbsp;Editor 5, PSP Editor 3 preview look |
+| Game tab preview | `editor/app/panels/game_view.cpp` | GL approximation at the target resolution | **F3.04**&nbsp;Editor 5, **F5.07**&nbsp;PSP Editor 3 (preview look) |
 | Editor theme | `editor/app/theme.cpp` | built from `brand/palette.json` at configure time | **F6.12**&nbsp;Editor 13 polish |
 | Play dropdown | `editor/core` | "Play in editor" greyed out | **F3.04**&nbsp;Editor 5 |
 | CLI `--json` events | `tools/cli` | `validate`, `cook`, `build`, `play` | **F6.05**&nbsp;Editor 11 and CI |
@@ -230,17 +230,19 @@ Milestones follow the design doc's build order: shared core → editor and Targe
 Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
 - [ ] **F1.01** Engine 0 · Toolchain and build matrix — one CMake repo, four targets, CI green · `0.84%` 🔶
-- [ ] **F1.02** API 0 · API design rules — naming, handles, ownership, profile gating · `0.63%` 🔶
+- [x] **F1.02** API 0 · API design rules — naming, handles, ownership, profile gating · `0.63%` 🔶
+  - Rules: `docs/rensga-engine/api-rules.md`; `tools/check_api_rules.sh` in ctest. Audit notes: F2.08 makes `Time::*` getters; F2.07 adds `Transform` local getters/setters and the `RENSGA_REQUIRES_FEATURE` / `RENSGA_API_VERSION_*` macros.
 - [ ] **F1.03** Editor 0 · Editor shell and projects — docking UI, project folders, console · `0.84%` 🔶
-- [ ] **F1.04** Editor 0.5 · TargetModule interface — console plug-in boundary · `0.84%` 🔶
+- [x] **F1.04** Editor 0.5 · TargetModule interface — console plug-in boundary · `0.84%` 🔶
+  - Reviewed: preview and inspector rules are now data from ConsoleTarget.json; `docs/rensga-engine/target-module.md`; test-only `editor/targets/dummy`. Left for F5.04: the cooker CLI default `--target psp` and its PSP plugin registration.
 - [ ] **F1.05** Editor 1 · Reflection, serialization and undo — the backbone everything else needs · `1.69%` 🔶
 
 **Gates**
 
 - [ ] **F1.G1** CI builds every enabled preset on every push.
 - [ ] **F1.G2** `tools/check_editor_core.sh` runs in CI.
-- [ ] **F1.G3** The API design rules are written up as a page under `docs/` before API 1 begins.
-- [ ] **F1.G4** Every MVP hook in the register has an owner task in this list.
+- [x] **F1.G3** The API design rules are written up as a page under `docs/` before API 1 begins.
+- [x] **F1.G4** Every MVP hook in the register has an owner task in this list.
 
 ### F2 · Shared core — 9.3% (cumulative 14.1%)
 

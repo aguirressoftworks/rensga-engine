@@ -1,0 +1,58 @@
+# Scripting API rules (API 0)
+
+The rules every public header in `engine/api` and `engine/core` follows, and every game script is written against. Checked in part by `tools/check_api_rules.sh` (ctest `check_api_rules`). Design context: [Scripting API](design-doc/rensga-engine-design-doc.md#scripting-api).
+
+## 1. One header
+
+Game code includes `<rensga/Rensga.h>` and nothing else from the engine. It pulls in `engine/core` and `engine/api` only, never a backend, a console SDK or a platform header. A symbol that is not reachable from it is not public API.
+
+## 2. Names
+
+- Unity names are kept: `GameObject`, `Component`, `Behaviour`, `Transform`, `GetComponent<T>()`, `Instantiate`, `Destroy`, `Raycast`, `StartCoroutine`, `Time`, `Input`, `Debug`.
+- Types, methods and static services are `PascalCase` (`GetComponent`, `Translate`, `Debug::Log`). Fields and properties are `camelCase`.
+- Unity properties become a getter named like the property and a setter `setX`: `position()` / `setPosition(v)`, `deltaTime()`. A plain public field is allowed only on plain data structs (`Vector3`, `Color32`) and on serialized script fields.
+- Lifecycle callbacks keep Unity's names, `override`n from `Behaviour`.
+- Names that differ from Unity need a comment saying why.
+
+## 3. Handles and ownership
+
+- The engine owns every `GameObject` and `Component`. Scripts never `new`, `delete` or store a raw engine pointer across frames.
+- Scripts hold `Ref<T>`, a generational handle. After `Destroy` it reads as null (Unity's fake null); testing it (`if (cc)`) is always safe.
+- Functions returning an engine object return `Ref<T>` or a pointer valid only for the current call.
+- Strings passed to the API are `const char*`; the API copies what it keeps.
+
+## 4. Errors
+
+No exceptions in the runtime (`-fno-exceptions`, `-fno-rtti`). An error logs through `Debug`/the log channel and returns `nullptr`, a null `Ref`, `false` or a zero value. API functions never abort the game. Exceptions are allowed only in host tools (cooker, editor), never under `engine/`.
+
+## 5. No per-frame allocation
+
+`Update`, `FixedUpdate`, `LateUpdate` and every API call a script makes from them must not allocate. API containers are fixed-capacity with limits from the ConsoleTarget budgets; hitting a limit is an error under rule 4. Scripts allocate in `Awake`/`Start` only. (The automated check arrives with gate F2.G1; `check_api_rules.sh` does not try to detect it.)
+
+## 6. Profile gating
+
+The cooker writes `console_target.gen.h` with `ENGINE_PROFILE_<NAME>` (for example `ENGINE_PROFILE_PSP`) and `ENGINE_SCALAR_FLOAT` or `ENGINE_SCALAR_FIXED`. The API:
+
+- exists for every profile with the same names;
+- a feature the profile lacks is declared behind `#if` and guarded with `RENSGA_REQUIRES_FEATURE(...)`, so using it is a compile error with a hint, for example `#error "Skeletal animation is not available in ENGINE_PROFILE_PSX; use sprite or vertex animation."`;
+- never fails silently at run time because of the profile.
+
+## 7. Scalar
+
+Scripts use `Scalar`, never `float` or `double`. `Scalar` is `float` or 20.12 fixed point depending on the profile; literals go through `Scalar(...)` or the helpers in `rensga/core/math.h`. In PSX scripts `float` and `double` are banned; `check_api_rules.sh` fails on them in every template's `Assets/Scripts/`.
+
+## 8. Lifecycle order
+
+Per scene load: `Awake` (all objects) -> `OnEnable` -> `Start` (before the first `Update` of that object). Per frame: zero or more `FixedUpdate` steps, then `Update`, then `LateUpdate`. Physics events (`OnTriggerEnter`) run after `FixedUpdate`. Teardown: `OnDisable` -> `OnDestroy`. Order between objects of the same type is the scene order. Details finish in API 3 (F2.08).
+
+## 9. Versioning
+
+The API has a semantic version (`RENSGA_API_VERSION_MAJOR/MINOR`), bumped in the umbrella header. Additions bump minor; renames and removals bump major and keep the old name as a `[[deprecated("use X")]]` shim for one minor series. Behaviour differences between profiles are documented on the feature, never by a different name.
+
+## 10. Audit notes (F1.02)
+
+Fixed in this phase: public headers have `#pragma once`; the umbrella header comment states the profile rule. Larger gaps are listed in TASKLIST.md under the owning phase:
+
+- `Time::deltaTime` and friends are static variables, not getters (F2.08, API 3).
+- `Transform` exposes `localPosition`/`localRotation` as fields; only world-space values have getter/setter pairs (F2.07, API 2).
+- `ENGINE_PROFILE_*` gating macros (`RENSGA_REQUIRES_FEATURE`) and `RENSGA_API_VERSION_*` are specified here and land with the first profile-gated feature (F2.07, API 2).

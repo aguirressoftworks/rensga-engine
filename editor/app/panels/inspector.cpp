@@ -81,7 +81,7 @@ std::set<std::string> allowedComponents(App& a) {
   cachedFor = key;
   cached.clear();
   if (const TargetModule* tm = a.targetModule())
-    for (const std::string& n : tm->inspectorRules().allowedComponents) cached.insert(n);
+    for (const std::string& n : tm->inspectorRules(consoleTargetFor(a.project.root)).allowedComponents) cached.insert(n);
   try {
     std::ifstream in(a.project.root / "ProjectSettings" / "ConsoleTarget.json");
     json j = json::parse(in);
