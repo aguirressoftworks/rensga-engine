@@ -23,6 +23,7 @@ namespace {
 struct Brand {
   std::map<std::string, ImVec4> token, ramp, icon;
   std::vector<std::pair<std::string, ImVec4>> editor;
+  std::map<std::string, std::pair<ImVec4, std::string>> targets;  // key -> color, label
   bool ok = false;
 } g_brand;
 
@@ -131,6 +132,10 @@ bool loadBrand() {
     ImVec4 c;
     if (parseHex(e.value("hex", ""), c)) b.editor.emplace_back(e.value("imgui", ""), c);
   }
+  for (const json& t : j.value("targets", json::array())) {
+    ImVec4 c;
+    if (parseHex(t.value("hex", ""), c)) b.targets[t.value("key", "")] = {c, t.value("target", "")};
+  }
   b.ok = !b.token.empty() && !b.editor.empty();
   g_brand = std::move(b);
   if (!g_brand.ok) EditorLog::instance().error("brand: palette.json has no tokens or editor mapping");
@@ -140,6 +145,14 @@ bool loadBrand() {
 ImVec4 brandToken(const char* name) {
   auto it = g_brand.token.find(name);
   return it == g_brand.token.end() ? fallback() : it->second;
+}
+
+bool brandTarget(const std::string& key, ImVec4& color, std::string& label) {
+  auto it = g_brand.targets.find(key);
+  if (it == g_brand.targets.end()) return false;
+  color = it->second.first;
+  label = it->second.second;
+  return true;
 }
 
 ImVec4 brandRamp(const char* ref) {

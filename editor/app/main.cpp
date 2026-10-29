@@ -1,5 +1,6 @@
 // rensga-editor: SDL2 + OpenGL 3.3 + Dear ImGui (docking). Brand theme, Unity-style default layout.
 // Usage: rensga-editor [--project <dir>] [--play] [--quit-after N]
+//                      [--no-splash] [--splash-only] [--config-dir <dir>]
 //                      [--no-auto-rebuild | --auto-rebuild] [--restore-state]
 //                      [--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window>] [--ui-event click|rclick|move:x,y ...]]
 #include <SDL.h>
@@ -17,6 +18,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -58,6 +60,22 @@ bool App::openProject(const std::string& dir) {
   return true;
 }
 
+static void modeSize(Mode m, bool shot, int& w, int& h) {
+  if (m == Mode::Splash) { w = 760; h = 440; }
+  else if (m == Mode::Picker) { w = 1000; h = 640; }
+  else { w = shot ? 1600 : 1440; h = shot ? 900 : 860; }
+}
+
+// One window serves all three modes: splash is borderless and fixed, the others are normal windows.
+static void applyMode(SDL_Window* w, Mode m, bool shot) {
+  int ww, hh;
+  modeSize(m, shot, ww, hh);
+  SDL_SetWindowBordered(w, m == Mode::Splash ? SDL_FALSE : SDL_TRUE);
+  SDL_SetWindowResizable(w, m == Mode::Splash ? SDL_FALSE : SDL_TRUE);
+  SDL_SetWindowSize(w, ww, hh);
+  SDL_SetWindowPosition(w, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
+}
+
 static void saveLayout(App& a) {
   if (!a.persistLayout || !a.loaded) return;
   std::error_code ec;
@@ -66,7 +84,8 @@ static void saveLayout(App& a) {
 }
 
 int main(int argc, char** argv) {
-  std::string projectDir, shotFile, selectName, focusName;
+  std::string projectDir, shotFile, selectName, focusName, configDir;
+  bool noSplash = false, splashOnly = false;
   std::vector<std::string> uiEvents;  // screenshot tooling: click|rclick|move:x,y, one every 6 frames from frame 6
   bool autoPlay = false, restoreState = false;
   int autoRebuild = -1;  // -1 default (on, except in screenshot mode), 0 off, 1 on
@@ -74,6 +93,9 @@ int main(int argc, char** argv) {
   int shotFrames = 30;
   for (int i = 1; i < argc; ++i) {
     if (!std::strcmp(argv[i], "--project") && i + 1 < argc) projectDir = argv[++i];
+    else if (!std::strcmp(argv[i], "--no-splash")) noSplash = true;
+    else if (!std::strcmp(argv[i], "--splash-only")) splashOnly = true;
+    else if (!std::strcmp(argv[i], "--config-dir") && i + 1 < argc) configDir = argv[++i];
     else if (!std::strcmp(argv[i], "--play")) autoPlay = true;
     else if (!std::strcmp(argv[i], "--restore-state")) restoreState = true;
     else if (!std::strcmp(argv[i], "--no-auto-rebuild")) autoRebuild = 0;
@@ -85,7 +107,7 @@ int main(int argc, char** argv) {
     else if (!std::strcmp(argv[i], "--select") && i + 1 < argc) selectName = argv[++i];
     else if (!std::strcmp(argv[i], "--ui-event") && i + 1 < argc) uiEvents.push_back(argv[++i]);
     else {
-      std::fprintf(stderr, "usage: rensga-editor [--project <dir>] [--play] [--quit-after N] [--no-auto-rebuild | --auto-rebuild] [--restore-state] "
+      std::fprintf(stderr, "usage: rensga-editor [--project <dir>] [--no-splash] [--splash-only] [--config-dir <dir>] [--play] [--quit-after N] [--no-auto-rebuild | --auto-rebuild] [--restore-state] "
                            "[--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window> | --tab <window>] [--ui-event click|rclick|move:x,y ...]]\n");
       return 2;
     }
@@ -101,8 +123,6 @@ int main(int argc, char** argv) {
   App app;
   EditorLog& log = EditorLog::instance();
   log.info("rensga-editor started");
-  for (TargetModule* m : TargetRegistry::all()) log.info("target available: " + std::string(m->id()));
-  if (!TargetRegistry::all().empty()) app.target = std::string(TargetRegistry::all()[0]->id());
   loadBrand();
 
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
@@ -114,9 +134,12 @@ int main(int argc, char** argv) {
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-  const int winW = shotMode ? 1600 : 1440, winH = shotMode ? 900 : 860;
-  SDL_Window* window = SDL_CreateWindow("Rensga Editor", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, winW, winH,
-                                        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
+  Mode startMode = !projectDir.empty() ? Mode::Editor : (noSplash || (shotMode && !splashOnly)) ? Mode::Picker : Mode::Splash;
+  int winW, winH;
+  modeSize(startMode, shotMode, winW, winH);
+  Uint32 wflags = SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI;
+  if (startMode == Mode::Splash) wflags |= SDL_WINDOW_BORDERLESS; else wflags |= SDL_WINDOW_RESIZABLE;
+  SDL_Window* window = SDL_CreateWindow("Rensga Engine", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, winW, winH, wflags);
   if (!window) { std::fprintf(stderr, "window failed: %s\n", SDL_GetError()); return 1; }
   if (SDL_Surface* icon = makePequiIcon(64)) { SDL_SetWindowIcon(window, icon); SDL_FreeSurface(icon); }
   SDL_GLContext gl = SDL_GL_CreateContext(window);
@@ -135,8 +158,23 @@ int main(int argc, char** argv) {
   ImGui_ImplSDL2_InitForOpenGL(window, gl);
   ImGui_ImplOpenGL3_Init("#version 330 core");
 
-  if (!app.renderer.init()) log.error("scene renderer failed to initialise");
   app.persistLayout = !shotMode;
+  app.hub.mode = startMode;
+  // Initialisation steps; the splash runs one per frame and shows what it is doing.
+  static const char* const kSteps[] = {"Loading fonts and palette", "Registering console targets", "Preparing the renderer",
+                                       "Reading settings and templates", "Ready"};
+  auto runStep = [&](int i) {
+    if (i == 1) {
+      for (TargetModule* m : TargetRegistry::all()) log.info("target available: " + std::string(m->id()));
+      if (!TargetRegistry::all().empty()) app.target = std::string(TargetRegistry::all()[0]->id());
+    } else if (i == 2) {
+      if (!app.renderer.init()) log.error("scene renderer failed to initialise");
+    } else if (i == 3) {
+      hubInit(app, configDir);
+    }
+  };
+  if (startMode != Mode::Splash) for (int i = 0; i < 4; ++i) runStep(i);
+  app.hub.initStep = startMode == Mode::Splash ? 0 : 4;
 #if defined(RENSGA_EDITOR_BUILD_DIR) && defined(RENSGA_EDITOR_PROJECT_DIR)
   app.scripts.buildDir = RENSGA_EDITOR_BUILD_DIR;
   app.scripts.compiledProject = RENSGA_EDITOR_PROJECT_DIR;
@@ -144,7 +182,7 @@ int main(int argc, char** argv) {
   app.scripts.enabled = autoRebuild == 1 || (autoRebuild == -1 && !shotMode && !selfEc);
 #endif
   if (!projectDir.empty()) {
-    app.openProject(projectDir);
+    if (app.openProject(projectDir) && !shotMode) hubNoteOpened(app);
     if (restoreState) {
       restoreReloadState(app);
       if (restoreState && app.doc.loaded() && !app.restoreFocus.empty()) focusName = app.restoreFocus;
@@ -163,9 +201,12 @@ int main(int argc, char** argv) {
   std::string focusedPanel;
   int exitCode = 0, frame = 0;
   std::string lastTitle;
+  bool skipSplash = false;
   while (running) {
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
+      if (app.hub.mode == Mode::Splash && (ev.type == SDL_MOUSEBUTTONDOWN || (ev.type == SDL_KEYDOWN && ev.key.keysym.sym == SDLK_ESCAPE)))
+        skipSplash = true;
       ImGui_ImplSDL2_ProcessEvent(&ev);
       if (ev.type == SDL_QUIT) running = false;
       if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) scriptsOnFocus(app);
@@ -204,12 +245,42 @@ int main(int argc, char** argv) {
       exitCode = 1;
       running = false;
     }
-    if (!app.pendingProject.empty()) {
+    // Splash: min 1.8 s, max 4 s, click/Esc skips; --splash-only (screenshots) stays until the shot.
+    if (app.hub.mode == Mode::Splash) {
+      const bool initDone = app.hub.initStep >= 4;
+      if (!splashOnly && ((initDone && t >= 1.8 && !shotMode) || t >= 4.0 || (skipSplash && initDone))) {
+        app.hub.mode = Mode::Picker;
+        applyMode(window, Mode::Picker, shotMode);
+        app.hub.status.clear();
+      }
+    }
+    if (app.hub.goPicker && app.hub.mode == Mode::Editor) {
       saveLayout(app);
       app.saveCamera();
+      app.play.stop();
+      app.play.pump();
+      app.loaded = false;
+      app.hub.mode = Mode::Picker;
+      app.hub.rescan = true;
+      app.hub.error.clear();
+      applyMode(window, Mode::Picker, shotMode);
+    }
+    app.hub.goPicker = false;
+    if (!app.pendingProject.empty()) {
+      if (app.loaded) { saveLayout(app); app.saveCamera(); }
       std::string dir = std::move(app.pendingProject);
       app.pendingProject.clear();
-      app.openProject(dir);
+      if (app.openProject(dir)) {
+        if (!shotMode) hubNoteOpened(app);
+        app.hub.error.clear();
+        if (app.hub.mode != Mode::Editor) { app.hub.mode = Mode::Editor; applyMode(window, Mode::Editor, shotMode); }
+      } else {
+        app.hub.error = "Cannot open " + dir + " (see the Console log).";
+      }
+    }
+    if (!app.pendingLayout.empty()) {
+      ImGui::LoadIniSettingsFromDisk(app.pendingLayout.c_str());
+      app.pendingLayout.clear();
     }
 
     ImGui_ImplOpenGL3_NewFrame();
@@ -220,7 +291,8 @@ int main(int argc, char** argv) {
       size_t c = e.find(':');
       const std::string act = e.substr(0, c), arg = c == std::string::npos ? std::string() : e.substr(c + 1);
       // test hooks that run the same code paths as the UI
-      if (act == "script") createScriptAction(app, arg);                       // Create > C++ Script
+      if (hubHook(app, act, arg)) {}
+      else if (act == "script") createScriptAction(app, arg);                       // Create > C++ Script
       else if (act == "focus") scriptsOnFocus(app);                            // window focus gained
       else if (act == "save") app.saveScene();
       else if (act == "play") doPlay(app);
@@ -240,16 +312,25 @@ int main(int argc, char** argv) {
     if (!focusName.empty() && frame == 3 && !shotMode) ImGui::SetWindowFocus(focusName.c_str());
     ImGui::NewFrame();
     ImGuizmo::BeginFrame();
-    drawMenuBar(app);
-    drawToolbar(app);
-    drawDockSpaceAndLayout(app);
-    drawHierarchy(app);
-    drawSceneView(app);
-    drawGameView(app);
-    drawInspector(app);
-    drawProjectPanel(app);
-    drawConsole(app);
-    drawDialogs(app);
+    if (app.hub.mode == Mode::Splash) {
+      app.hub.status = kSteps[std::min(app.hub.initStep, 4)];
+      app.hub.progress = std::min(1.0f, (app.hub.initStep / 4.0f) * 0.6f + 0.4f * std::min(1.0f, static_cast<float>(t) / 1.8f));
+      drawSplashUi(app, static_cast<float>(t));
+    } else if (app.hub.mode == Mode::Picker) {
+      drawPicker(app);
+    } else {
+      drawMenuBar(app);
+      drawToolbar(app);
+      drawDockSpaceAndLayout(app);
+      drawHierarchy(app);
+      drawSceneView(app);
+      drawGameView(app);
+      drawInspector(app);
+      drawProjectPanel(app);
+      drawConsole(app);
+      drawDialogs(app);
+    }
+    if (app.hub.mode != Mode::Splash) drawCreateDialogs(app);
     if (shotMode && !focusName.empty() && frame == shotFrames / 2) ImGui::SetWindowFocus(focusName.c_str());
     if (ImGuiWindow* nw = ImGui::GetCurrentContext()->NavWindow) {
       static const char* const kPanels[] = {"Hierarchy", "Inspector", "Project", "Console", "Scene", "Game"};
@@ -263,8 +344,10 @@ int main(int argc, char** argv) {
     ImVec4 bg = brandToken("bg");
     glClearColor(bg.x, bg.y, bg.z, 1);
     glClear(GL_COLOR_BUFFER_BIT);
+    if (app.hub.mode == Mode::Splash) drawSplashBackground(shotMode ? frame * 0.05f : static_cast<float>(t), w, h);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     ++frame;
+    if (app.hub.mode == Mode::Splash && app.hub.initStep < 4 && frame >= 1) runStep(app.hub.initStep++);
     if (shotMode && frame >= shotFrames) {
       if (writeScreenshotPng(shotFile.c_str(), w, h)) std::printf("screenshot: %s (%dx%d, %d frames)\n", shotFile.c_str(), w, h, frame);
       else { std::fprintf(stderr, "screenshot failed: %s\n", shotFile.c_str()); exitCode = 1; }
@@ -273,12 +356,13 @@ int main(int argc, char** argv) {
     SDL_GL_SwapWindow(window);
 
     if (io.WantSaveIniSettings) { saveLayout(app); io.WantSaveIniSettings = false; }
-    std::string title = "Rensga Editor";
-    if (app.loaded) title += " - " + app.project.name;
+    std::string title = "Rensga Engine";
+    if (app.hub.mode == Mode::Editor && app.loaded) title += " - " + app.project.name;
     if (app.doc.loaded()) title += " - " + app.doc.path().stem().string() + (app.doc.dirty() ? "*" : "");
     if (title != lastTitle) { SDL_SetWindowTitle(window, title.c_str()); lastTitle = title; }
   }
 
+  const std::string restartProject = app.project.root.string();
   if (!restartNow) saveLayout(app);
   app.saveCamera();
   app.play.stop();
@@ -290,8 +374,15 @@ int main(int argc, char** argv) {
   SDL_DestroyWindow(window);
   SDL_Quit();
   if (restartNow) {  // the rebuilt editor takes over this process; the saved state brings the session back
+    std::vector<std::string> args;  // re-open the project that was open (it may have come from the picker)
+    for (size_t i = 0; i < restartArgs.size(); ++i) {
+      if (restartArgs[i] == "--project" && i + 1 < restartArgs.size()) { ++i; continue; }
+      args.push_back(restartArgs[i]);
+    }
+    args.push_back("--project");
+    args.push_back(restartProject);
     std::vector<char*> av;
-    for (std::string& a : restartArgs) av.push_back(a.data());
+    for (std::string& a : args) av.push_back(a.data());
     av.push_back(nullptr);
     std::fflush(nullptr);
     execv(selfExe.c_str(), av.data());

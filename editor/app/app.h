@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "rensga/editor/hub.h"
 #include "rensga/editor/play_controller.h"
 #include "rensga/editor/project.h"
 #include "rensga/editor/script_assets.h"
@@ -65,7 +66,34 @@ struct ScriptState {
   std::string newScriptError;
 };
 
+// Startup flow (F1.03): splash -> project picker -> editor. One SDL window changes size/borders per mode.
+enum class Mode { Splash, Picker, Editor };
+struct HubState {
+  Mode mode = Mode::Editor;
+  HubSettings settings;
+  HubData data;
+  std::vector<ProjectEntry> entries;
+  int sel = -1;
+  bool rescan = true;
+  bool goPicker = false;            // request: leave the editor for the picker (handled between frames)
+  std::string error;                // last picker error line
+  // Create Project dialog
+  bool openCreate = false;
+  char name[96] = {};
+  int api = -1, build = 0;
+  std::string createError;
+  // Projects path dialog
+  bool openChange = false;
+  char pathBuf[512] = {};
+  std::string pathError;
+  // Splash
+  int initStep = 0;
+  std::string status;
+  float progress = 0;
+};
+
 struct App {
+  HubState hub;
   Project project;
   bool loaded = false;
   SceneDocument doc;
@@ -92,6 +120,9 @@ struct App {
   char openPath[512] = {};
   std::string pendingProject;     // handled between frames
   bool quitRequested = false;
+  std::string pendingLayout;      // layout .ini to load between frames (Window > Layouts)
+  bool openSaveLayout = false;
+  char layoutName[64] = {};
   ScriptState scripts;
   std::string restoreFocus;       // window to focus after a restart
   bool restoredPlayAfter = false;
@@ -157,6 +188,16 @@ void drawProjectPanel(App& a);
 void drawSceneView(App& a);
 void drawGameView(App& a);
 void drawDialogs(App& a);
+
+// hub (panels/hub.cpp): splash, project picker, create project
+void hubInit(App& a, const std::string& homeOverride);       // settings, hub data, templates
+void hubNoteOpened(App& a);                                   // stamp the open project as last opened
+void drawSplashBackground(float t, int w, int h);             // GLSL 3.3 grid, before ImGui renders
+void drawSplashUi(App& a, float t);                            // lockup, version, status, progress (inside an ImGui frame)
+void drawPicker(App& a);
+void drawCreateDialogs(App& a);                                // Create Project + projects path popups (any mode)
+bool hubHook(App& a, const std::string& act, const std::string& arg);  // --ui-event hub-*
+void drawSaveLayoutDialog(App& a);
 
 // layout
 ImGuiID dockSpaceId();

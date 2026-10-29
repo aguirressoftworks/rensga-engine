@@ -6,11 +6,12 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RENSGA_PALETTE_
 add_executable(rensga-editor
   main.cpp theme.cpp screenshot.cpp render/scene_renderer.cpp
   panels/actions.cpp panels/layout.cpp panels/menus.cpp panels/toolbar.cpp panels/hierarchy.cpp panels/inspector.cpp
-  panels/scripts.cpp panels/console.cpp panels/project_panel.cpp panels/scene_view.cpp panels/game_view.cpp
+  panels/scripts.cpp panels/hub.cpp panels/console.cpp panels/project_panel.cpp panels/scene_view.cpp panels/game_view.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/brand_palette.cpp)
 target_include_directories(rensga-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(rensga-editor SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party/stb)
-target_compile_definitions(rensga-editor PRIVATE RENSGA_FONT_DIR="${CMAKE_SOURCE_DIR}/third_party/fonts")
+target_compile_definitions(rensga-editor PRIVATE RENSGA_FONT_DIR="${CMAKE_SOURCE_DIR}/third_party/fonts"
+  RENSGA_SOURCE_DIR="${CMAKE_SOURCE_DIR}" RENSGA_VERSION="${PROJECT_VERSION}")
 # The build tree this editor came from: script changes rebuild it (MVP-57).
 target_compile_definitions(rensga-editor PRIVATE
   RENSGA_EDITOR_BUILD_DIR="${CMAKE_BINARY_DIR}" RENSGA_EDITOR_CMAKE="${CMAKE_COMMAND}"

@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "note": "Project hub data: which target APIs and build targets the Create Project dialog offers. An API is also selectable only when templates/<id>/ exists.",
+  "apis": [
+    { "id": "psx", "available": false },
+    { "id": "psp", "available": true },
+    { "id": "ps2", "available": false }
+  ],
+  "buildTargets": [
+    { "id": "console", "label": "Console", "available": true },
+    { "id": "windows", "label": "Windows", "available": false },
+    { "id": "linux", "label": "Linux", "available": false },
+    { "id": "android", "label": "Android", "available": false }
+  ]
+}

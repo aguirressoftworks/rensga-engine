@@ -1,12 +1,17 @@
 #include <imgui_internal.h>
 
+#include <algorithm>
 #include <cstring>
+#include <filesystem>
+#include <vector>
 
 #include "app.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
 namespace editor {
+
+namespace fs = std::filesystem;
 
 bool App::saveScene() {
   if (!doc.loaded()) return false;
@@ -33,7 +38,8 @@ void drawMenuBar(App& a) {
   if (!ImGui::BeginMainMenuBar()) return;
   const bool hasSel = !a.doc.selected().empty();
   if (ImGui::BeginMenu("File")) {
-    if (ImGui::MenuItem("Open Project...")) { a.openProjectDialog = true; }
+    if (ImGui::MenuItem("New Project...")) a.hub.openCreate = true;
+    if (ImGui::MenuItem("Open Project...")) a.hub.goPicker = true;
     if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, a.doc.loaded())) a.saveScene();
     ImGui::Separator();
     if (ImGui::MenuItem("Quit")) a.quitRequested = true;
@@ -57,6 +63,19 @@ void drawMenuBar(App& a) {
     ImGui::EndMenu();
   }
   if (ImGui::BeginMenu("Window")) {
+    if (ImGui::BeginMenu("Layouts")) {
+      if (ImGui::MenuItem("Default")) a.resetLayout = true;
+      std::error_code ec;
+      std::vector<std::string> names;
+      for (fs::directory_iterator it(a.project.root / "Library" / "Editor" / "layouts", ec), end; !ec && it != end; it.increment(ec))
+        if (it->path().extension() == ".ini") names.push_back(it->path().stem().string());
+      std::sort(names.begin(), names.end());
+      for (const std::string& n : names)
+        if (ImGui::MenuItem(n.c_str())) a.pendingLayout = (a.project.root / "Library" / "Editor" / "layouts" / (n + ".ini")).string();
+      ImGui::Separator();
+      if (ImGui::MenuItem("Save Layout As...")) a.openSaveLayout = true;
+      ImGui::EndMenu();
+    }
     if (ImGui::MenuItem("Reset Layout")) a.resetLayout = true;
     ImGui::EndMenu();
   }
@@ -70,7 +89,6 @@ void drawMenuBar(App& a) {
 void drawDialogs(App& a) {
   drawScriptDialogs(a);
   if (a.openAbout) { ImGui::OpenPopup("About Rensga Engine"); a.openAbout = false; }
-  if (a.openProjectDialog) { ImGui::OpenPopup("Open Project"); a.openProjectDialog = false; }
   ImVec2 c = ImGui::GetMainViewport()->GetCenter();
   ImGui::SetNextWindowPos(c, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
   if (ImGui::BeginPopupModal("About Rensga Engine", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -88,20 +106,7 @@ void drawDialogs(App& a) {
     if (ImGui::Button("Close", ImVec2(96, 0))) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
   }
-  ImGui::SetNextWindowPos(c, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-  if (ImGui::BeginPopupModal("Open Project", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-    ImGui::TextUnformatted("Project folder (contains ProjectSettings/ and Assets/)");
-    ImGui::SetNextItemWidth(520);
-    bool enter = ImGui::InputText("##path", a.openPath, sizeof a.openPath, ImGuiInputTextFlags_EnterReturnsTrue);
-    if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere(-1);
-    if (enter || ImGui::Button("Open", ImVec2(96, 0))) {
-      if (a.openPath[0]) a.pendingProject = a.openPath;
-      ImGui::CloseCurrentPopup();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Cancel", ImVec2(96, 0))) ImGui::CloseCurrentPopup();
-    ImGui::EndPopup();
-  }
+  drawSaveLayoutDialog(a);
 }
 
 }  // namespace editor
