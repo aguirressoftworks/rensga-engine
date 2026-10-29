@@ -2,6 +2,7 @@
 // a console; each console is a TargetModule in editor/targets/<console> that self-registers.
 // No ImGui here: the CLI uses it too.
 #pragma once
+#include <atomic>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -23,6 +24,8 @@ struct BuildContext {
   std::filesystem::path buildDir;    // Library/Build/<target>-dev or -release
   bool release = false;
   int quitAfterSeconds = 0;
+  std::filesystem::path generatedDir;       // Library/Generated/<target>/ (console_target.gen.h)
+  const std::atomic<bool>* cancel = nullptr;  // set by Session::stop(); long steps poll it
 };
 
 struct PreviewRules {  // viewport rules from the ConsoleTarget
@@ -37,7 +40,7 @@ struct InspectorRules {
 class TargetModule {
  public:
   virtual ~TargetModule() = default;
-  virtual std::string_view id() const = 0;           // "psp"
+  virtual std::string_view id() const = 0;           // short target id
   virtual std::string_view displayName() const = 0;  // "PlayStation Portable"
   virtual ICookerFormatPlugin& cookerPlugin() = 0;
   virtual PreviewRules previewRules() const = 0;

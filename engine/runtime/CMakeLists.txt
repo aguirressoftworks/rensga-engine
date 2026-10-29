@@ -21,6 +21,17 @@ if(RENSGA_TARGET STREQUAL "psp")
     add_custom_command(TARGET rensga_game POST_BUILD
       COMMAND "$ENV{PSPDEV}/bin/psp-fixup-imports" "$<TARGET_FILE:rensga_game>"
       COMMENT "psp-fixup-imports rensga_game")
+    # Release: link as a PRX module (packaged into EBOOT.PBP by the pipeline's Package stage).
+    option(RENSGA_PSP_PRX "Link rensga_game as a PRX and generate rensga_game.elf.prx" OFF)
+    if(RENSGA_PSP_PRX)
+      target_link_options(rensga_game PRIVATE
+        -specs=$ENV{PSPDEV}/psp/sdk/lib/prxspecs
+        -Wl,-T$ENV{PSPDEV}/psp/sdk/lib/linkfile.prx
+        $ENV{PSPDEV}/psp/sdk/lib/prxexports.o)
+      add_custom_command(TARGET rensga_game POST_BUILD
+        COMMAND "$ENV{PSPDEV}/bin/psp-prxgen" "$<TARGET_FILE:rensga_game>" "$<TARGET_FILE:rensga_game>.prx"
+        COMMENT "psp-prxgen rensga_game")
+    endif()
   endif()
 else()
   # Linux-host simulation: null backends + stdio file system, no window.

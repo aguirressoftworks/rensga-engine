@@ -25,6 +25,7 @@ struct BuildRequest {
   bool release = false;
   bool launch = false;
   int quitAfterSeconds = 0;  // 0 = run until closed
+  Stage lastStage = Stage::Launch;  // stop after this stage (validate/cook/build commands)
 };
 
 using EventSink = std::function<void(const Event&)>;
@@ -39,8 +40,9 @@ class Session {
   Session(const Session&) = delete;
   Session& operator=(const Session&) = delete;
 
-  // Runs the stages for the request, reporting every event. Returns true if all stages that ran
-  // succeeded. Foundation stub: emits one Failed event "not implemented".
+  // Runs Validate -> Cook -> Compile -> Package -> Launch (up to request.lastStage; Launch only if
+  // request.launch). Returns true if all stages that ran succeeded. After a successful Launch the
+  // emulator keeps running: poll running() and drainGameLog().
   bool run(const BuildRequest& request, EventSink sink);
   void stop();                 // stops the launched emulator / cancels a running build
   bool running() const;
