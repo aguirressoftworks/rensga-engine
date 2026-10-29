@@ -6,7 +6,7 @@ Open-source (MIT) engine, editor and Unity-style C++ API for making new games th
 
 The icon is a pequi fruit, from the cerrado of Goiás, Brazil.
 
-> **Status: Step 1 MVP.** A 3D primitive-character PSP game builds and boots in PPSSPP from `rensga play --target psp templates/psp` and from the minimal editor's Play button. See TASKLIST.md and AGENTS.md for commands. The rest of the suite is still planned.
+> **Status: Step 1 MVP.** A 3D primitive-character PSP game builds and boots in PPSSPP from `rensga play --target psp templates/psp` and from the minimal editor's Play button. See TASKLIST.md and AGENTS.md for commands (CMake presets, `tools/docker/*.sh` toolchain wrappers, `tools/ci/run_local.sh` to run all CI jobs locally). The rest of the suite is still planned.
 
 ## What it will be
 

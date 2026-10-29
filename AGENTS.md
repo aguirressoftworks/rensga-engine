@@ -36,6 +36,9 @@ build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after
 xvfb-run -a -s "-screen 0 1600x900x24" build/host/editor/app/rensga-editor --project templates/psp --screenshot out.png [--screenshot-frames N] [--select <object>] [--ui-event click|rclick|move:x,y|script:Name|focus|create:cube|select:Name|addscript:Name|save ...]   # editor PNG, never opens a window on the desktop
 tools/emulators/screenshot.sh                       # PPSSPP screenshot into docs/rensga-engine/mvp/ (needs a prior cook)
 tools/check_editor_core.sh                                                # editor/core must not name a console
+tools/check_api_rules.sh                                                  # API design rules (docs/rensga-engine/api-rules.md)
+cmake --preset psp|windows|android|ps2 -B build/<x>                       # cross builds; run via tools/docker/{psp,windows,android,ps2}.sh (pinned images, sg docker fallback)
+tools/ci/run_local.sh                                                     # every CI job locally (linux-host, psp + headless + GPU check, windows, android, ps2 + ISO)
 ```
 
 Docs:
