@@ -1,0 +1,3205 @@
+[
+  {
+    "group": "Shared",
+    "slug": "engine",
+    "title": "Engine: shared core + PS2",
+    "summary": "C++17 engine that builds the same game for PS2, Windows, Linux and Android. Later roadmaps turn phases 0-6 into the shared core for every console.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~36 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "10"
+      },
+      {
+        "label": "targets",
+        "value": "PS2 · Win · Linux · Android"
+      }
+    ],
+    "legend": [
+      "foundation",
+      "2D game on all targets",
+      "3D and release"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "Toolchain and build matrix",
+        "subtitle": "One CMake repo, four targets, CI green",
+        "estimate": "2 wk",
+        "note": "ps2dev Docker image for the EE toolchain, CMake presets per target, SDL2 linked on all four. Output: ELF + ISO for PCSX2, exe, Linux binary, APK. CI builds every target on each push so the PS2 build never silently rots.",
+        "topics": [
+          {
+            "label": "CMake presets per target",
+            "prompt": "Set up a CMake project with presets for PS2 (ps2dev Docker toolchain), Windows, Linux and Android, all linking SDL2. Show the CMakePresets.json and folder layout"
+          },
+          {
+            "label": "ELF, ISO and PCSX2 host:",
+            "prompt": "Explain the PS2 boot chain for homebrew: ELF, SYSTEM.CNF, building a bootable ISO, and running it in PCSX2 with the host filesystem for fast iteration"
+          },
+          {
+            "label": "Android Gradle wrapper",
+            "prompt": "Wrap my CMake engine in a minimal Android Gradle project using SDL2 SDLActivity and the NDK. Show the gradle files and how assets get packaged"
+          },
+          {
+            "label": "CI for all targets",
+            "prompt": "Write a GitHub Actions workflow that builds my engine for PS2 using the ps2dev Docker image, plus Windows, Linux and Android, and uploads the artifacts"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "same main.cpp on 4 targets",
+            "prompt": "Guide me through an exercise: a clear-color hello world that runs on PS2 in PCSX2, Windows, Linux and Android from the same main.cpp"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Core and platform layer",
+        "subtitle": "Loop, memory, input, files, logging",
+        "estimate": "3 wk",
+        "note": "Fixed-timestep loop, arena and pool allocators with a hard memory budget per target (PS2: 32 MB total, shared with code and IOP buffers). Input mapped to one virtual gamepad. File paths abstracted: cdrom0:/host:/mass: on PS2, asset folder on PC, APK assets on Android. All math in float.",
+        "topics": [
+          {
+            "label": "fixed timestep, NTSC vs PAL",
+            "prompt": "Design a fixed timestep game loop with interpolated rendering that works at 60 Hz NTSC and 50 Hz PAL on PS2 and at any refresh rate on PC and Android"
+          },
+          {
+            "label": "allocators and memory budget",
+            "prompt": "Design arena, pool and frame allocators in C++17 for an engine with a strict PS2 memory budget, including 16-byte alignment for DMA"
+          },
+          {
+            "label": "virtual gamepad input",
+            "prompt": "Design a virtual gamepad input layer over SDL2 that maps the PS2 DualShock, PC keyboard and gamepad, and Android touch controls to the same actions"
+          },
+          {
+            "label": "file system abstraction",
+            "prompt": "Design a file system abstraction for PS2 (cdrom0, host, mass), desktop and Android APK assets using SDL_RWops, read-only plus save data"
+          },
+          {
+            "label": "EE, IOP and IRX modules",
+            "prompt": "Explain the PS2 EE vs IOP split, IRX modules, and which IOP modules my engine needs to load for pad, audio, USB and CD access"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "memory and frame overlay",
+            "prompt": "Give me an exercise: an on-screen memory and frame-time overlay that reports allocator usage on all four targets"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 2,
+        "title": "2D renderer",
+        "subtitle": "gsKit backend + GL/GLES backend",
+        "estimate": "4 wk",
+        "note": "High-level renderer interface (sprites, tilemaps, text, rects), two backends behind it. Fixed virtual resolution 640x448 scaled on PC and Android. PS2 side needs a VRAM manager: framebuffers eat most of the 4 MB, textures are uploaded per frame as needed.",
+        "topics": [
+          {
+            "label": "renderer interface",
+            "prompt": "Design a high-level 2D renderer interface in C++17 with a gsKit backend for PS2 and an OpenGL 3.3 / GLES 3.0 backend for PC and Android"
+          },
+          {
+            "label": "GS VRAM manager",
+            "prompt": "Explain PS2 GS VRAM layout for a 640x448 game: framebuffers, z-buffer, texture area, CLUTs, and how to write a simple VRAM texture manager with gsKit"
+          },
+          {
+            "label": "GL sprite batcher",
+            "prompt": "Write a batched sprite renderer for OpenGL 3.3 and GLES 3.0 sharing one code path, with a virtual resolution and integer scaling"
+          },
+          {
+            "label": "interlace and video modes",
+            "prompt": "Explain interlaced vs progressive output on PS2, field vs frame rendering, and which mode to use for a 2D homebrew game"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "1000 sprites stress test",
+            "prompt": "Give me an exercise: render 1000 moving sprites from a texture atlas plus a bitmap font on PS2 and PC, and compare frame times"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "Asset pipeline",
+        "subtitle": "C++ cooker, per-target formats, pack files",
+        "estimate": "3 wk",
+        "note": "Host tool built in the same CMake tree. Source assets (PNG, WAV, glTF, JSON) cooked into one pack file per target. PS2 gets 4/8-bit paletted textures and smaller audio; PC and Android get RGBA. Runtime loads packs with zero parsing.",
+        "topics": [
+          {
+            "label": "cooker architecture",
+            "prompt": "Design a C++ asset cooker host tool that converts PNG, WAV and glTF into per-target binary formats and packs them, built in the same CMake tree as the engine"
+          },
+          {
+            "label": "CLUT quantization",
+            "prompt": "Explain color quantization of PNGs to 4-bit and 8-bit palettes for PS2 CLUT textures, including CSM1 palette ordering"
+          },
+          {
+            "label": "pack file format",
+            "prompt": "Design a binary pack file format with a table of contents, alignment and versioning that can be loaded with a single read on PS2 and memory-mapped on PC"
+          },
+          {
+            "label": "hot reload on desktop",
+            "prompt": "Add hot reload of cooked assets to my engine on desktop builds only, without affecting the PS2 build"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "cook and load a tileset",
+            "prompt": "Give me an exercise: cook a tileset and sprite sheet for both PS2 and PC, then load them from the pack and draw a test level"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 2,
+        "title": "Audio",
+        "subtitle": "Own software mixer on SDL audio",
+        "estimate": "2 wk",
+        "note": "One mixer, same code everywhere: N voices, volume/pan, looping, streamed music from disc. Fixed voice count and sample rate tuned for the EE's CPU budget.",
+        "topics": [
+          {
+            "label": "software mixer",
+            "prompt": "Write a fixed-point or float software audio mixer in C++17 on top of SDL2 audio with voices, pan, volume and looping, cheap enough for the PS2 EE"
+          },
+          {
+            "label": "music streaming",
+            "prompt": "Explain streaming music from disc on PS2 with double buffering so audio never stutters during level loads"
+          },
+          {
+            "label": "SPU2 vs software mixing",
+            "prompt": "Compare mixing on the EE through SDL audio vs using the PS2 SPU2 hardware voices directly, and when switching is worth it"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "16-voice stress test",
+            "prompt": "Give me an exercise: play looping music plus 16 overlapping sound effects on PS2 and measure the CPU cost"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 2,
+        "title": "Gameplay framework",
+        "subtitle": "Entities, collision, animation, saves, UI",
+        "estimate": "3 wk",
+        "note": "Data-oriented entity storage, AABB collision with tilemaps, sprite animation, scenes. Saves go to the memory card (mc0:) on PS2 and to files elsewhere, behind one interface.",
+        "topics": [
+          {
+            "label": "DOD entity storage",
+            "prompt": "Design a simple data-oriented entity system in C++17 with fixed-capacity arrays, no heap allocation per frame, suitable for PS2"
+          },
+          {
+            "label": "tilemap collision",
+            "prompt": "Implement swept AABB collision against tilemaps for a 2D platformer, with slopes and one-way platforms"
+          },
+          {
+            "label": "memory card saves",
+            "prompt": "Explain PS2 memory card saves: libmc, icon.sys, save icons, directory layout, and a save interface that also works with files on PC and Android"
+          },
+          {
+            "label": "scenes and UI",
+            "prompt": "Design a scene stack and minimal UI system (menus, pause, text boxes) driven by the virtual gamepad"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "one-room platformer",
+            "prompt": "Give me an exercise: a single-screen platformer room with a player, two enemies and a save point that works on all four targets"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 2,
+        "title": "2D vertical slice on all targets",
+        "subtitle": "A small real game, shipped four ways",
+        "estimate": "4 wk",
+        "note": "Proves the whole engine before 3D. Includes testing on a real PS2 through OPL or FreeMcBoot, since emulators hide timing and memory bugs. Profile on PS2 first; the other targets will be fine.",
+        "topics": [
+          {
+            "label": "scope the slice",
+            "prompt": "Scope a 2D vertical slice game that exercises every engine system and fits in 4 weeks part-time"
+          },
+          {
+            "label": "real hardware testing",
+            "prompt": "How do I test PS2 homebrew on real hardware with OPL, FreeMcBoot or ps2link, and what bugs typically appear on hardware but not in PCSX2"
+          },
+          {
+            "label": "PS2 profiling",
+            "prompt": "How do I profile CPU and DMA time on PS2 homebrew, and what are the usual bottlenecks in a 2D game"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "cross-target QA pass",
+            "prompt": "Give me a cross-target QA checklist for my 2D slice: PS2 ISO in PCSX2 and real hardware, Windows, Linux and Android"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 3,
+        "title": "3D renderer",
+        "subtitle": "ps2gl backend + matching GL look",
+        "estimate": "8 wk",
+        "note": "Meshes from glTF via the cooker (strips, quantized verts), camera, frustum culling, per-vertex lighting and fog. ps2gl gives VU1-accelerated transform without writing microcode. The GL backend deliberately mimics the PS2 look so both builds match.",
+        "topics": [
+          {
+            "label": "ps2gl integration",
+            "prompt": "Integrate ps2gl into my engine as the PS2 3D backend: setup, display lists, texture management and how it uses VU1"
+          },
+          {
+            "label": "VU1, VIF, GIF and DMA",
+            "prompt": "Explain the PS2 rendering paths (PATH1, PATH2, PATH3), VIF, GIF and DMA chains, and how a VU1 renderer feeds the GS"
+          },
+          {
+            "label": "PS2 look in GLES",
+            "prompt": "Write GLES 3.0 shaders that mimic PS2 rendering: per-vertex Gouraud lighting, fog, alpha blend modes and no per-pixel effects"
+          },
+          {
+            "label": "mesh cooking for PS2",
+            "prompt": "Design a mesh format and cooker step for PS2: triangle strips, vertex quantization and splitting meshes to fit VU1 memory batches"
+          },
+          {
+            "label": "3D texture streaming",
+            "prompt": "Explain texture streaming into the 4 MB GS VRAM during a 3D frame and how to sort draws to minimize uploads"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "lit 3D room on both",
+            "prompt": "Give me an exercise: a lit, fogged 3D room with a free camera rendered identically on PS2 and PC, with polygon count and frame time on screen"
+          }
+        ]
+      },
+      {
+        "number": "8",
+        "group": 3,
+        "title": "3D gameplay and performance",
+        "subtitle": "Characters, physics, animation, budgets",
+        "estimate": "5 wk",
+        "note": "Third-person controller, capsule vs triangle collision, skinned animation (CPU first, VU0 later if needed). Per-scene budgets for polygons, textures and memory enforced by the cooker.",
+        "topics": [
+          {
+            "label": "character controller",
+            "prompt": "Implement a third-person character controller with capsule vs triangle mesh collision, suitable for a 300 MHz PS2 CPU"
+          },
+          {
+            "label": "skinned animation",
+            "prompt": "Implement skeletal animation with CPU skinning on PS2 and when moving it to VU0 or VU1 is worth it"
+          },
+          {
+            "label": "scene budgets",
+            "prompt": "Define realistic per-scene budgets for polygons, textures, draw calls and memory for a PS2 homebrew 3D game, and enforce them in the cooker"
+          },
+          {
+            "label": "custom VU1 later",
+            "prompt": "When should I replace ps2gl with my own VU1 microcode renderer, and how would I start with openvcl"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "30 fps 3D level",
+            "prompt": "Give me an exercise: an animated character running around a 3D level at a stable 30 fps on PS2"
+          }
+        ]
+      },
+      {
+        "number": "9",
+        "group": 3,
+        "title": "Ship",
+        "subtitle": "Packaging, open-source release, legal notes",
+        "estimate": "2 wk",
+        "note": "ISO for emulators and real hardware, Windows zip, Linux AppImage, Android APK. No BIOS bundled, no Sony logos, license files in every package. Players running the ISO in PCSX2 supply their own BIOS dump, so the native builds are the main audience.",
+        "topics": [
+          {
+            "label": "release checklist",
+            "prompt": "Give me a release checklist for my open source game with a PS2 ISO, Windows, Linux AppImage and Android builds"
+          },
+          {
+            "label": "PS2 homebrew legal notes",
+            "prompt": "What are the licensing rules for releasing open source PS2 homebrew made with PS2SDK: licenses, Sony trademarks, BIOS and how to word the release page"
+          },
+          {
+            "label": "Android release",
+            "prompt": "How do I release an SDL2 C++ game for Android as an open source project: APK signing, target SDK, controller and touch support"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "release candidate pass",
+            "prompt": "Guide me through a final release-candidate pass of my game on all four targets including real PS2 hardware"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "Shared",
+    "slug": "editor",
+    "title": "Editor",
+    "summary": "Unity-style editor in C++ (Dear ImGui on SDL2 + OpenGL). Users assemble scenes, write C++ Behaviour scripts and build a playable console image or PC build.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~52 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "14 + 0.5"
+      },
+      {
+        "label": "starts after",
+        "value": "engine phase 3"
+      }
+    ],
+    "legend": [
+      "editor core",
+      "Unity feature set",
+      "build, debug, extend"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "Editor shell and projects",
+        "subtitle": "Docking UI, project folders, console",
+        "estimate": "2 wk",
+        "note": "ImGui docking on SDL2 + GL, saved layouts. Project = Assets/, ProjectSettings/, Library/ (cache, never committed), like Unity. Project hub to create/open projects from templates; the new-project dialog asks for the ConsoleTarget template. Console window fed by the engine logger.",
+        "topics": [
+          {
+            "label": "ImGui docking shell",
+            "prompt": "Set up a Dear ImGui docking editor shell on SDL2 and OpenGL 3.3 in my C++17 engine repo, with saved layouts and a main menu bar"
+          },
+          {
+            "label": "project layout",
+            "prompt": "Design the project folder layout for my Unity-like editor: Assets, ProjectSettings, Library cache, and what goes in version control"
+          },
+          {
+            "label": "console window",
+            "prompt": "Build a console window like Unity: log levels, collapse duplicates, filter, and clickable file:line entries that open VS Code"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "project hub",
+            "prompt": "Give me an exercise: a project hub that creates a new project from a template folder and reopens recent projects"
+          }
+        ]
+      },
+      {
+        "number": "0.5",
+        "group": 1,
+        "title": "TargetModule interface",
+        "subtitle": "Console plug-in boundary",
+        "estimate": "2 wk",
+        "note": "Added when PSP joined. The plug-in a console registers: importers, cooker format plugin, preview rules, inspector rules, validator, packager and emulator launcher. Editor core never names a console.",
+        "topics": [
+          {
+            "label": "TargetModule design",
+            "prompt": "Design the TargetModule plugin interface for my editor: importers, preview rules, packager, emulator launcher and inspector rules"
+          },
+          {
+            "label": "keeping core console-free",
+            "prompt": "How do I keep my editor core free of console-specific code, and test that the TargetModule boundary holds as PSP, PS2 and PSX are added"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "dummy target module",
+            "prompt": "Give me an exercise: write a dummy TargetModule that only packages a zip, to prove the interface without touching editor core"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Reflection, serialization and undo",
+        "subtitle": "The backbone everything else needs",
+        "estimate": "4 wk",
+        "note": "C++ has no runtime reflection, so components declare fields with a macro and a small header-scanner tool generates type info at build time (the same idea as Unreal's header tool). That type info drives the inspector, JSON save/load, prefab overrides and the binary cooker. Every edit goes through a command stack for undo/redo.",
+        "topics": [
+          {
+            "label": "reflection via codegen",
+            "prompt": "Design a C++17 reflection system for components: field macros plus a header scanner codegen step in CMake, producing type info for inspector and serialization"
+          },
+          {
+            "label": "JSON serialization",
+            "prompt": "Design JSON scene and component serialization driven by reflection, with versioning and field renames that do not break old scenes"
+          },
+          {
+            "label": "undo and redo",
+            "prompt": "Design an undo redo command system for an editor, including grouping drags into one undo step and undo across property edits, reparenting and deletions"
+          },
+          {
+            "label": "GUIDs and references",
+            "prompt": "How should GUIDs and object references work in my editor so scenes reference assets and other objects safely, like Unity fileID and guid"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "round-trip a component",
+            "prompt": "Give me an exercise: reflect a Health component with int, float, bool, enum and asset reference fields, then round-trip it through JSON"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 1,
+        "title": "Scene, hierarchy and inspector",
+        "subtitle": "GameObjects, Transforms, gizmos",
+        "estimate": "4 wk",
+        "note": "GameObject + Component model with Transform parenting. Hierarchy with drag reparenting, inspector auto-built from reflection, Add Component search. Scene view with fly camera, grid, mouse picking and ImGuizmo move/rotate/scale.",
+        "topics": [
+          {
+            "label": "GameObject model",
+            "prompt": "Design a GameObject and Component model in C++17 for my engine that works in the editor and stays cheap at runtime on PS2"
+          },
+          {
+            "label": "hierarchy panel",
+            "prompt": "Build a hierarchy panel in ImGui with drag and drop reparenting, multi-select, rename, duplicate and delete, all undoable"
+          },
+          {
+            "label": "auto inspector",
+            "prompt": "Generate an inspector automatically from my reflection data in ImGui, with Add Component search and per-type property drawers"
+          },
+          {
+            "label": "scene view and gizmos",
+            "prompt": "Implement a scene view with Unity-style fly camera, grid, object picking via ID buffer, and ImGuizmo transform gizmos"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "save and reopen a scene",
+            "prompt": "Give me an exercise: build a small scene in the editor with nested objects, save it, reopen it and confirm everything matches"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 1,
+        "title": "Asset database and project window",
+        "subtitle": ".meta files, importers, VRAM map",
+        "estimate": "4 wk",
+        "note": "Every asset gets a .meta with its GUID and import settings stored per target, so renames and moves never break references. File watcher reimports on change. Importers reuse the cooker. A VRAM map panel shows framebuffers, texture pages and palettes per target.",
+        "topics": [
+          {
+            "label": "asset database",
+            "prompt": "Design an asset database with .meta files, GUIDs, import settings and a Library cache for my Unity-like editor, reusing my C++ cooker"
+          },
+          {
+            "label": "project window",
+            "prompt": "Build a project window in ImGui with folder tree, thumbnails, search, and drag and drop of assets into the scene and inspector fields"
+          },
+          {
+            "label": "per-target import settings",
+            "prompt": "Design texture, audio and model import settings for my editor with per-target overrides for PSX, PSP, PS2 and PC, like Unity platform overrides"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "import a texture",
+            "prompt": "Give me an exercise: drop a PNG into Assets, see it auto-import, change its PS2 palette depth and watch the preview update"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 1,
+        "title": "C++ scripting workflow",
+        "subtitle": "Behaviours, hot reload, compile errors",
+        "estimate": "5 wk",
+        "note": "Create > C++ Script makes a Behaviour from a template. Game code lives in its own library: the editor rebuilds and hot-reloads it on save. Reload works by serializing all scripted components, unloading the DLL, loading the new one and deserializing, so fields survive. Builds link the same code statically.",
+        "topics": [
+          {
+            "label": "Behaviour lifecycle",
+            "prompt": "Design a MonoBehaviour-like Behaviour base class in C++17 with Awake, Start, Update, FixedUpdate, OnDestroy and collision callbacks"
+          },
+          {
+            "label": "DLL hot reload",
+            "prompt": "Implement hot reload of a C++ game DLL in my editor on Windows and Linux, preserving component state via reflection serialize and deserialize"
+          },
+          {
+            "label": "compile from editor",
+            "prompt": "Make the editor invoke CMake to compile game scripts, parse compiler errors into the console and open the file at the line in VS Code"
+          },
+          {
+            "label": "Unity-style script API",
+            "prompt": "Design GetComponent, FindObjectOfType, Instantiate, Destroy and simple timers or coroutines in my C++ engine API, Unity-style"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "hot-reload a Rotator",
+            "prompt": "Give me an exercise: write a Rotator script with an exposed speed field, attach it, then change the code while the editor is open and watch it reload"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 1,
+        "title": "Play mode and Game view",
+        "subtitle": "Play, pause, step, revert, profile previews",
+        "estimate": "3 wk",
+        "note": "Pressing Play snapshots the scene to memory and runs it in the Game view; Stop restores the snapshot, exactly like Unity. Preview modes are per-profile plugins (PSX look, PSP 480x272, PS2 640x448) that warn when budgets are exceeded.",
+        "topics": [
+          {
+            "label": "play mode",
+            "prompt": "Implement Unity-style play mode in my editor: scene snapshot, play, pause, frame step, and full revert on stop"
+          },
+          {
+            "label": "profile preview modes",
+            "prompt": "Add per-profile preview modes to my editor Game view, with live warnings for VRAM, memory and polygon budgets"
+          },
+          {
+            "label": "keep play mode changes",
+            "prompt": "How do I edit values during play mode and optionally keep them after stopping, like copying component values in Unity"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "play and revert test",
+            "prompt": "Give me an exercise: play a scene, move objects and change fields during play, stop, and verify the scene reverted"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 2,
+        "title": "Prefabs",
+        "subtitle": "Instances, overrides, nesting, variants",
+        "estimate": "4 wk",
+        "note": "An instance stores only its prefab GUID plus a list of overrides (object id + field path + value). Loading applies the prefab, then the overrides, so editing the prefab updates every instance except overridden fields. Prefab edit mode, apply and revert, nested prefabs and variants.",
+        "topics": [
+          {
+            "label": "prefab overrides",
+            "prompt": "Design prefab instances with property overrides stored as field paths, and how applying and reverting overrides works"
+          },
+          {
+            "label": "nested and variants",
+            "prompt": "Implement nested prefabs and prefab variants in my editor, and the rules for override precedence"
+          },
+          {
+            "label": "prefab edit mode",
+            "prompt": "Build a prefab edit mode in my editor like Unity, with breadcrumbs, isolation and auto-save"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "enemy prefab test",
+            "prompt": "Give me an exercise: make an Enemy prefab, place five instances, override one, change the prefab and confirm the override survives"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 2,
+        "title": "2D toolset",
+        "subtitle": "Sprites, tilemaps, 2D physics",
+        "estimate": "4 wk",
+        "note": "Sprite Editor for slicing sheets, SpriteRenderer, Tilemap with a Tile Palette brush (paint, erase, fill, rule tiles), BoxCollider2D, TilemapCollider2D and Rigidbody2D using the engine's collision.",
+        "topics": [
+          {
+            "label": "sprite editor",
+            "prompt": "Build a sprite editor window for slicing sprite sheets by grid or manually, with pivots, stored in the texture meta"
+          },
+          {
+            "label": "tilemap and palette",
+            "prompt": "Build a tilemap component and tile palette painting tool with brush, erase, fill and rule tiles in my ImGui editor"
+          },
+          {
+            "label": "2D physics components",
+            "prompt": "Design 2D physics components like Rigidbody2D, BoxCollider2D and TilemapCollider2D on top of my swept AABB collision"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "paint and play a level",
+            "prompt": "Give me an exercise: paint a platformer level with the tile palette, add colliders and play it with a scripted player"
+          }
+        ]
+      },
+      {
+        "number": "8",
+        "group": 2,
+        "title": "3D toolset",
+        "subtitle": "Meshes, materials, lights, cameras, audio",
+        "estimate": "4 wk",
+        "note": "MeshRenderer, material editor limited to what each profile supports (texture, color, blend mode, fog), vertex lights plus baked vertex lighting, Camera, AudioSource, 3D colliders and Rigidbody. Every option shown is one the target can actually render.",
+        "topics": [
+          {
+            "label": "profile-safe materials",
+            "prompt": "Design a material asset and editor limited to console GPU features: texture, vertex color, blend modes, alpha test and fog, previewed identically in GL"
+          },
+          {
+            "label": "baked vertex lighting",
+            "prompt": "Implement baked vertex lighting in my editor: light placement, ambient occlusion approximation, and storing colors per vertex"
+          },
+          {
+            "label": "3D physics components",
+            "prompt": "Design 3D physics components for my engine: BoxCollider, SphereCollider, MeshCollider, Rigidbody and layers, cheap enough for consoles"
+          },
+          {
+            "label": "camera and audio",
+            "prompt": "Design Camera and AudioSource components with editor previews, like Unity camera preview and audio gizmos"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "bake and walk a level",
+            "prompt": "Give me an exercise: import a glTF level, assign materials, bake vertex lighting and walk through it in console preview"
+          }
+        ]
+      },
+      {
+        "number": "9",
+        "group": 2,
+        "title": "Animation",
+        "subtitle": "Clips, Animation window, Animator graph",
+        "estimate": "4 wk",
+        "note": "Animation clips keyframe any reflected field (so sprites, transforms and colors all animate the same way). Animation window with dopesheet and curves, record mode. Animator controller as a node graph (imnodes) with states, transitions and parameters.",
+        "topics": [
+          {
+            "label": "property clips",
+            "prompt": "Design animation clips that keyframe any reflected property via field paths, with curves and events, for 2D sprites and 3D transforms"
+          },
+          {
+            "label": "Animation window",
+            "prompt": "Build an Animation window in ImGui with dopesheet, curve editor, record mode and preview scrubbing"
+          },
+          {
+            "label": "Animator graph",
+            "prompt": "Build an Animator state machine editor with imnodes: states, transitions, conditions and parameters, plus the runtime evaluator"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "player animator",
+            "prompt": "Give me an exercise: idle, run and jump animator for a player character driven by script parameters"
+          }
+        ]
+      },
+      {
+        "number": "10",
+        "group": 2,
+        "title": "UI, input and project settings",
+        "subtitle": "Canvas UI, input actions, tags and layers",
+        "estimate": "3 wk",
+        "note": "Canvas with RectTransform anchors, Image, Text, Button and gamepad navigation. Input Actions asset mapped to the virtual gamepad. Project Settings: tags, layers, collision matrix, scenes list, resolution and video mode.",
+        "topics": [
+          {
+            "label": "canvas UI",
+            "prompt": "Design a Canvas UI system like Unity UGUI with RectTransform anchors, Image, Text and Button, and gamepad navigation for consoles"
+          },
+          {
+            "label": "input actions",
+            "prompt": "Design an Input Actions asset and editor that maps actions to the DualShock, keyboard and touch through my virtual gamepad"
+          },
+          {
+            "label": "project settings",
+            "prompt": "Design the Project Settings window: tags, layers, collision matrix, time settings, scene list and console video options"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "title and pause menus",
+            "prompt": "Give me an exercise: a title screen and pause menu built in the editor, fully navigable with a DualShock"
+          }
+        ]
+      },
+      {
+        "number": "11",
+        "group": 3,
+        "title": "Build pipeline",
+        "subtitle": "Build Settings, packaging, Build and Run",
+        "estimate": "3 wk",
+        "note": "Build Settings window: scenes in build, target, development flag. One click runs the budget validator, cooks assets for the target, compiles scripts statically into the runtime (Docker toolchains) and outputs the console image, exe, AppImage or APK. Build and Run launches the bundled emulator; an emulator manager shows pinned versions and prompts for the PS2 BIOS.",
+        "topics": [
+          {
+            "label": "build pipeline",
+            "prompt": "Design a Build Settings window and build pipeline that cooks assets, compiles game scripts statically and produces a console image or Windows exe"
+          },
+          {
+            "label": "console builds from editor",
+            "prompt": "Run the console Docker toolchains from my editor on Windows and Linux to build, with progress and errors in the console"
+          },
+          {
+            "label": "budget validator",
+            "prompt": "Write a pre-build validator that checks every scene in the build against the ConsoleTarget memory, VRAM and polygon budgets and blocks the build with clear errors"
+          },
+          {
+            "label": "emulator manager",
+            "prompt": "Design the emulator manager window: pinned bundled versions, custom paths, BIOS prompt, and launching PPSSPP, PCSX2 and PCSX-Redux"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "console image and exe from one project",
+            "prompt": "Give me an exercise: build the same project to a console image and a Windows exe and play both side by side"
+          }
+        ]
+      },
+      {
+        "number": "12",
+        "group": 3,
+        "title": "Profiler and debugging",
+        "subtitle": "Live stats from the running game",
+        "estimate": "3 wk",
+        "note": "Development builds send frame timings, memory, VRAM use and logs to the editor (PC directly, consoles through their emulators). Profiler window with timeline and per-system breakdown.",
+        "topics": [
+          {
+            "label": "remote profiler",
+            "prompt": "Design a profiler connection between development builds and my editor, with frame markers, memory and VRAM stats, for PC and emulated consoles"
+          },
+          {
+            "label": "Profiler window",
+            "prompt": "Build a Unity-style Profiler window in ImGui with a frame timeline, per-system breakdown and memory view"
+          },
+          {
+            "label": "debugging console builds",
+            "prompt": "How can I debug console builds of my game: emulator debuggers, GDB stubs and logging strategies"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "hunt a frame spike",
+            "prompt": "Give me an exercise: find and fix a deliberate frame spike in a console build using my editor profiler"
+          }
+        ]
+      },
+      {
+        "number": "13",
+        "group": 3,
+        "title": "Extensibility and polish",
+        "subtitle": "Custom inspectors, data assets, samples",
+        "estimate": "3 wk",
+        "note": "Users extend the editor in C++ from their own project: custom inspectors, editor windows and menu items registered by macro. Data assets play the role of ScriptableObjects. Ship sample projects and a getting-started guide written for Unity users.",
+        "topics": [
+          {
+            "label": "editor extensions",
+            "prompt": "Design editor extensibility in C++: custom inspectors, editor windows and menu items registered from the user project, hot-reloaded with game code"
+          },
+          {
+            "label": "data assets",
+            "prompt": "Design data assets in my engine as the equivalent of Unity ScriptableObjects, created from the project window and edited in the inspector"
+          },
+          {
+            "label": "guide for Unity users",
+            "prompt": "Write a getting-started guide for Unity developers moving to Rensga Engine, mapping Unity concepts and APIs to mine"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "Unity-user playtest",
+            "prompt": "Give me an exercise: have a Unity developer build a small game in my editor from the sample project and note every friction point"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "Shared",
+    "slug": "api",
+    "title": "Scripting API",
+    "summary": "Unity-style C++17 API: Unity names, getters and setters instead of properties, Ref<T> handles, no exceptions, no per-frame allocation. One API for every profile, gated by the ConsoleTarget.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~33 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "14"
+      },
+      {
+        "label": "runs alongside",
+        "value": "engine + editor"
+      }
+    ],
+    "legend": [
+      "core API",
+      "gameplay systems",
+      "tooling, docs, stability"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "API design rules",
+        "subtitle": "Naming, handles, ownership, profile gating",
+        "estimate": "1.5 wk",
+        "note": "Written before any code: Unity names, getter/setter convention, Ref<T> handles, no exceptions (errors log and return null/false), no per-frame allocation, single umbrella header. One API gated by profile; ENGINE_PROFILE_PSX/PSP/PS2 defines.",
+        "topics": [
+          {
+            "label": "API style guide",
+            "prompt": "Write an API style guide for my Unity-like C++17 engine API: naming, getters and setters, Ref handles, error handling without exceptions, header layout"
+          },
+          {
+            "label": "Ref handles and fake null",
+            "prompt": "Design generational handles Ref of T for engine objects so references become null after Destroy, like Unity fake null, with zero heap allocation"
+          },
+          {
+            "label": "Unity names vs C++ style",
+            "prompt": "Should my C++ engine API use Unity-style method names or C++ conventions? Compare the migration cost for Unity developers"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "translate 5 Unity snippets",
+            "prompt": "Give me an exercise: write five Unity snippets and their equivalents in my planned C++ API, then review them for awkwardness"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Math and core types",
+        "subtitle": "Vector3, Quaternion, Mathf, Random",
+        "estimate": "2 wk",
+        "note": "Vector2/3/4, Quaternion, Matrix4x4, Color/Color32, Rect, Bounds, Mathf, Random. Backed by the profile scalar (float, or fixed-point on PSX) with the same API everywhere. Unit tested on PC and every console.",
+        "topics": [
+          {
+            "label": "Vector3, Quaternion, Matrix4x4",
+            "prompt": "Implement Vector3, Quaternion and Matrix4x4 in C++17 matching Unity semantics: left-handed, Euler order, Slerp, LookRotation, backed by a profile scalar"
+          },
+          {
+            "label": "Mathf",
+            "prompt": "Implement Unity Mathf in C++: Lerp, InverseLerp, SmoothDamp, MoveTowards, PingPong, Repeat, DeltaAngle, PerlinNoise"
+          },
+          {
+            "label": "VU0 acceleration",
+            "prompt": "Explain where PS2 VU0 macro mode can speed up my math library and how to keep a portable fallback for PC and Android"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "match Unity results",
+            "prompt": "Give me an exercise: unit tests comparing my Quaternion and Mathf results against known Unity outputs, run on PC and in the emulators"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 1,
+        "title": "Object model",
+        "subtitle": "GameObject, Component, Transform",
+        "estimate": "3 wk",
+        "note": "GameObject (Find, FindWithTag, SetActive, layer, tag), Component, Transform (local/world, Rotate, Translate, LookAt, TransformPoint, children, SetParent). Instantiate and Destroy (deferred to end of frame, like Unity). GetComponent, GetComponents, GetComponentInChildren, AddComponent.",
+        "topics": [
+          {
+            "label": "GameObject and Transform API",
+            "prompt": "Design the public GameObject, Component and Transform API for my C++ engine, mirroring Unity, on top of my engine object model"
+          },
+          {
+            "label": "Instantiate and Destroy",
+            "prompt": "Implement Instantiate and deferred Destroy in my C++ engine, including cloning prefabs and destroying hierarchies safely mid-frame"
+          },
+          {
+            "label": "GetComponent without RTTI",
+            "prompt": "Implement a fast GetComponent of T in C++17 without RTTI, using type ids from my reflection system"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "projectile spawner",
+            "prompt": "Give me an exercise: a spawner that instantiates and destroys 200 projectiles per second without leaks or dangling refs"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 1,
+        "title": "Lifecycle, Time, Debug, Application",
+        "subtitle": "Execution order and global services",
+        "estimate": "2 wk",
+        "note": "Awake, OnEnable, Start, FixedUpdate, Update, LateUpdate, OnDisable, OnDestroy in Unity's exact order, plus script execution order. Time (deltaTime, fixedDeltaTime, timeScale, unscaled), Debug (Log, Warning, Error, DrawLine, Assert), Application (Quit, targetFrameRate, platform).",
+        "topics": [
+          {
+            "label": "lifecycle order",
+            "prompt": "Implement Unity lifecycle order in my C++ engine: Awake, OnEnable, Start, FixedUpdate, Update, LateUpdate, OnDisable, OnDestroy, including objects created mid-frame"
+          },
+          {
+            "label": "Time API",
+            "prompt": "Implement Time in my engine: deltaTime, fixedDeltaTime, timeScale, unscaledDeltaTime, frameCount, with NTSC and PAL differences on consoles"
+          },
+          {
+            "label": "Debug and Application",
+            "prompt": "Design Debug and Application APIs for my engine: Log with context object, DrawLine, Assert, Quit, platform and version info"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "lifecycle order test",
+            "prompt": "Give me an exercise: a test scene that logs every lifecycle callback and verifies the order matches Unity"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 1,
+        "title": "Coroutines, Invoke and events",
+        "subtitle": "Waiting over time, C# events, UnityEvent",
+        "estimate": "2.5 wk",
+        "note": "C++17 has no yield, so a coroutine is a small state object resumed every frame: a lambda plus a step counter, or a chain like Wait(1).Then(...). Stopped automatically when its owner is destroyed. Plus Invoke, InvokeRepeating, Event<Args> for code and serialized events bound in the inspector (UnityEvent).",
+        "topics": [
+          {
+            "label": "coroutines in C++17",
+            "prompt": "Design StartCoroutine for a C++17 engine without language coroutines: WaitForSeconds, WaitUntil, WaitForFixedUpdate, chaining, and auto-stop on destroy"
+          },
+          {
+            "label": "Invoke family",
+            "prompt": "Implement Invoke, InvokeRepeating and CancelInvoke in my engine without heap allocation per call"
+          },
+          {
+            "label": "events and UnityEvent",
+            "prompt": "Design Event of Args for code subscriptions and a serialized UnityEvent equivalent bindable in my editor inspector via reflection"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "coroutine door",
+            "prompt": "Give me an exercise: a door that opens over two seconds with a coroutine and fires an OnOpened event wired in the inspector"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 2,
+        "title": "Input",
+        "subtitle": "Axes, buttons, actions, rumble",
+        "estimate": "1.5 wk",
+        "note": "Classic API (GetAxis, GetButtonDown, GetKey) plus the Input Actions asset API (action.WasPressedThisFrame, ReadValue). DualShock analog sticks, vibration; touch on Android.",
+        "topics": [
+          {
+            "label": "Input API",
+            "prompt": "Design an Input API for my engine with Unity classic GetAxis and GetButtonDown plus an Input Actions API, over my virtual gamepad"
+          },
+          {
+            "label": "rumble and dead zones",
+            "prompt": "Implement DualShock vibration and analog dead zones on consoles through my Input API, with equivalents on PC gamepads"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "input test scene",
+            "prompt": "Give me an exercise: an input test scene showing every axis, button and rumble on each console and PC"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 2,
+        "title": "Physics",
+        "subtitle": "Rigidbody, callbacks, queries",
+        "estimate": "3 wk",
+        "note": "Rigidbody and Rigidbody2D (velocity, AddForce, MovePosition, isKinematic), collider components, OnCollisionEnter/Stay/Exit and OnTrigger*, Physics::Raycast, SphereCast, OverlapSphere, LayerMask, CharacterController::Move.",
+        "topics": [
+          {
+            "label": "Rigidbody API",
+            "prompt": "Design Rigidbody and Rigidbody2D APIs for my engine matching Unity: velocity, AddForce with ForceMode, MovePosition, constraints"
+          },
+          {
+            "label": "collision callbacks",
+            "prompt": "Implement OnCollisionEnter, Stay, Exit and OnTrigger callbacks with a Collision struct, dispatched after the physics step"
+          },
+          {
+            "label": "physics queries",
+            "prompt": "Implement Physics Raycast, SphereCast, OverlapSphere and their 2D versions with LayerMask and RaycastHit in my engine"
+          },
+          {
+            "label": "CharacterController",
+            "prompt": "Implement a Unity-like CharacterController with Move, isGrounded, slope limit and step offset"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "raycast shooting range",
+            "prompt": "Give me an exercise: a shooting range using Raycast, layers and trigger zones, running on consoles"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 2,
+        "title": "Rendering and camera",
+        "subtitle": "Renderers, materials, particles, Gizmos",
+        "estimate": "3 wk",
+        "note": "Camera (main, ScreenToWorldPoint, WorldToViewportPoint, orthographic size), SpriteRenderer, MeshRenderer, Material property changes, Light, fog settings, a CPU ParticleSystem sized for consoles, LineRenderer, Gizmos for editor drawing.",
+        "topics": [
+          {
+            "label": "Camera API",
+            "prompt": "Design the Camera API for my engine: Camera main, ScreenToWorldPoint, ViewportToWorldPoint, ScreenPointToRay, orthographic and perspective"
+          },
+          {
+            "label": "renderers and materials",
+            "prompt": "Design SpriteRenderer, MeshRenderer and Material APIs for my engine, including per-instance color changes without duplicating materials"
+          },
+          {
+            "label": "console-friendly particles",
+            "prompt": "Implement a CPU ParticleSystem with a Unity-like module API (emission, shape, color over lifetime) that fits console budgets"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "explosions and screen shake",
+            "prompt": "Give me an exercise: click-to-spawn explosions with particles and camera shake, using ScreenToWorldPoint"
+          }
+        ]
+      },
+      {
+        "number": "8",
+        "group": 2,
+        "title": "Animation and audio",
+        "subtitle": "Animator, AudioSource, mixer",
+        "estimate": "2 wk",
+        "note": "Animator (SetFloat, SetBool, SetTrigger, Play, CrossFade, state queries), animation events calling script methods. AudioSource (Play, PlayOneShot, loop, volume, pitch), PlayClipAtPoint, mixer groups for music and SFX volume.",
+        "topics": [
+          {
+            "label": "Animator API",
+            "prompt": "Design the Animator scripting API for my engine: SetFloat, SetTrigger, CrossFade, GetCurrentStateInfo, and animation events calling script methods via reflection"
+          },
+          {
+            "label": "audio API",
+            "prompt": "Design AudioSource, AudioClip and a simple mixer group API in my engine, matching Unity PlayOneShot and PlayClipAtPoint"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "footsteps from events",
+            "prompt": "Give me an exercise: footstep sounds triggered by animation events on a running character"
+          }
+        ]
+      },
+      {
+        "number": "9",
+        "group": 2,
+        "title": "Scenes, assets and saves",
+        "subtitle": "SceneManager, Resources, save data",
+        "estimate": "3 wk",
+        "note": "SceneManager (LoadScene, LoadSceneAsync with progress, additive, DontDestroyOnLoad). Resources::Load<T> from the cooked packs with ref-counted handles and Unload. PlayerPrefs plus a versioned save API that writes to memory cards on consoles and files elsewhere.",
+        "topics": [
+          {
+            "label": "SceneManager",
+            "prompt": "Implement SceneManager in my engine: LoadScene, LoadSceneAsync with progress for loading screens, additive scenes and DontDestroyOnLoad, within console memory"
+          },
+          {
+            "label": "Resources and handles",
+            "prompt": "Design Resources Load of T with reference-counted asset handles and explicit Unload, reading from my cooked pack files"
+          },
+          {
+            "label": "PlayerPrefs and saves",
+            "prompt": "Design PlayerPrefs and a versioned SaveSystem API that writes to console memory cards with icons and to files on PC and Android"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "levels, loading, saving",
+            "prompt": "Give me an exercise: a two-level game with an async loading screen and a save that persists across reboots on a console"
+          }
+        ]
+      },
+      {
+        "number": "10",
+        "group": 2,
+        "title": "UI API",
+        "subtitle": "Buttons, text, sliders, navigation",
+        "estimate": "2 wk",
+        "note": "Button::onClick, Text::SetText, Image fill amount, Slider, Toggle, EventSystem (SetSelectedGameObject for gamepad focus), layout groups. Text formatting without heap allocations.",
+        "topics": [
+          {
+            "label": "UI scripting API",
+            "prompt": "Design the scripting API for my Canvas UI: Button onClick, Text, Image fill, Slider, Toggle and EventSystem selection for gamepad navigation"
+          },
+          {
+            "label": "allocation-free text",
+            "prompt": "Implement allocation-free text formatting for UI in C++17, like string interpolation for score and timer labels"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "HUD and options menu",
+            "prompt": "Give me an exercise: a HUD with health bar, score and an options menu with volume sliders that save to PlayerPrefs"
+          }
+        ]
+      },
+      {
+        "number": "11",
+        "group": 3,
+        "title": "Editor-facing attributes",
+        "subtitle": "SerializeField, Range, RequireComponent",
+        "estimate": "2 wk",
+        "note": "Macros the reflection tool reads: SERIALIZE_FIELD, HIDE_IN_INSPECTOR, RANGE, HEADER, TOOLTIP, REQUIRE_COMPONENT, EXECUTE_IN_EDIT_MODE, CONTEXT_MENU. Callbacks OnValidate, Reset, OnDrawGizmos, OnDrawGizmosSelected.",
+        "topics": [
+          {
+            "label": "attribute macros",
+            "prompt": "Design C++ attribute macros like SerializeField, Range, Header, Tooltip and RequireComponent that my reflection codegen reads and the inspector honours"
+          },
+          {
+            "label": "editor callbacks",
+            "prompt": "Implement OnValidate, Reset, OnDrawGizmos and ExecuteInEditMode behaviour for C++ scripts in my editor"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "patrol script with gizmos",
+            "prompt": "Give me an exercise: a patrol script with a ranged speed, a header, waypoint gizmos and OnValidate clamping"
+          }
+        ]
+      },
+      {
+        "number": "12",
+        "group": 3,
+        "title": "Platform and performance helpers",
+        "subtitle": "Defines, profiling, pooling, budgets",
+        "estimate": "1.5 wk",
+        "note": "Profile and platform defines, Application reports profile and platform, Profiler::BeginSample/EndSample, ObjectPool<T>, and runtime budget queries (memory, VRAM) so scripts can adapt quality per target.",
+        "topics": [
+          {
+            "label": "platform defines",
+            "prompt": "Design profile and platform defines and runtime queries for game scripts in my engine, and guidelines for keeping console-specific code minimal"
+          },
+          {
+            "label": "profiler samples and pooling",
+            "prompt": "Implement Profiler BeginSample and EndSample plus a generic ObjectPool of T for my engine, feeding my editor profiler"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "pool the spawner",
+            "prompt": "Give me an exercise: convert the projectile spawner to an ObjectPool and measure the gain on a console with profiler samples"
+          }
+        ]
+      },
+      {
+        "number": "13",
+        "group": 3,
+        "title": "Docs, samples and stability",
+        "subtitle": "Reference, Unity mapping, versioning",
+        "estimate": "3 wk",
+        "note": "Generated API reference with profile availability badges, a Unity-to-engine mapping page, one sample project per template, API tests running inside the bundled emulators in CI, and a versioning and deprecation policy.",
+        "topics": [
+          {
+            "label": "API reference docs",
+            "prompt": "Set up generated API reference docs for my C++ engine API with Doxygen or a lighter alternative, with profile badges, published with each release"
+          },
+          {
+            "label": "Unity mapping page",
+            "prompt": "Write a Unity-to-engine API mapping table for my C++ engine covering the most used Unity classes and methods"
+          },
+          {
+            "label": "versioning and deprecation",
+            "prompt": "Design semantic versioning and a deprecation policy for my engine API, with deprecation warnings at compile time"
+          },
+          {
+            "label": "API tests in CI",
+            "prompt": "Set up automated API tests for my engine that run on PC and inside PPSSPP and PCSX-Redux in CI"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "port a Unity tutorial",
+            "prompt": "Give me an exercise: port a small Unity tutorial game to my engine using only the docs, and log every missing or confusing API"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "PSP",
+    "slug": "psp-engine",
+    "title": "PSP Engine",
+    "summary": "Adds the PSP target to the shared core: a GU renderer and a PSP platform layer. SDL2, the mixer, the cooker and gameplay carry over.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~21 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "9"
+      },
+      {
+        "label": "needs",
+        "value": "shared core (engine 0-6)"
+      }
+    ],
+    "legend": [
+      "PSP foundation",
+      "2D on PSP",
+      "3D and release"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "pspdev toolchain and PSP target",
+        "subtitle": "Preset, EBOOT.PBP, bundled PPSSPP, CI",
+        "estimate": "1.5 wk",
+        "note": "pspdev Docker image, CMake preset for profile psp, SDL2 from psp-pacman. Packaging: ELF to PRX to EBOOT.PBP with PARAM.SFO and ICON0. Run in the bundled PPSSPP; CI boots the build headless as a smoke test.",
+        "topics": [
+          {
+            "label": "PSP CMake preset",
+            "prompt": "Add a PSP target to my CMake engine using the pspdev Docker image and SDL2 from psp-pacman, with a preset per profile and target"
+          },
+          {
+            "label": "EBOOT.PBP packaging",
+            "prompt": "Explain PSP homebrew packaging: ELF, PRX, PARAM.SFO, ICON0, PIC1, EBOOT.PBP, and the folder layout under PSP/GAME"
+          },
+          {
+            "label": "PPSSPP in CI",
+            "prompt": "Run PSP builds in CI with PPSSPP headless as a smoke test, and fetch a pinned PPSSPP build into third_party/emulators"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "hello world EBOOT",
+            "prompt": "Give me an exercise: build the shared hello world as an EBOOT and launch it in the bundled PPSSPP from one script"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "PSP platform layer",
+        "subtitle": "Files, input, home button, memory, clock",
+        "estimate": "2 wk",
+        "note": "Paths for ms0:, umd0: and host0:. One analog nub, no right stick. Exit and suspend callbacks so the Home button works. Memory budget set for the 32 MB PSP-1000 so it runs on every model. CPU clock raised to 333 MHz at boot.",
+        "topics": [
+          {
+            "label": "PSP platform layer",
+            "prompt": "Implement the PSP platform layer for my engine: file paths for ms0, umd0 and host0, exit and suspend callbacks, and CPU clock setup"
+          },
+          {
+            "label": "PSP-1000 vs slim memory",
+            "prompt": "Design PSP memory budgets for my engine so games run on the 32 MB PSP-1000 and optionally use the extra 32 MB on slim models"
+          },
+          {
+            "label": "PSP input mapping",
+            "prompt": "Map PSP input to my virtual gamepad: one analog nub, no right stick, shoulder buttons, and the Japanese circle-confirm convention"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSP input and exit test",
+            "prompt": "Give me an exercise: an input test that shows every PSP button and the nub, quits cleanly with Home, and logs memory budget usage"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 2,
+        "title": "GU 2D backend",
+        "subtitle": "Display lists, 2 MB VRAM, 480x272",
+        "estimate": "3 wk",
+        "note": "New gu/ render backend behind the existing interface. GU builds display lists the GPU consumes asynchronously, so the CPU fills next frame's list while the GPU draws this one. VRAM is 2 MB: two 16-bit framebuffers plus depth fit with room for hot textures; the rest stream from RAM.",
+        "topics": [
+          {
+            "label": "GU backend basics",
+            "prompt": "Implement a gu render backend for my engine on PSP: init, double-buffered display lists, vsync, and a sprite batcher behind my existing renderer interface"
+          },
+          {
+            "label": "2 MB VRAM layout",
+            "prompt": "Plan PSP VRAM usage at 480x272: framebuffer formats, depth buffer, and which textures live in VRAM vs main RAM"
+          },
+          {
+            "label": "texture swizzling",
+            "prompt": "Explain texture swizzling on PSP, why it matters for speed, and how to swizzle at cook time"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "1000 sprites on PSP",
+            "prompt": "Give me an exercise: run the 1000 sprites stress test on PSP through the GU backend and compare against PS2"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "PSP cooker plugin",
+        "subtitle": "Swizzled CLUT textures, GU vertex formats",
+        "estimate": "1.5 wk",
+        "note": "Format plugin for the shared cooker: 4/8-bit CLUT and 16-bit textures, swizzled, power-of-two up to 512. Meshes cooked to compact GU vertex formats (8/16-bit positions and UVs where precision allows). Same source assets as the PS2 build.",
+        "topics": [
+          {
+            "label": "PSP texture cooking",
+            "prompt": "Write the PSP format plugin for my cooker: CLUT and 16-bit textures, swizzling, power-of-two sizes and mipmaps"
+          },
+          {
+            "label": "GU vertex formats",
+            "prompt": "Explain PSP GU vertex formats and how to cook meshes into 8 or 16-bit compact vertices without visible precision loss"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "cook for PSP and PS2",
+            "prompt": "Give me an exercise: cook the slice assets for PSP and PS2 from the same sources and compare pack sizes"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 2,
+        "title": "Audio on PSP",
+        "subtitle": "Shared mixer, streaming from memory stick",
+        "estimate": "1 wk",
+        "note": "The shared mixer runs unchanged on SDL audio through the AudioBackend interface. Only tuning: voice count, buffer size and streaming from memory stick or UMD without stalls.",
+        "topics": [
+          {
+            "label": "PSP audio tuning",
+            "prompt": "Tune my shared software mixer for PSP: buffer sizes, voice count, and streaming music from memory stick in a separate thread"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "16 voices on PSP",
+            "prompt": "Give me an exercise: run the 16-voice audio stress test on PSP and measure CPU at 222 and 333 MHz"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 2,
+        "title": "2D slice on PSP",
+        "subtitle": "Same game, new target",
+        "estimate": "2 wk",
+        "note": "The 2D vertical slice from the engine roadmap rebuilt for PSP with only profile and asset changes. Tested in PPSSPP and on a real PSP with custom firmware; any game code change needed is a bug in the abstraction.",
+        "topics": [
+          {
+            "label": "real PSP testing",
+            "prompt": "How do I test PSP homebrew on real hardware with custom firmware and psplink, and what usually differs from PPSSPP"
+          },
+          {
+            "label": "640x448 to 480x272",
+            "prompt": "Adapt a 640x448 2D game to 480x272 on PSP through my profile system without changing game code"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSP slice QA",
+            "prompt": "Give me a QA checklist for the 2D slice running on PSP in PPSSPP and real hardware, compared to PS2 and PC"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 3,
+        "title": "GU 3D backend",
+        "subtitle": "Hardware T&L, lights, skinning, clipping",
+        "estimate": "5 wk",
+        "note": "Easier than PS2: the GU does transform, up to 4 hardware lights and up to 8-bone skinning itself. The trap is clipping: the GU only rejects polygons outside a guard band, so large polygons crossing the near plane glitch. Fix by culling and splitting near-camera geometry on the CPU.",
+        "topics": [
+          {
+            "label": "GU transform and lighting",
+            "prompt": "Implement the 3D path of my gu backend on PSP: matrices, hardware lighting with 4 lights, fog and depth"
+          },
+          {
+            "label": "GU clipping problem",
+            "prompt": "Explain PSP GU clipping limits and the guard band, and how to handle polygons crossing the near plane in my renderer"
+          },
+          {
+            "label": "hardware skinning",
+            "prompt": "Implement hardware skinning on PSP GU with up to 8 bone weights, and how to split meshes by bone palette in the cooker"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "3D room on PSP",
+            "prompt": "Give me an exercise: the lit 3D room from the PS2 roadmap running on PSP with a skinned character walking near the camera"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 3,
+        "title": "PSP performance",
+        "subtitle": "Budgets, VFPU, profiling",
+        "estimate": "3 wk",
+        "note": "Per-scene budgets in the PSP ConsoleTarget, VFPU for hot math behind the same math types, profiling with PPSSPP's debugger and on hardware.",
+        "topics": [
+          {
+            "label": "PSP budgets",
+            "prompt": "Define realistic PSP budgets for polygons, textures, draw calls and memory and add them to the PSP ConsoleTarget"
+          },
+          {
+            "label": "VFPU math",
+            "prompt": "Explain the PSP VFPU and how to accelerate my math library with it while keeping the same public types"
+          },
+          {
+            "label": "PSP profiling",
+            "prompt": "How do I profile PSP homebrew in PPSSPP and on real hardware, and what are the common bottlenecks"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "30 fps on PSP-1000",
+            "prompt": "Give me an exercise: get the 3D level to a stable 30 fps on a real PSP-1000 at 333 MHz"
+          }
+        ]
+      },
+      {
+        "number": "8",
+        "group": 3,
+        "title": "PSP packaging and release",
+        "subtitle": "EBOOT, saves, icons, open-source build",
+        "estimate": "2 wk",
+        "note": "Packager for the PSP target module: EBOOT.PBP with icon, background and sound, savedata through the system save utility, license files in the package. Verified on PSP-1000, slim and Go layouts.",
+        "topics": [
+          {
+            "label": "system savedata",
+            "prompt": "Implement PSP saves with the sceUtilitySavedata system dialog behind my engine SaveSystem interface"
+          },
+          {
+            "label": "PSP packager",
+            "prompt": "Write the PSP packager for my target module: EBOOT with ICON0, PIC1, SND0, plus bundled license files for an open source release"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSP release candidate",
+            "prompt": "Guide me through a PSP release-candidate pass in PPSSPP and on real PSP-1000, slim and Go"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "PSP",
+    "slug": "psp-editor",
+    "title": "PSP Editor",
+    "summary": "The PSP target module plugging into the editor: template, import rules, preview mode, inspector rules and Build and Run in PPSSPP.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~13 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "8"
+      },
+      {
+        "label": "needs",
+        "value": "editor 0-5 + TargetModule"
+      }
+    ],
+    "legend": [
+      "project setup",
+      "authoring for PSP",
+      "build, debug, docs"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "PSP target module",
+        "subtitle": "Register PSP with the editor",
+        "estimate": "1 wk",
+        "note": "First real implementation of the TargetModule interface: PSP declares its importers, preview rules, packager, emulator launcher and inspector rules. If anything PSP-specific leaks into editor core here, fix the interface now before PS2 and PSX use it.",
+        "topics": [
+          {
+            "label": "TargetModule for PSP",
+            "prompt": "Design the TargetModule plugin interface for my editor and implement it for PSP: importers, preview rules, packager, emulator launcher and inspector rules"
+          },
+          {
+            "label": "keeping core console-free",
+            "prompt": "How do I keep my editor core free of console-specific code, and test that the TargetModule boundary holds as PSP, PS2 and PSX are added"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "dummy target module",
+            "prompt": "Give me an exercise: write a dummy TargetModule that only packages a zip, to prove the interface without touching editor core"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "PSP project template",
+        "subtitle": "ConsoleTarget PSP, default scene, input map",
+        "estimate": "1 wk",
+        "note": "New project, PSP template: PSP ConsoleTarget asset, 480x272 Game view, a starter scene, input actions mapped for one nub and shoulder buttons, PSP icon placeholders for the EBOOT.",
+        "topics": [
+          {
+            "label": "PSP template contents",
+            "prompt": "Design the PSP project template for my editor: ConsoleTarget PSP asset, starter scene, input actions and EBOOT icon placeholders"
+          },
+          {
+            "label": "template picker dialog",
+            "prompt": "Design the new-project dialog with PSX, PSP and PS2 templates, showing each ConsoleTarget budget summary before creation"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "template to EBOOT",
+            "prompt": "Give me an exercise: create a PSP project from the template and press Build and Run without changing anything"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 2,
+        "title": "PSP import settings",
+        "subtitle": "Texture, mesh and audio rules",
+        "estimate": "1.5 wk",
+        "note": "PSP tab in each importer: CLUT depth, max size 512, power-of-two warnings, swizzle on, vertex precision for meshes, audio rate. Defaults chosen from the ConsoleTarget so most assets need no tweaking.",
+        "topics": [
+          {
+            "label": "PSP importer tabs",
+            "prompt": "Design PSP import settings in my editor for textures, meshes and audio, with defaults from the PSP ConsoleTarget and warnings for bad sizes"
+          },
+          {
+            "label": "per-asset PSP cost",
+            "prompt": "Show per-asset memory cost for PSP in my project window and inspector, after cooking"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "import an oversized texture",
+            "prompt": "Give me an exercise: import a 1024x1024 texture into a PSP project and see the editor downscale, quantize and report its cost"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "PSP preview mode",
+        "subtitle": "480x272, 16-bit color, live budgets",
+        "estimate": "2 wk",
+        "note": "Game view renders through the PSP profile: 480x272, 16-bit color with dithering, 4-light limit, cooked PSP textures, and live RAM, VRAM and polygon bars from the ConsoleTarget. A screen-frame overlay shows the real device size.",
+        "topics": [
+          {
+            "label": "PSP preview",
+            "prompt": "Implement a PSP preview mode in my editor Game view: 480x272, 16-bit dithering, 4 light limit and live budget bars"
+          },
+          {
+            "label": "preview vs real GU",
+            "prompt": "How close can a GL preview get to real PSP GU output, and which differences should the editor warn about instead of emulating"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "preview vs PPSSPP",
+            "prompt": "Give me an exercise: compare a scene in PSP preview mode against the same scene in PPSSPP and list the differences"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 2,
+        "title": "PSP inspector rules",
+        "subtitle": "Profile gating and validation",
+        "estimate": "1.5 wk",
+        "note": "Components and fields the PSP profile doesn't support are hidden or greyed with a reason. Validation: more than 4 lights touching an object, skinned meshes over 8 bones per draw, textures over budget.",
+        "topics": [
+          {
+            "label": "profile gating",
+            "prompt": "Implement profile gating in my inspector: hide or grey out unsupported components and fields per ConsoleTarget with a tooltip reason"
+          },
+          {
+            "label": "PSP validation rules",
+            "prompt": "Write PSP scene validation rules for my editor: light count per object, bone count per draw, texture and polygon budgets"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "fix a PS2 scene for PSP",
+            "prompt": "Give me an exercise: open a PS2 scene inside a PSP project and fix every validation warning the editor shows"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 3,
+        "title": "Build and Run in PPSSPP",
+        "subtitle": "One click to a running EBOOT",
+        "estimate": "2 wk",
+        "note": "Build pipeline calls the PSP module: validate, cook, compile in Docker, package EBOOT, launch the bundled PPSSPP pointed at it, and pipe its log into the console. Optional deploy to a real PSP over USB.",
+        "topics": [
+          {
+            "label": "PSP Build and Run",
+            "prompt": "Implement Build and Run for PSP in my editor: compile in the pspdev Docker image, package EBOOT, launch bundled PPSSPP and stream logs to the console"
+          },
+          {
+            "label": "emulator manager",
+            "prompt": "Design the emulator manager window: pinned bundled versions, custom paths, update checks, and launching PPSSPP, PCSX2 and PCSX-Redux"
+          },
+          {
+            "label": "deploy to real PSP",
+            "prompt": "Add deploy to real PSP from my editor: copy the EBOOT to PSP/GAME over USB, or run it through psplink"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "sub-30s build loop",
+            "prompt": "Give me an exercise: time the full Build and Run loop for PSP and cut it under 30 seconds for a small project"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 3,
+        "title": "PSP debugging and profiling",
+        "subtitle": "Logs, profiler feed, PPSSPP debugger",
+        "estimate": "2 wk",
+        "note": "Development builds report frame stats and memory to the editor profiler while running in PPSSPP. Shortcut to open PPSSPP's own debugger on the running build for CPU and GPU inspection.",
+        "topics": [
+          {
+            "label": "PSP profiler feed",
+            "prompt": "How can my editor profiler receive stats from a PSP development build running in PPSSPP, and from a real PSP"
+          },
+          {
+            "label": "PPSSPP debugger",
+            "prompt": "How do I use PPSSPP debugging tools (CPU debugger, GE debugger) to diagnose rendering and performance bugs in my PSP builds"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "GE debugger hunt",
+            "prompt": "Give me an exercise: find a deliberate GU display list bug in a PSP build using the PPSSPP GE debugger"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 3,
+        "title": "PSP samples and docs",
+        "subtitle": "Sample project and getting-started page",
+        "estimate": "2 wk",
+        "note": "A small PSP sample game that ships with the editor, plus a getting-started page covering the template, budgets and Build and Run.",
+        "topics": [
+          {
+            "label": "PSP sample game",
+            "prompt": "Scope a small PSP sample game that shows off the template, 3D GU features and budgets, to ship with Rensga Engine"
+          },
+          {
+            "label": "PSP getting started",
+            "prompt": "Write a getting-started guide for making a PSP game in Rensga Engine, from new project to running in PPSSPP"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "guide playtest",
+            "prompt": "Give me an exercise: have someone new follow the PSP getting-started guide and record every place they get stuck"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "PSP",
+    "slug": "psp-api",
+    "title": "PSP API",
+    "summary": "The PSP profile of the shared API: what the profile allows, plus PSP system services wrapped behind existing interfaces.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~10 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "8"
+      },
+      {
+        "label": "optional",
+        "value": "+3 wk ad hoc"
+      }
+    ],
+    "legend": [
+      "profile",
+      "PSP features",
+      "extras, docs, tests"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "PSP profile definition",
+        "subtitle": "What the PSP profile allows",
+        "estimate": "1 wk",
+        "note": "The PSP ConsoleTarget as code: float math, feature flags, budgets, ENGINE_PROFILE_PSP. Using a feature the profile lacks is a compile error with a clear message, not a runtime surprise.",
+        "topics": [
+          {
+            "label": "PSP profile flags",
+            "prompt": "Define the PSP profile for my API: feature flags, budgets and ENGINE_PROFILE_PSP, with clear compile errors when a game uses an unsupported feature"
+          },
+          {
+            "label": "availability table",
+            "prompt": "Build a feature availability table for my API across PSX, PSP and PS2 profiles, generated from the profile definitions"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "readable profile errors",
+            "prompt": "Give me an exercise: compile a PS2 sample against the PSP profile and make every error message point to the fix"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "PSP input and app events",
+        "subtitle": "One nub, Home button, suspend",
+        "estimate": "1 wk",
+        "note": "Default Input Actions for one analog nub (camera on shoulders or face buttons), confirm/cancel that follows the system's circle/cross setting, OnApplicationPause when the system suspends or the Home menu opens.",
+        "topics": [
+          {
+            "label": "one-nub control schemes",
+            "prompt": "Design default PSP input actions for my API with one analog nub, including camera control schemes without a right stick"
+          },
+          {
+            "label": "confirm swap and pause",
+            "prompt": "Implement confirm and cancel buttons that follow the PSP system circle or cross setting, plus OnApplicationPause on suspend and Home menu"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "one-nub third-person camera",
+            "prompt": "Give me an exercise: a third-person camera controllable with only the nub and shoulder buttons that feels good on PSP"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 2,
+        "title": "Rendering API on PSP",
+        "subtitle": "Light limits, materials, skinning",
+        "estimate": "2 wk",
+        "note": "Same Light, Material and SkinnedMeshRenderer classes; the PSP profile picks the 4 most important lights per object, exposes only GU texture and blend modes, and splits skinned meshes to 8 bones per draw automatically.",
+        "topics": [
+          {
+            "label": "4-light selection",
+            "prompt": "Implement per-object light selection for PSP: pick the 4 most relevant lights from my scene Light components each frame"
+          },
+          {
+            "label": "GU material mapping",
+            "prompt": "Map my Material API onto PSP GU texture functions and blend modes, and document what each profile supports"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "12 lights on PSP",
+            "prompt": "Give me an exercise: a scene with 12 point lights that still looks right on PSP thanks to per-object light selection"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "PSP system services",
+        "subtitle": "Save dialog, keyboard, language, battery",
+        "estimate": "1.5 wk",
+        "note": "PSP system utilities behind existing API: SaveSystem uses the system save dialog, TouchScreenKeyboard maps to the on-screen keyboard, Application::systemLanguage reads the system language, plus battery level.",
+        "topics": [
+          {
+            "label": "on-screen keyboard",
+            "prompt": "Wrap the PSP on-screen keyboard utility behind a Unity-like TouchScreenKeyboard API in my engine"
+          },
+          {
+            "label": "language and battery",
+            "prompt": "Expose PSP system language and battery status through my Application and SystemInfo APIs"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "name entry and save",
+            "prompt": "Give me an exercise: a name-entry screen using the PSP keyboard that saves through the system save dialog"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 2,
+        "title": "Performance API on PSP",
+        "subtitle": "CPU clock, memory stats, VFPU",
+        "estimate": "1 wk",
+        "note": "Application::SetCpuClock for 222/333 MHz trade-offs, memory and VRAM stats from the profile allocators, VFPU used inside math types with no API change.",
+        "topics": [
+          {
+            "label": "CPU clock API",
+            "prompt": "Design a CPU clock API for PSP in my engine, and when games should drop to 222 MHz for battery life"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "222 vs 333 MHz",
+            "prompt": "Give me an exercise: show the cost of 222 vs 333 MHz on frame time and battery in a PSP sample"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 2,
+        "title": "Audio API on PSP",
+        "subtitle": "Same API, PSP-safe defaults",
+        "estimate": "1 wk",
+        "note": "AudioSource and music streaming unchanged; PSP profile sets voice limits and sample rates, and warns when a scene asks for more simultaneous voices than the budget.",
+        "topics": [
+          {
+            "label": "voice limits and stealing",
+            "prompt": "Add per-profile audio limits to my audio API: voice counts, sample rates and priority-based voice stealing for PSP"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "combat audio budget",
+            "prompt": "Give me an exercise: a busy combat scene that stays under the PSP voice budget using priorities"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 3,
+        "title": "Ad hoc multiplayer (optional)",
+        "subtitle": "Local wireless play",
+        "estimate": "3 wk",
+        "note": "A small NetworkSession API over PSP ad hoc wireless, with a LAN socket backend on PC and Android so the same game code works everywhere. PPSSPP can emulate ad hoc between instances for testing.",
+        "topics": [
+          {
+            "label": "NetworkSession API",
+            "prompt": "Design a NetworkSession API for local multiplayer with a PSP ad hoc backend and a LAN socket backend for PC and Android"
+          },
+          {
+            "label": "ad hoc in PPSSPP",
+            "prompt": "How do I test PSP ad hoc multiplayer between two PPSSPP instances on one PC"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "cross-target local pong",
+            "prompt": "Give me an exercise: two-player local pong between PSP in PPSSPP and the Windows build"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 3,
+        "title": "PSP docs and API tests",
+        "subtitle": "Profile badges, tests in PPSSPP",
+        "estimate": "1.5 wk",
+        "note": "Every API page gets PSX / PSP / PS2 badges. The API test suite runs inside headless PPSSPP in CI so PSP behaviour can't drift from PC.",
+        "topics": [
+          {
+            "label": "profile badges in docs",
+            "prompt": "Add profile availability badges to my generated API docs, driven by the profile definitions"
+          },
+          {
+            "label": "API tests in PPSSPP",
+            "prompt": "Run my engine API test suite inside headless PPSSPP in GitHub Actions and report results back to CI"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "catch a PSP-only bug",
+            "prompt": "Give me an exercise: make one API test fail only on PSP and confirm CI catches it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "PSX",
+    "slug": "psx-engine",
+    "title": "PSX Engine",
+    "summary": "Adds the PSX target: a PSn00bSDK platform layer, the fixed-point core build, a GPU backend with ordering tables, and hardware audio.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~28 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "10"
+      },
+      {
+        "label": "needs",
+        "value": "shared core + TargetModule"
+      }
+    ],
+    "legend": [
+      "PSX foundation",
+      "2D on PSX",
+      "3D and release"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "PSn00bSDK toolchain and PSX target",
+        "subtitle": "PS-EXE, BIN/CUE, bundled PCSX-Redux",
+        "estimate": "2 wk",
+        "note": "mipsel GCC + PSn00bSDK in a Docker image, CMake preset for profile psx. Output: PS-EXE, then BIN/CUE via mkpsxiso. Runs in the bundled PCSX-Redux with OpenBIOS, so nobody needs a Sony BIOS to test. CI boots it as a smoke test.",
+        "topics": [
+          {
+            "label": "PSX CMake preset",
+            "prompt": "Add a PSX target to my CMake engine using PSn00bSDK in Docker, with a preset for profile psx producing a PS-EXE"
+          },
+          {
+            "label": "BIN/CUE with mkpsxiso",
+            "prompt": "Explain building a PS1 BIN/CUE for homebrew with mkpsxiso: SYSTEM.CNF, PS-EXE, file layout and why there is no license data"
+          },
+          {
+            "label": "PCSX-Redux in CI",
+            "prompt": "Run PSX builds in CI using PCSX-Redux with OpenBIOS in headless mode, and pin a PCSX-Redux build in third_party/emulators"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "hello world BIN/CUE",
+            "prompt": "Give me an exercise: a clear-screen hello world PS-EXE booted from a BIN/CUE in PCSX-Redux with OpenBIOS from one script"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Fixed-point core",
+        "subtitle": "Same core systems, integer math",
+        "estimate": "3 wk",
+        "note": "The PSX profile's scalar is fixed-point (20.12 for gameplay, 4.12 where the GTE wants it). The core compiles against it unchanged; trig comes from tables. The danger is overflow: multiplying two 20.12 numbers needs a 64-bit intermediate or pre-shifting, so math helpers own that, never game code. Windows/Linux/Android builds of PSX games use the same fixed-point so they play identically.",
+        "topics": [
+          {
+            "label": "fixed-point scalar",
+            "prompt": "Design a fixed-point scalar type for the PSX profile of my engine: 20.12 format, multiply and divide without overflow, conversions, and user-defined literals in C++17"
+          },
+          {
+            "label": "fixed-point trig",
+            "prompt": "Implement sin, cos, atan2 and sqrt for fixed-point on PSX with lookup tables, and keep results bit-identical on PC builds"
+          },
+          {
+            "label": "one core, two scalars",
+            "prompt": "How do I make my engine core compile against both float and fixed-point scalars from one codebase without templates everywhere"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "bit-identical simulation",
+            "prompt": "Give me an exercise: run the same physics simulation in the PSX profile on PC and in PCSX-Redux and prove the results are bit-identical"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 1,
+        "title": "PSX platform layer",
+        "subtitle": "No SDL: pad, CD, memory card, vsync",
+        "estimate": "2 wk",
+        "note": "Written directly on PSn00bSDK: pads (digital and DualShock analog), CD file reads by sector, memory card access, vsync timing for NTSC and PAL. Budget tracking for the 2 MB: code, static data and heap all counted, with code size reported at every build.",
+        "topics": [
+          {
+            "label": "PSX platform layer",
+            "prompt": "Implement the PSX platform layer for my engine on PSn00bSDK: pad input including DualShock analog, CD file reads, vsync and timers"
+          },
+          {
+            "label": "2 MB budget",
+            "prompt": "Plan a 2 MB RAM budget on PSX for my engine: code, static data, heap, stacks, and how to report code size per module at build time"
+          },
+          {
+            "label": "memory cards on PSX",
+            "prompt": "Explain PS1 memory card access from PSn00bSDK, save blocks and icons, and the current OpenBIOS limitation for memory cards"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "pad and CD test",
+            "prompt": "Give me an exercise: a PSX input test that reads a DualShock and loads a file from CD, reporting RAM and code size on screen"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "GPU 2D backend",
+        "subtitle": "Ordering tables, VRAM, 320x240",
+        "estimate": "3 wk",
+        "note": "New gpu/ backend. The PSX GPU has no depth buffer: each primitive is linked into an ordering table slot by its sort key, and the GPU draws the table back to front. Double-buffered display and draw areas live in the 1 MB VRAM next to texture pages and CLUTs.",
+        "topics": [
+          {
+            "label": "ordering tables",
+            "prompt": "Implement a PSX gpu render backend for my engine: primitive packet buffers, ordering tables using my sort keys, double-buffered display and draw environments"
+          },
+          {
+            "label": "1 MB VRAM layout",
+            "prompt": "Explain PS1 VRAM layout at 320x240: framebuffers, texture pages, CLUTs, and how to plan them for a 2D game"
+          },
+          {
+            "label": "sprites and tiles on PSX",
+            "prompt": "Implement sprites and tilemaps on the PSX GPU efficiently with SPRT and textured quads, and when each is better"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSX sprite stress test",
+            "prompt": "Give me an exercise: how many sprites can the PSX draw at 60 fps through my backend, compared to PSP and PS2"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 2,
+        "title": "PSX cooker plugin and VRAM packer",
+        "subtitle": "TIM-style textures, CLUTs, VAG, sectors",
+        "estimate": "3 wk",
+        "note": "4/8/15-bit textures, shared CLUTs, an offline VRAM packer that places each scene's textures into texture pages, VAG ADPCM audio, meshes cooked to fixed-point, packs aligned to 2048-byte CD sectors. SplashEdit's MIT-licensed packer is the reference to study.",
+        "topics": [
+          {
+            "label": "VRAM packer",
+            "prompt": "Write a PS1 VRAM packer for my cooker: placing textures into texture pages, sharing CLUTs, and failing the build clearly when a scene does not fit"
+          },
+          {
+            "label": "PSX format plugin",
+            "prompt": "Write the PSX format plugin for my cooker: 4, 8 and 15-bit textures, VAG ADPCM audio, fixed-point meshes and sector-aligned packs"
+          },
+          {
+            "label": "learn from SplashEdit",
+            "prompt": "Walk me through how SplashEdit handles PS1 texture quantization and VRAM packing, and what I could reuse under its MIT license"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "cook the slice for PSX",
+            "prompt": "Give me an exercise: cook the slice assets for PSX and see which textures the packer rejects and why"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 2,
+        "title": "SPU audio and CD streaming",
+        "subtitle": "Hardware voices, XA music",
+        "estimate": "2.5 wk",
+        "note": "Hardware AudioBackend: 24 SPU voices, samples uploaded to 512 KB of SPU RAM per scene, music streamed as XA audio from CD while gameplay reads continue.",
+        "topics": [
+          {
+            "label": "SPU backend",
+            "prompt": "Implement a hardware AudioBackend for PSX in my engine: SPU voices, uploading VAG samples to SPU RAM, and voice allocation"
+          },
+          {
+            "label": "XA music streaming",
+            "prompt": "Explain XA audio streaming on PS1 and how to play music from CD while also loading level data"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "music, SFX and streaming",
+            "prompt": "Give me an exercise: XA music plus 12 sound effects on PSX while streaming a level area from CD"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 2,
+        "title": "2D slice on PSX",
+        "subtitle": "Same game code, smaller assets",
+        "estimate": "2.5 wk",
+        "note": "The shared 2D slice built for PSX with downscaled assets and no game-code changes. Tested in PCSX-Redux and on real hardware via a serial loader or a burned disc on a modded console.",
+        "topics": [
+          {
+            "label": "real PS1 testing",
+            "prompt": "How do I test PS1 homebrew on real hardware: serial loaders like Unirom with nops, burned discs, and what differs from emulators"
+          },
+          {
+            "label": "640x448 to 320x240",
+            "prompt": "Adapt my 2D slice assets from 640x448 to 320x240 for PSX through the profile system without touching game code"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSX slice QA",
+            "prompt": "Give me a QA checklist for the 2D slice on PSX in PCSX-Redux and real hardware, compared to PSP, PS2 and PC"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 3,
+        "title": "GTE 3D backend",
+        "subtitle": "Transforms, sorting, subdivision, lights",
+        "estimate": "5 wk",
+        "note": "The GTE transforms and projects vertices and computes up to 3 lights plus depth-cue fog. Polygons go into the ordering table by average Z. PSX texture mapping is affine, so large polygons near the camera warp badly; fix by subdividing them on the fly and clipping against the near plane. Characters use rigid segmented models, since there's no skinning hardware.",
+        "topics": [
+          {
+            "label": "GTE transform and sort",
+            "prompt": "Implement a GTE-based 3D path for my PSX backend: rotate-translate-perspective, average Z sorting into ordering tables, and backface culling"
+          },
+          {
+            "label": "subdivision and clipping",
+            "prompt": "Explain affine texture warping on PS1 and implement dynamic polygon subdivision and near-plane clipping in my renderer"
+          },
+          {
+            "label": "GTE lights and fog",
+            "prompt": "Implement GTE lighting with 3 lights and depth-cue fog, mapped from my engine Light components"
+          },
+          {
+            "label": "segmented characters",
+            "prompt": "Design segmented character models for PSX: rigid limbs per bone, cooked from skinned glTF, with the same Animator API"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "3D room on PSX",
+            "prompt": "Give me an exercise: a lit, fogged 3D room on PSX with a segmented character walking right up to the camera without warping"
+          }
+        ]
+      },
+      {
+        "number": "8",
+        "group": 3,
+        "title": "PSX performance and streaming",
+        "subtitle": "Scratchpad, area streaming, budgets",
+        "estimate": "3 wk",
+        "note": "1 KB scratchpad for hot transform data, level areas streamed from CD as the player moves, per-scene polygon and VRAM budgets in the PSX ConsoleTarget, profiling with PCSX-Redux.",
+        "topics": [
+          {
+            "label": "scratchpad usage",
+            "prompt": "How should my PSX backend use the 1 KB scratchpad to speed up GTE transforms"
+          },
+          {
+            "label": "area streaming from CD",
+            "prompt": "Implement area-based level streaming from CD on PSX within a 2 MB budget, without visible loading stalls"
+          },
+          {
+            "label": "PSX budgets",
+            "prompt": "Define realistic PSX budgets for polygons per frame, VRAM, SPU RAM and heap and add them to the PSX ConsoleTarget"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "streamed level at 30 fps",
+            "prompt": "Give me an exercise: walk through a three-area 3D level on PSX at a stable 30 fps with streaming"
+          }
+        ]
+      },
+      {
+        "number": "9",
+        "group": 3,
+        "title": "PSX packaging and release",
+        "subtitle": "BIN/CUE, memory card icon, licenses",
+        "estimate": "1.5 wk",
+        "note": "PSX packager for the target module: BIN/CUE, memory card save icon and title, license files on the disc. Checked against OpenBIOS and a real Sony BIOS so it boots everywhere.",
+        "topics": [
+          {
+            "label": "PSX packager",
+            "prompt": "Write the PSX packager for my target module: BIN/CUE with mkpsxiso, memory card icon and title, and license files for an open source release"
+          },
+          {
+            "label": "boot everywhere checklist",
+            "prompt": "What should I test to make sure my PS1 homebrew boots on OpenBIOS, Sony BIOS and real hardware"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSX release candidate",
+            "prompt": "Guide me through a PSX release-candidate pass in PCSX-Redux with OpenBIOS, with a Sony BIOS, and on real hardware"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "PSX",
+    "slug": "psx-editor",
+    "title": "PSX Editor",
+    "summary": "The PSX target module for the editor, plus what PSX specifically needs: the VRAM map and a preview that reproduces the PSX look.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~14 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "8"
+      },
+      {
+        "label": "needs",
+        "value": "editor core + TargetModule"
+      }
+    ],
+    "legend": [
+      "project setup",
+      "authoring for PSX",
+      "build, debug, docs"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "PSX target module",
+        "subtitle": "Register PSX with the editor",
+        "estimate": "1 wk",
+        "note": "Third TargetModule implementation. If PSX needs anything the interface lacks (sort keys, VRAM map data, hardware audio settings), extend the interface rather than adding PSX code to editor core.",
+        "topics": [
+          {
+            "label": "PSX TargetModule",
+            "prompt": "Implement the PSX TargetModule for my editor and list what the interface needs that PSP and PS2 did not, like VRAM map data and sort keys"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "core stays clean",
+            "prompt": "Give me an exercise: grep my editor core for any PSX, PSP or PS2 references after adding the PSX module and move them into modules"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "PSX project template",
+        "subtitle": "ConsoleTarget PSX, 320x240, starter scene",
+        "estimate": "1 wk",
+        "note": "New project, PSX template: PSX ConsoleTarget with fixed-point math, 320x240 Game view, starter scene sized to budget, DualShock input map, memory card icon placeholder. The dialog warns that PSX is the most constrained template.",
+        "topics": [
+          {
+            "label": "PSX template contents",
+            "prompt": "Design the PSX project template for my editor: ConsoleTarget PSX, fixed-point notice, starter scene within budget, input map and memory card icon"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "template to BIN/CUE",
+            "prompt": "Give me an exercise: create a PSX project from the template and Build and Run it in PCSX-Redux without changes"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 2,
+        "title": "PSX import settings and VRAM map",
+        "subtitle": "Bit depth, CLUT sharing, live VRAM view",
+        "estimate": "2.5 wk",
+        "note": "PSX tab per importer: 4/8/15-bit, CLUT sharing groups, max size, audio sample rate. The VRAM map window shows the 1024x512 VRAM for the open scene: framebuffers, texture pages and CLUTs, color-coded, with click-to-select the asset.",
+        "topics": [
+          {
+            "label": "VRAM map window",
+            "prompt": "Build a VRAM map window in my ImGui editor showing PS1 framebuffers, texture pages and CLUTs for the open scene, with click to select the asset"
+          },
+          {
+            "label": "PSX texture import",
+            "prompt": "Design PSX texture import settings: bit depth, CLUT sharing groups and dithering, with a side-by-side quantization preview"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "fix a VRAM overflow",
+            "prompt": "Give me an exercise: make a scene overflow PSX VRAM, then fix it using only import settings and CLUT sharing"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "PSX preview mode",
+        "subtitle": "Wobble, affine warp, sorting, dither",
+        "estimate": "2.5 wk",
+        "note": "Game view through a PSX shader: vertices snapped to integer screen pixels (the wobble), affine texture mapping, painter's sorting instead of depth testing so sort errors show up in the editor, 15-bit color with dithering, 320x240. A toggle previews the optional PC enhancements.",
+        "topics": [
+          {
+            "label": "PSX look shaders",
+            "prompt": "Write GL shaders that reproduce the PS1 look in my editor preview: vertex snapping, affine texture mapping, 15-bit color and dithering"
+          },
+          {
+            "label": "preview sorting errors",
+            "prompt": "Make my editor PSX preview sort polygons like the PS1 ordering table instead of using a depth buffer, so sorting errors appear before building"
+          },
+          {
+            "label": "PC enhancement toggles",
+            "prompt": "Design optional PC enhancements for PSX-profile games on Windows, Linux and Android: higher resolution, perspective-correct textures, off by default"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "preview vs PCSX-Redux",
+            "prompt": "Give me an exercise: compare a scene in PSX preview against PCSX-Redux and list every difference"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 2,
+        "title": "PSX inspector rules",
+        "subtitle": "Gating and validation",
+        "estimate": "1.5 wk",
+        "note": "Unsupported components hidden or greyed. Validation: more than 3 lights on an object, skinned meshes (offers conversion to segmented), polygon and VRAM budget per scene, SPU RAM usage, fields too large for fixed-point range.",
+        "topics": [
+          {
+            "label": "PSX validation rules",
+            "prompt": "Write PSX validation rules for my editor: light count, skinned meshes, polygon, VRAM and SPU budgets, and values outside fixed-point range"
+          },
+          {
+            "label": "skinned to segmented tool",
+            "prompt": "Build an editor tool that converts a skinned character into a segmented PSX model with one rigid mesh per bone"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "fix a PSP scene for PSX",
+            "prompt": "Give me an exercise: open a PSP scene in a PSX project and fix every validation error"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 3,
+        "title": "Build and Run in PCSX-Redux",
+        "subtitle": "One click to a booting disc image",
+        "estimate": "2 wk",
+        "note": "Validate, cook, compile in Docker, build BIN/CUE, launch bundled PCSX-Redux with OpenBIOS (or the user's BIOS if set), stream its TTY output to the console. Optional deploy to real hardware over serial.",
+        "topics": [
+          {
+            "label": "PSX Build and Run",
+            "prompt": "Implement Build and Run for PSX in my editor: compile with PSn00bSDK in Docker, build BIN/CUE, launch PCSX-Redux with OpenBIOS and stream TTY output to the console"
+          },
+          {
+            "label": "deploy over serial",
+            "prompt": "Add deploy to real PS1 hardware from my editor over serial using Unirom and nops"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "fast PSX iteration",
+            "prompt": "Give me an exercise: time the PSX Build and Run loop and cut it under 30 seconds by skipping the disc image during iteration"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 3,
+        "title": "PSX debugging and profiling",
+        "subtitle": "PCSX-Redux debugger, budget reports",
+        "estimate": "2 wk",
+        "note": "Development builds report frame time, heap, VRAM and SPU usage to the editor profiler. Shortcut to attach a debugger through PCSX-Redux to the running build.",
+        "topics": [
+          {
+            "label": "PCSX-Redux debugging",
+            "prompt": "How do I debug PSX homebrew with PCSX-Redux: its debugger, GDB connection, VRAM viewer and memory views"
+          },
+          {
+            "label": "PSX profiler feed",
+            "prompt": "Feed frame time, heap, VRAM and SPU usage from a PSX development build in PCSX-Redux into my editor profiler"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "ordering table bug hunt",
+            "prompt": "Give me an exercise: track down a deliberate ordering table bug in a PSX build using PCSX-Redux and the editor profiler"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 3,
+        "title": "PSX samples and docs",
+        "subtitle": "Sample project, getting started, credits",
+        "estimate": "1.5 wk",
+        "note": "A small PSX sample game, a getting-started page that explains fixed-point and budgets to Unity users, and credits for code or ideas borrowed from SplashEdit, PSn00bSDK and PCSX-Redux.",
+        "topics": [
+          {
+            "label": "PSX sample game",
+            "prompt": "Scope a small PSX sample game that shows segmented characters, streaming and the PSX look, to ship with Rensga Engine"
+          },
+          {
+            "label": "PSX getting started",
+            "prompt": "Write a getting-started guide for making a PSX game in Rensga Engine, aimed at Unity users new to fixed-point and tight budgets"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSX guide playtest",
+            "prompt": "Give me an exercise: have a Unity user follow the PSX guide and log every concept that confused them"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "PSX",
+    "slug": "psx-api",
+    "title": "PSX API",
+    "summary": "The PSX profile of the shared API: same class names, fixed-point rules, and the features PSX has to cut or replace.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~12 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "8"
+      },
+      {
+        "label": "optional",
+        "value": "+2 wk FMV"
+      }
+    ],
+    "legend": [
+      "profile and math",
+      "PSX features",
+      "extras, docs, tests"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "PSX profile and fixed-point rules",
+        "subtitle": "What scripts can and can't do",
+        "estimate": "1.5 wk",
+        "note": "ENGINE_PROFILE_PSX, feature flags, and the scripting rules: no float or double in game code (compile error with a hint), fixed literals like 1.5_fx, explicit conversions only. Same scripts compile unchanged for the PC builds of the game.",
+        "topics": [
+          {
+            "label": "PSX profile rules",
+            "prompt": "Define the PSX profile for my API: feature flags, banning float in game code with clear compile errors, and fixed-point literals in C++17"
+          },
+          {
+            "label": "catching floats",
+            "prompt": "How can a C++17 engine detect and reject float usage in game scripts for the PSX profile at compile time"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "port a script to fixed-point",
+            "prompt": "Give me an exercise: port a float-based PSP script to the PSX profile and make it compile with only fixed-point"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Fixed-point math API",
+        "subtitle": "Vector3, Quaternion, Mathf, same names",
+        "estimate": "2 wk",
+        "note": "Same classes and methods as other profiles, backed by fixed-point. Angles stored in PSX units (4096 per turn) internally while the API still takes degrees. Lerp, SmoothDamp and friends rewritten to avoid overflow; Random deterministic across PSX and PC.",
+        "topics": [
+          {
+            "label": "fixed-point Vector3 and Mathf",
+            "prompt": "Implement Vector3, Quaternion and Mathf for the PSX profile on fixed-point, keeping the same API as the float profiles and avoiding overflow"
+          },
+          {
+            "label": "Quaternion on PSX",
+            "prompt": "Should Quaternion on PSX be real quaternions in fixed-point or wrap GTE rotation matrices, given performance and API parity"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "fixed vs float accuracy",
+            "prompt": "Give me an exercise: tests showing Mathf and Vector3 results on the PSX profile stay within a small error of the float profile"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 2,
+        "title": "Rendering API on PSX",
+        "subtitle": "3 lights, blend modes, segmented meshes",
+        "estimate": "2 wk",
+        "note": "Same Light, Material and Camera classes: 3 most relevant lights per object, fog via depth cueing, the PSX's 4 semi-transparency modes, and a SegmentedMeshRenderer that the Animator drives exactly like a SkinnedMeshRenderer. Optional sort bias on renderers to fix ordering problems.",
+        "topics": [
+          {
+            "label": "PSX materials and lights",
+            "prompt": "Map my Material and Light APIs to PSX: 4 semi-transparency modes, 3 GTE lights per object and depth-cue fog"
+          },
+          {
+            "label": "SegmentedMeshRenderer",
+            "prompt": "Design a SegmentedMeshRenderer for PSX that the Animator API drives the same way as a SkinnedMeshRenderer on other profiles"
+          },
+          {
+            "label": "sort bias",
+            "prompt": "Add a sort bias field to renderers for the PSX profile so creators can fix ordering table sorting errors"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "water and sort bias",
+            "prompt": "Give me an exercise: a translucent water plane and a character that sort correctly on PSX using sort bias"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "Physics on PSX",
+        "subtitle": "Kinematic, simple shapes, queries",
+        "estimate": "1.5 wk",
+        "note": "Same API, smaller feature set: box and sphere colliders, collision meshes for levels, CharacterController, Raycast and Overlap. Rigidbody supports gravity and simple response but no stacking solver. Unsupported options are gated in the inspector.",
+        "topics": [
+          {
+            "label": "PSX physics subset",
+            "prompt": "Define the reduced physics feature set for the PSX profile of my API and implement CharacterController and Raycast in fixed-point"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSX platforming test",
+            "prompt": "Give me an exercise: a platforming test level on PSX using CharacterController and raycasts at 30 fps"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 2,
+        "title": "Audio and music API on PSX",
+        "subtitle": "SPU voices, XA tracks, residency",
+        "estimate": "1.5 wk",
+        "note": "AudioSource maps to SPU voices with priority stealing. AudioClips declare residency per scene so the 512 KB SPU RAM is planned at cook time. Music API plays XA tracks from CD; same calls stream files on other profiles.",
+        "topics": [
+          {
+            "label": "clip residency",
+            "prompt": "Design AudioClip residency for PSX so SPU RAM usage is planned per scene at cook time, with the same AudioSource API"
+          },
+          {
+            "label": "cross-profile music API",
+            "prompt": "Design a Music API that plays XA tracks on PSX and streamed files on PSP, PS2 and PC with the same calls"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "fix SPU overflow",
+            "prompt": "Give me an exercise: a scene whose sound effects overflow SPU RAM, then fix it with residency settings"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 2,
+        "title": "Scenes and saves on PSX",
+        "subtitle": "Area streaming, memory card blocks",
+        "estimate": "1.5 wk",
+        "note": "SceneManager additive loading becomes area streaming within budget. SaveSystem writes memory card blocks (8 KB each, 15 per card) with icon and title; the API reports remaining blocks and failures. OpenBIOS lacks memory card support today, so dev builds also fall back to a host file.",
+        "topics": [
+          {
+            "label": "memory card SaveSystem",
+            "prompt": "Implement my SaveSystem on PS1 memory cards: block sizing, icons, titles, error handling, and a host file fallback for OpenBIOS testing"
+          },
+          {
+            "label": "area streaming API",
+            "prompt": "Map SceneManager additive loading to area streaming on PSX with budget checks"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "one-block save",
+            "prompt": "Give me an exercise: a save that fits in one memory card block and survives a reboot on real PS1 hardware"
+          }
+        ]
+      },
+      {
+        "number": "6",
+        "group": 3,
+        "title": "FMV playback (optional)",
+        "subtitle": "VideoPlayer on MDEC",
+        "estimate": "2 wk",
+        "note": "A VideoPlayer component that plays STR video through the PSX MDEC decoder, with a cooker step from common video formats. Other profiles play the same clip with a software decoder.",
+        "topics": [
+          {
+            "label": "VideoPlayer on MDEC",
+            "prompt": "Implement a VideoPlayer component that plays STR video on PSX through MDEC and the same clips on other profiles"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "intro FMV",
+            "prompt": "Give me an exercise: a 20-second intro FMV with XA audio on PSX and the PC build"
+          }
+        ]
+      },
+      {
+        "number": "7",
+        "group": 3,
+        "title": "PSX docs and API tests",
+        "subtitle": "Fixed-point guide, tests in PCSX-Redux",
+        "estimate": "1.5 wk",
+        "note": "A fixed-point guide for Unity users, PSX badges and notes on every API page, and the API test suite running in PCSX-Redux in CI so PSX and PC builds of the same game stay identical.",
+        "topics": [
+          {
+            "label": "fixed-point guide",
+            "prompt": "Write a fixed-point guide for Unity users making PSX games in Rensga Engine: literals, ranges, common overflow mistakes"
+          },
+          {
+            "label": "PSX tests in CI",
+            "prompt": "Run my API test suite in PCSX-Redux in CI and compare results against the PC build of the PSX profile"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "catch a divergence",
+            "prompt": "Give me an exercise: make one fixed-point test diverge between PSX and PC and confirm CI catches it"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "Minor features",
+    "slug": "emulator-play",
+    "title": "Emulator Play button",
+    "summary": "A Unity-style Play button that builds the project and runs it in the bundled PCSX-Redux, PPSSPP or PCSX2. Emulators run as separate processes, which keeps their GPL licenses separate from the MIT editor.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~7 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "6"
+      },
+      {
+        "label": "optional",
+        "value": "+3 wk in-view"
+      }
+    ],
+    "legend": [
+      "core play flow",
+      "iteration speed",
+      "polish and options"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "Emulator launch contract",
+        "subtitle": "CLI args, sandboxed configs, BIOS",
+        "estimate": "1 wk",
+        "note": "For each pinned emulator: the command line to boot a file directly, a per-project config folder so play sessions never touch the user's own emulator settings, a per-project memory card, and BIOS handling (OpenBIOS default for PCSX-Redux, none for PPSSPP, user dump prompt for PCSX2).",
+        "topics": [
+          {
+            "label": "launch arguments",
+            "prompt": "Define the command-line launch contract for PCSX-Redux, PPSSPP and PCSX2 from my editor: boot a file directly, config folder override, memory card path, BIOS"
+          },
+          {
+            "label": "sandboxed configs",
+            "prompt": "Design per-project sandboxed emulator config folders so editor play sessions never change the user personal emulator settings"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "boot all three from script",
+            "prompt": "Give me an exercise: a script that boots the hello world build in each of the three emulators with a fresh sandboxed config"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Play, Pause, Stop",
+        "subtitle": "Toolbar buttons driving the emulator",
+        "estimate": "1.5 wk",
+        "note": "Play runs a development build for the project's console and launches its emulator; the toolbar shows Building, Launching, Running. Stop closes the emulator process. Pause and frame step use the emulator's own pause where it exposes one. A dropdown next to Play switches between Play in editor (PC preview) and Play on console.",
+        "topics": [
+          {
+            "label": "play toolbar",
+            "prompt": "Implement a Unity-style Play, Pause and Stop toolbar in my editor that builds for the project console and manages the emulator process lifecycle"
+          },
+          {
+            "label": "play target dropdown",
+            "prompt": "Design a Play dropdown in my editor: play in editor PC preview vs play on console in the bundled emulator"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "play/stop stress test",
+            "prompt": "Give me an exercise: press Play, Stop and Play again ten times and make sure no emulator process or build lock is left behind"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 2,
+        "title": "Fast iteration path",
+        "subtitle": "Skip disc images, load assets from host",
+        "estimate": "1.5 wk",
+        "note": "Play never builds an ISO, EBOOT or BIN/CUE: emulators boot the executable directly, and the game reads cooked assets from the project folder through each emulator's host filesystem. Only changed assets get recooked, so Play after a small change takes seconds.",
+        "topics": [
+          {
+            "label": "boot without disc images",
+            "prompt": "How can PCSX2, PPSSPP and PCSX-Redux boot an executable directly and let the game read files from a host folder, so my editor Play skips disc images"
+          },
+          {
+            "label": "sub-10s Play",
+            "prompt": "Make Play in my editor do incremental cooking and incremental compiles so a one-line change reaches the emulator in under 10 seconds"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "time the Play loop",
+            "prompt": "Give me an exercise: measure Play time per console after changing one texture and one script line, and cut each under 10 seconds"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "Console log and crash handling",
+        "subtitle": "Game output in the editor console",
+        "estimate": "1 wk",
+        "note": "The game's log output is captured from the emulator and shown in the editor console with the same filters as editor logs. If the emulator crashes or the game hangs, the editor reports it, saves the last log, and offers to relaunch with the emulator's debugger open.",
+        "topics": [
+          {
+            "label": "logs and crash detection",
+            "prompt": "Capture game log output from PCSX2, PPSSPP and PCSX-Redux into my editor console, and detect emulator crashes or game hangs"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "crash report test",
+            "prompt": "Give me an exercise: trigger a deliberate null Ref in a script and see it reported in the editor console from each emulator"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 3,
+        "title": "Docked Game view",
+        "subtitle": "Emulator window inside the editor",
+        "estimate": "2 wk",
+        "note": "On Windows and X11, the emulator window is reparented into the Game view panel so it looks embedded, with input focus following the mouse. Wayland doesn't allow reparenting, so there it falls back to a floating window positioned over the panel.",
+        "topics": [
+          {
+            "label": "window reparenting",
+            "prompt": "Dock an external emulator window into my ImGui editor Game view on Windows and X11 by reparenting, with resize and input focus handling"
+          },
+          {
+            "label": "Wayland fallback",
+            "prompt": "What is the best fallback for embedding an external emulator window in my editor on Wayland"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "dock and resize",
+            "prompt": "Give me an exercise: dock PPSSPP into the Game view, resize the panel, and confirm input and rendering stay correct"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 3,
+        "title": "In-view emulation (optional)",
+        "subtitle": "Emulator renders into the Game view",
+        "estimate": "3 wk",
+        "note": "True Unity feel: load an emulator core as a library and draw its frames into the Game view texture. Libretro builds exist for some of these emulators, but PSX would need a different core than PCSX-Redux, and loading GPL code into the editor process needs a licensing review before shipping.",
+        "topics": [
+          {
+            "label": "libretro evaluation",
+            "prompt": "Evaluate libretro cores for embedding PS1, PSP and PS2 emulation inside my editor Game view: which cores exist, performance, and licensing for an MIT editor"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "libretro prototype",
+            "prompt": "Give me an exercise: a prototype that renders a libretro PSP core into an ImGui texture inside my editor"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "Minor features",
+    "slug": "psp-template",
+    "title": "PSP template project",
+    "summary": "Built first, so it carries the shared primitive generator and controller. Shows off hardware textures, lighting and a one-nub camera scheme.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~5.5 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "5"
+      },
+      {
+        "label": "builds",
+        "value": "shared primitives + controller"
+      }
+    ],
+    "legend": [
+      "content",
+      "gameplay",
+      "ship template"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "Primitive generator (shared)",
+        "subtitle": "GameObject > 3D Object menu",
+        "estimate": "1.5 wk",
+        "note": "Built once for all templates: cube, sphere, cylinder, capsule, cone, plane, ramp and stairs, created from the editor menu like Unity. Tessellation and vertex format come from the ConsoleTarget; the result cooks like any imported mesh, with matching colliders added automatically.",
+        "topics": [
+          {
+            "label": "primitive generator",
+            "prompt": "Build a primitive mesh generator for my engine: cube, sphere, cylinder, capsule, cone, plane, ramp and stairs, with tessellation from the ConsoleTarget"
+          },
+          {
+            "label": "3D Object menu",
+            "prompt": "Add a GameObject 3D Object menu to my editor that creates primitives with matching colliders, like Unity"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "one sphere, three profiles",
+            "prompt": "Give me an exercise: generate the same sphere for PSX, PSP and PS2 profiles and compare triangle counts"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Primitive character",
+        "subtitle": "Hierarchy prefab, lit and textured",
+        "estimate": "1 wk",
+        "note": "The shared primitive character prefab with a small 16-bit face texture on the head sphere and hardware-lit materials. Idle, walk and jump clips through the Animator, same as the other templates.",
+        "topics": [
+          {
+            "label": "PSP character look",
+            "prompt": "Make the shared primitive character prefab look good on PSP with hardware lighting and a small face texture, within PSP budgets"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "prefab variant character",
+            "prompt": "Give me an exercise: make a second character variant as a prefab variant with different colors and proportions"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 1,
+        "title": "Primitive test level",
+        "subtitle": "Textured blocks, 4 lights, fog",
+        "estimate": "1 wk",
+        "note": "Ground from a moderate grid (to stay clear of GU clipping glitches near the camera), platforms, ramps, stairs and pickups with 8-bit checker textures, up to 4 hardware lights, fog and a sky color.",
+        "topics": [
+          {
+            "label": "PSP test level layout",
+            "prompt": "Lay out a small primitive test level for the PSP template with checker textures, 4 hardware lights and fog, avoiding GU clipping problems"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "fifth light test",
+            "prompt": "Give me an exercise: add a fifth light to the PSP test level and watch the editor pick the 4 most relevant per object"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "Character controller (shared base)",
+        "subtitle": "Move, jump, one-nub camera, pickups",
+        "estimate": "1.5 wk",
+        "note": "The shared controller script, written against the profile scalar so it also compiles for PSX: camera-relative movement on the nub, jump with coyote time, slope limits, camera orbit on L/R with auto-follow, pickup counter HUD.",
+        "topics": [
+          {
+            "label": "shared controller script",
+            "prompt": "Write a shared third-person controller script in my API that compiles for float and fixed-point profiles: movement, coyote time jump, slope limits"
+          },
+          {
+            "label": "one-nub camera",
+            "prompt": "Design an auto-follow third-person camera for PSP controlled with L and R since there is no right stick"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "camera wall avoidance",
+            "prompt": "Give me an exercise: tune the PSP template camera so the character never gets hidden behind a wall"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 3,
+        "title": "Package the PSP template",
+        "subtitle": "New-project entry, CI boot test",
+        "estimate": "0.5 wk",
+        "note": "PSP entry in the new-project dialog with thumbnail and EBOOT icon. CI builds it and boots it in headless PPSSPP on every engine change.",
+        "topics": [
+          {
+            "label": "PSP template CI",
+            "prompt": "Package the PSP template for my new-project dialog and boot it in headless PPSSPP in CI on every engine change"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "template to Play",
+            "prompt": "Give me an exercise: create a project from the PSP template and press Play to reach the running game in PPSSPP"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "Minor features",
+    "slug": "psx-template",
+    "title": "PSX template project",
+    "summary": "Primitive character, primitive test level and a fixed-point third-person controller. Everything is vertex-colored, so the scene uses almost no VRAM.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~4.5 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "5"
+      },
+      {
+        "label": "reuses",
+        "value": "shared primitives + controller"
+      }
+    ],
+    "legend": [
+      "content",
+      "gameplay",
+      "ship template"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "PSX primitive settings",
+        "subtitle": "Low tessellation, vertex color, fixed-point",
+        "estimate": "0.5 wk",
+        "note": "The PSX ConsoleTarget sets primitive tessellation low (a sphere around 40 triangles), vertex colors instead of textures, and fixed-point vertex data. Primitives cook like any other mesh.",
+        "topics": [
+          {
+            "label": "PSX primitive defaults",
+            "prompt": "Set PSX tessellation and vertex color defaults for my primitive generator so cube, sphere, cylinder and capsule fit PSX budgets"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "primitive budget check",
+            "prompt": "Give me an exercise: place every primitive type in a PSX scene and check the polygon count against the budget"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Segmented primitive character",
+        "subtitle": "Box body, sphere head, cylinder limbs",
+        "estimate": "1 wk",
+        "note": "A prefab built as a hierarchy of primitives: torso, head, upper and lower arms and legs, each a rigid piece, which is exactly a PSX segmented model. Idle, walk and jump as transform animation clips driven by an Animator.",
+        "topics": [
+          {
+            "label": "primitive character prefab",
+            "prompt": "Build a primitive character prefab for the PSX template: hierarchy of box, sphere and cylinder limbs with pivots at the joints"
+          },
+          {
+            "label": "segmented walk cycle",
+            "prompt": "Create idle, walk and jump animation clips for a segmented primitive character using transform keyframes and an Animator"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "add a run cycle",
+            "prompt": "Give me an exercise: give the primitive character a run cycle by editing only keyframes in the Animation window"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 1,
+        "title": "Primitive test level",
+        "subtitle": "Grid ground, platforms, ramps, pickups",
+        "estimate": "1.5 wk",
+        "note": "Ground built from a grid of small tiles (big polygons warp and clip badly on PSX), platforms, ramps, stairs, walls and spinning pickups. 3 lights, depth-cue fog, one 4-bit checker texture to show how texture pages appear in the VRAM map.",
+        "topics": [
+          {
+            "label": "PSX test level layout",
+            "prompt": "Lay out a small primitive test level for the PSX template: tiled ground, platforms, ramps, stairs and pickups within PSX budgets"
+          },
+          {
+            "label": "why tiled ground",
+            "prompt": "Why must PSX ground be built from small tiles, and how big should they be to avoid affine warping and near-plane clipping"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "see the warping",
+            "prompt": "Give me an exercise: replace the tiled ground with one big quad, see the warping in PSX preview, then put the tiles back"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "Fixed-point character controller",
+        "subtitle": "Move, jump, camera, pickups",
+        "estimate": "1 wk",
+        "note": "The shared controller script compiled for the PSX profile: camera-relative movement on the DualShock analog stick with D-pad fallback, jump with coyote time, camera orbit on L1/R1, pickup counter on screen. Sort bias on the character so it never sorts behind the ground.",
+        "topics": [
+          {
+            "label": "PSX controller script",
+            "prompt": "Write the template third-person controller script in my API so it compiles for the PSX profile in fixed-point: movement, jump with coyote time, camera orbit"
+          },
+          {
+            "label": "analog and digital pads",
+            "prompt": "Support both DualShock analog and digital-only pads in the PSX template controller"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "add a double jump",
+            "prompt": "Give me an exercise: add a double jump to the PSX template controller using only fixed-point math"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 3,
+        "title": "Package the PSX template",
+        "subtitle": "New-project entry, CI boot test",
+        "estimate": "0.5 wk",
+        "note": "The project becomes the PSX entry in the new-project dialog with a thumbnail. CI builds it and boots it in PCSX-Redux with OpenBIOS on every engine change, so the template never breaks.",
+        "topics": [
+          {
+            "label": "template packaging and CI",
+            "prompt": "Package a sample project as a template in my editor new-project dialog, and test it in CI with PCSX-Redux on every engine change"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "template to Play",
+            "prompt": "Give me an exercise: create a project from the PSX template and press Play to reach the running game in PCSX-Redux"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "group": "Minor features",
+    "slug": "ps2-template",
+    "title": "PS2 template project",
+    "summary": "The roomiest template: smoother primitives, a dual-analog camera, rumble and a blob shadow. Public CI can't boot it in PCSX2, so the boot test runs on a maintainer's machine.",
+    "stats": [
+      {
+        "label": "total",
+        "value": "~4.5 weeks"
+      },
+      {
+        "label": "phases",
+        "value": "5"
+      },
+      {
+        "label": "reuses",
+        "value": "shared primitives + controller"
+      }
+    ],
+    "legend": [
+      "content",
+      "gameplay",
+      "ship template"
+    ],
+    "phases": [
+      {
+        "number": "0",
+        "group": 1,
+        "title": "PS2 primitive settings",
+        "subtitle": "Smoother tessellation, VU1 path",
+        "estimate": "0.5 wk",
+        "note": "The PS2 ConsoleTarget raises tessellation (smooth spheres and capsules) and cooks primitives as triangle strips for the ps2gl VU1 path.",
+        "topics": [
+          {
+            "label": "PS2 primitive defaults",
+            "prompt": "Set PS2 tessellation defaults for my primitive generator and cook primitives as triangle strips for the ps2gl VU1 path"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "200 spheres at 60 fps",
+            "prompt": "Give me an exercise: place 200 spheres in a PS2 scene and find the tessellation level that holds 60 fps"
+          }
+        ]
+      },
+      {
+        "number": "1",
+        "group": 1,
+        "title": "Primitive character and blob shadow",
+        "subtitle": "Shared prefab, smoother look",
+        "estimate": "1 wk",
+        "note": "The shared primitive character with smoother parts and textured materials, plus a blob shadow: a soft dark quad projected onto the ground with a raycast, the classic PS2-era trick.",
+        "topics": [
+          {
+            "label": "blob shadow",
+            "prompt": "Implement a blob shadow component for my engine: raycast down, align a soft alpha quad to the ground normal, fade with height"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "shadow on ramps",
+            "prompt": "Give me an exercise: make the blob shadow follow the character correctly on ramps and stairs in the PS2 template"
+          }
+        ]
+      },
+      {
+        "number": "2",
+        "group": 1,
+        "title": "Primitive test level",
+        "subtitle": "Bigger layout, textures, fog",
+        "estimate": "1.5 wk",
+        "note": "A larger level than the PSX and PSP versions: platforms, ramps, stairs, moving platforms and pickups, several 8-bit CLUT textures so texture streaming into the 4 MB VRAM actually happens, fog and multiple lights.",
+        "topics": [
+          {
+            "label": "PS2 test level layout",
+            "prompt": "Lay out a primitive test level for the PS2 template with moving platforms, several CLUT textures and fog that exercises VRAM streaming"
+          },
+          {
+            "label": "moving platforms",
+            "prompt": "Implement moving platforms that carry the CharacterController correctly in my engine"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "push VRAM streaming",
+            "prompt": "Give me an exercise: add textures to the PS2 level until VRAM streaming shows in the profiler, then optimize"
+          }
+        ]
+      },
+      {
+        "number": "3",
+        "group": 2,
+        "title": "Dual-analog controller",
+        "subtitle": "Right-stick camera, rumble",
+        "estimate": "1 wk",
+        "note": "The shared controller script with the PS2 input scheme: left stick moves, right stick orbits the camera, DualShock 2 rumble on landing and pickups, progressive or interlaced output picked in project settings.",
+        "topics": [
+          {
+            "label": "right stick and rumble",
+            "prompt": "Add a right-stick orbit camera and DualShock 2 rumble on landing to the shared controller for the PS2 template"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "sprint with FOV kick",
+            "prompt": "Give me an exercise: add a sprint on L3 with a camera FOV kick to the PS2 template controller"
+          }
+        ]
+      },
+      {
+        "number": "4",
+        "group": 3,
+        "title": "Package the PS2 template",
+        "subtitle": "New-project entry, boot test without public BIOS",
+        "estimate": "0.5 wk",
+        "note": "PS2 entry in the new-project dialog. Public CI builds the ELF and ISO; the PCSX2 boot test runs on a self-hosted runner where a maintainer supplies their own BIOS dump, since it can't live in the repo.",
+        "topics": [
+          {
+            "label": "PS2 boot test runner",
+            "prompt": "Set up a self-hosted CI runner that boots my PS2 template in PCSX2 with a maintainer BIOS kept private, while public CI only builds"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "template to Play",
+            "prompt": "Give me an exercise: create a project from the PS2 template and press Play to reach the running game in PCSX2"
+          }
+        ]
+      }
+    ]
+  }
+]

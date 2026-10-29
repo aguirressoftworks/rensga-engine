@@ -1,0 +1,1074 @@
+{
+  "ramps": [
+    {
+      "key": "pequi",
+      "name": "Pequi gold",
+      "source": "the pulp",
+      "use": "Primary actions, Play, selection, focus, highlights, warnings",
+      "steps": [
+        {
+          "step": 50,
+          "hex": "#fff8e6",
+          "icon": []
+        },
+        {
+          "step": 100,
+          "hex": "#ffefc2",
+          "icon": []
+        },
+        {
+          "step": 200,
+          "hex": "#ffe08a",
+          "icon": []
+        },
+        {
+          "step": 300,
+          "hex": "#ffd66b",
+          "icon": [
+            "Highlight"
+          ]
+        },
+        {
+          "step": 400,
+          "hex": "#f7bc3a",
+          "icon": []
+        },
+        {
+          "step": 500,
+          "hex": "#f2a516",
+          "icon": [
+            "Pulp"
+          ]
+        },
+        {
+          "step": 600,
+          "hex": "#d98a0b",
+          "icon": [
+            "Pulp rim"
+          ]
+        },
+        {
+          "step": 700,
+          "hex": "#b06d08",
+          "icon": []
+        },
+        {
+          "step": 800,
+          "hex": "#85510a",
+          "icon": []
+        },
+        {
+          "step": 900,
+          "hex": "#5c380b",
+          "icon": []
+        }
+      ]
+    },
+    {
+      "key": "cerrado",
+      "name": "Cerrado green",
+      "source": "the husk and the leaf",
+      "use": "Links, section headers, success, foliage in art",
+      "steps": [
+        {
+          "step": 50,
+          "hex": "#f1f6ea",
+          "icon": []
+        },
+        {
+          "step": 100,
+          "hex": "#e6f0da",
+          "icon": []
+        },
+        {
+          "step": 200,
+          "hex": "#c2dba6",
+          "icon": []
+        },
+        {
+          "step": 300,
+          "hex": "#9fc477",
+          "icon": []
+        },
+        {
+          "step": 400,
+          "hex": "#7eaa50",
+          "icon": []
+        },
+        {
+          "step": 500,
+          "hex": "#5f8f34",
+          "icon": [
+            "Husk"
+          ]
+        },
+        {
+          "step": 600,
+          "hex": "#4f7d2a",
+          "icon": [
+            "Leaf"
+          ]
+        },
+        {
+          "step": 700,
+          "hex": "#3f6420",
+          "icon": [
+            "Husk rim"
+          ]
+        },
+        {
+          "step": 800,
+          "hex": "#2f4b18",
+          "icon": []
+        },
+        {
+          "step": 900,
+          "hex": "#1f3210",
+          "icon": []
+        }
+      ]
+    },
+    {
+      "key": "soil",
+      "name": "Soil",
+      "source": "warm neutrals",
+      "use": "Backgrounds, surfaces, borders, text",
+      "steps": [
+        {
+          "step": 50,
+          "hex": "#faf8f3",
+          "icon": []
+        },
+        {
+          "step": 100,
+          "hex": "#f2efe6",
+          "icon": []
+        },
+        {
+          "step": 200,
+          "hex": "#e4dfd2",
+          "icon": []
+        },
+        {
+          "step": 300,
+          "hex": "#cdc6b5",
+          "icon": []
+        },
+        {
+          "step": 400,
+          "hex": "#a59d8a",
+          "icon": []
+        },
+        {
+          "step": 500,
+          "hex": "#736b5a",
+          "icon": []
+        },
+        {
+          "step": 600,
+          "hex": "#5c5547",
+          "icon": []
+        },
+        {
+          "step": 700,
+          "hex": "#403b31",
+          "icon": []
+        },
+        {
+          "step": 800,
+          "hex": "#2b2822",
+          "icon": []
+        },
+        {
+          "step": 900,
+          "hex": "#1c1a16",
+          "icon": []
+        }
+      ]
+    },
+    {
+      "key": "bark",
+      "name": "Bark",
+      "source": "the stem",
+      "use": "Rare accent for wood and earth in art and illustrations; not for UI state",
+      "steps": [
+        {
+          "step": 300,
+          "hex": "#b59a73",
+          "icon": []
+        },
+        {
+          "step": 500,
+          "hex": "#7a5c36",
+          "icon": []
+        },
+        {
+          "step": 700,
+          "hex": "#5a4326",
+          "icon": [
+            "Stem"
+          ]
+        },
+        {
+          "step": 900,
+          "hex": "#2e2214",
+          "icon": []
+        }
+      ]
+    },
+    {
+      "key": "urucum",
+      "name": "Urucum red",
+      "source": "annatto, the red seed dye of Brazil",
+      "use": "Errors, Stop, over-budget",
+      "steps": [
+        {
+          "step": 100,
+          "hex": "#fde8e4",
+          "icon": []
+        },
+        {
+          "step": 300,
+          "hex": "#f7b4aa",
+          "icon": []
+        },
+        {
+          "step": 700,
+          "hex": "#a3261c",
+          "icon": []
+        },
+        {
+          "step": 900,
+          "hex": "#5a1a14",
+          "icon": []
+        }
+      ]
+    },
+    {
+      "key": "ceu",
+      "name": "Cerrado sky",
+      "source": "the dry-season sky",
+      "use": "Information and neutral notices",
+      "steps": [
+        {
+          "step": 100,
+          "hex": "#e3eef8",
+          "icon": []
+        },
+        {
+          "step": 300,
+          "hex": "#a9cdee",
+          "icon": []
+        },
+        {
+          "step": 700,
+          "hex": "#245a8a",
+          "icon": []
+        },
+        {
+          "step": 900,
+          "hex": "#173a5c",
+          "icon": []
+        }
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "key": "psx",
+      "target": "PSX",
+      "name": "Ipê roxo",
+      "hex": "#6e4a9e",
+      "source": "the purple ipê tree"
+    },
+    {
+      "key": "psp",
+      "target": "PSP",
+      "name": "Vereda",
+      "hex": "#1d6f73",
+      "source": "the teal water of the cerrado's palm wetlands"
+    },
+    {
+      "key": "ps2",
+      "target": "PS2",
+      "name": "Ipê rosa",
+      "hex": "#b23c6e",
+      "source": "the pink ipê tree"
+    },
+    {
+      "key": "pc",
+      "target": "Windows · Linux · Android",
+      "name": "Soil 600",
+      "hex": "#5c5547",
+      "source": "the neutral ramp"
+    }
+  ],
+  "tokens": [
+    {
+      "name": "bg",
+      "light": "#faf8f3",
+      "dark": "#1c1a16",
+      "light_ref": "soil.50",
+      "dark_ref": "soil.900",
+      "use": "Page and editor window background"
+    },
+    {
+      "name": "surface",
+      "light": "#ffffff",
+      "dark": "#2b2822",
+      "light_ref": "#ffffff",
+      "dark_ref": "soil.800",
+      "use": "Cards, panels, inspector rows, inputs"
+    },
+    {
+      "name": "surface-2",
+      "light": "#f2efe6",
+      "dark": "#23211c",
+      "light_ref": "soil.100",
+      "dark_ref": "#23211c",
+      "use": "Inset areas, code blocks, table headers"
+    },
+    {
+      "name": "border",
+      "light": "#e4dfd2",
+      "dark": "#403b31",
+      "light_ref": "soil.200",
+      "dark_ref": "soil.700",
+      "use": "Dividers and outlines"
+    },
+    {
+      "name": "border-strong",
+      "light": "#cdc6b5",
+      "dark": "#5c5547",
+      "light_ref": "soil.300",
+      "dark_ref": "soil.600",
+      "use": "Hovered outlines, input borders"
+    },
+    {
+      "name": "text",
+      "light": "#1c1a16",
+      "dark": "#faf8f3",
+      "light_ref": "soil.900",
+      "dark_ref": "soil.50",
+      "use": "Body text and icons"
+    },
+    {
+      "name": "text-2",
+      "light": "#5c5547",
+      "dark": "#cdc6b5",
+      "light_ref": "soil.600",
+      "dark_ref": "soil.300",
+      "use": "Secondary text"
+    },
+    {
+      "name": "muted",
+      "light": "#736b5a",
+      "dark": "#a59d8a",
+      "light_ref": "soil.500",
+      "dark_ref": "soil.400",
+      "use": "Captions, hints, placeholders"
+    },
+    {
+      "name": "link",
+      "light": "#3f6420",
+      "dark": "#9fc477",
+      "light_ref": "cerrado.700",
+      "dark_ref": "cerrado.300",
+      "use": "Links and text buttons"
+    },
+    {
+      "name": "primary",
+      "light": "#f2a516",
+      "dark": "#f2a516",
+      "light_ref": "pequi.500",
+      "dark_ref": "pequi.500",
+      "use": "Primary button, Play, selection fill"
+    },
+    {
+      "name": "primary-hover",
+      "light": "#f7bc3a",
+      "dark": "#f7bc3a",
+      "light_ref": "pequi.400",
+      "dark_ref": "pequi.400",
+      "use": "Hovered primary button"
+    },
+    {
+      "name": "on-primary",
+      "light": "#1c1a16",
+      "dark": "#1c1a16",
+      "light_ref": "soil.900",
+      "dark_ref": "soil.900",
+      "use": "Text and icons on primary"
+    },
+    {
+      "name": "focus",
+      "light": "#b06d08",
+      "dark": "#f2a516",
+      "light_ref": "pequi.700",
+      "dark_ref": "pequi.500",
+      "use": "Keyboard focus ring (2 px)"
+    },
+    {
+      "name": "ok",
+      "light": "#2f4b18",
+      "dark": "#c2dba6",
+      "light_ref": "cerrado.800",
+      "dark_ref": "cerrado.200",
+      "use": "Success text and icons"
+    },
+    {
+      "name": "ok-bg",
+      "light": "#e6f0da",
+      "dark": "#1f3210",
+      "light_ref": "cerrado.100",
+      "dark_ref": "cerrado.900",
+      "use": "Success background"
+    },
+    {
+      "name": "warn",
+      "light": "#85510a",
+      "dark": "#ffd66b",
+      "light_ref": "pequi.800",
+      "dark_ref": "pequi.300",
+      "use": "Warning text and icons, near-budget"
+    },
+    {
+      "name": "warn-bg",
+      "light": "#fff8e6",
+      "dark": "#5c380b",
+      "light_ref": "pequi.50",
+      "dark_ref": "pequi.900",
+      "use": "Warning background"
+    },
+    {
+      "name": "danger",
+      "light": "#a3261c",
+      "dark": "#f7b4aa",
+      "light_ref": "urucum.700",
+      "dark_ref": "urucum.300",
+      "use": "Error text and icons, over-budget, Stop"
+    },
+    {
+      "name": "danger-bg",
+      "light": "#fde8e4",
+      "dark": "#5a1a14",
+      "light_ref": "urucum.100",
+      "dark_ref": "urucum.900",
+      "use": "Error background"
+    },
+    {
+      "name": "info",
+      "light": "#245a8a",
+      "dark": "#a9cdee",
+      "light_ref": "ceu.700",
+      "dark_ref": "ceu.300",
+      "use": "Information text and icons"
+    },
+    {
+      "name": "info-bg",
+      "light": "#e3eef8",
+      "dark": "#173a5c",
+      "light_ref": "ceu.100",
+      "dark_ref": "ceu.900",
+      "use": "Information background"
+    }
+  ],
+  "editor": [
+    {
+      "imgui": "WindowBg",
+      "ref": "bg",
+      "hex": "#1c1a16"
+    },
+    {
+      "imgui": "ChildBg",
+      "ref": "surface-2",
+      "hex": "#23211c"
+    },
+    {
+      "imgui": "PopupBg",
+      "ref": "surface",
+      "hex": "#2b2822"
+    },
+    {
+      "imgui": "Border",
+      "ref": "border",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "FrameBg",
+      "ref": "surface",
+      "hex": "#2b2822"
+    },
+    {
+      "imgui": "FrameBgHovered",
+      "ref": "soil.700",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "FrameBgActive",
+      "ref": "soil.600",
+      "hex": "#5c5547"
+    },
+    {
+      "imgui": "TitleBg",
+      "ref": "soil.900",
+      "hex": "#1c1a16"
+    },
+    {
+      "imgui": "TitleBgActive",
+      "ref": "soil.800",
+      "hex": "#2b2822"
+    },
+    {
+      "imgui": "Text",
+      "ref": "text",
+      "hex": "#faf8f3"
+    },
+    {
+      "imgui": "TextDisabled",
+      "ref": "muted",
+      "hex": "#a59d8a"
+    },
+    {
+      "imgui": "Button",
+      "ref": "soil.700",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "ButtonHovered",
+      "ref": "soil.600",
+      "hex": "#5c5547"
+    },
+    {
+      "imgui": "ButtonActive",
+      "ref": "pequi.800",
+      "hex": "#85510a"
+    },
+    {
+      "imgui": "Header",
+      "ref": "cerrado.800",
+      "hex": "#2f4b18"
+    },
+    {
+      "imgui": "HeaderHovered",
+      "ref": "cerrado.700",
+      "hex": "#3f6420"
+    },
+    {
+      "imgui": "HeaderActive",
+      "ref": "cerrado.600",
+      "hex": "#4f7d2a"
+    },
+    {
+      "imgui": "CheckMark",
+      "ref": "primary",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "SliderGrab",
+      "ref": "pequi.600",
+      "hex": "#d98a0b"
+    },
+    {
+      "imgui": "SliderGrabActive",
+      "ref": "primary",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "Tab",
+      "ref": "surface-2",
+      "hex": "#23211c"
+    },
+    {
+      "imgui": "TabHovered",
+      "ref": "soil.700",
+      "hex": "#403b31"
+    },
+    {
+      "imgui": "PlotHistogram",
+      "ref": "primary",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "DockingPreview",
+      "ref": "primary",
+      "hex": "#f2a516"
+    },
+    {
+      "imgui": "TextSelectedBg",
+      "ref": "ceu.700",
+      "hex": "#245a8a"
+    }
+  ],
+  "icon": [
+    {
+      "part": "Stem",
+      "ref": "bark.700",
+      "hex": "#5a4326"
+    },
+    {
+      "part": "Leaf",
+      "ref": "cerrado.600",
+      "hex": "#4f7d2a"
+    },
+    {
+      "part": "Husk",
+      "ref": "cerrado.500",
+      "hex": "#5f8f34"
+    },
+    {
+      "part": "Husk rim",
+      "ref": "cerrado.700",
+      "hex": "#3f6420"
+    },
+    {
+      "part": "Pulp",
+      "ref": "pequi.500",
+      "hex": "#f2a516"
+    },
+    {
+      "part": "Pulp rim",
+      "ref": "pequi.600",
+      "hex": "#d98a0b"
+    },
+    {
+      "part": "Highlight",
+      "ref": "pequi.300",
+      "hex": "#ffd66b"
+    }
+  ],
+  "contrast": [
+    {
+      "theme": "light",
+      "fg": "text",
+      "bg": "bg",
+      "min": 4.5,
+      "ratio": 16.37,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "text",
+      "bg": "surface",
+      "min": 4.5,
+      "ratio": 17.37,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "text",
+      "bg": "surface-2",
+      "min": 4.5,
+      "ratio": 15.11,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "text-2",
+      "bg": "bg",
+      "min": 4.5,
+      "ratio": 6.95,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "text-2",
+      "bg": "surface",
+      "min": 4.5,
+      "ratio": 7.38,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "muted",
+      "bg": "bg",
+      "min": 4.5,
+      "ratio": 4.97,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "muted",
+      "bg": "surface",
+      "min": 4.5,
+      "ratio": 5.28,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "link",
+      "bg": "bg",
+      "min": 4.5,
+      "ratio": 6.48,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "link",
+      "bg": "surface",
+      "min": 4.5,
+      "ratio": 6.87,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "on-primary",
+      "bg": "primary",
+      "min": 4.5,
+      "ratio": 8.41,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "on-primary",
+      "bg": "primary-hover",
+      "min": 4.5,
+      "ratio": 10.1,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "focus",
+      "bg": "bg",
+      "min": 3.0,
+      "ratio": 3.93,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "focus",
+      "bg": "surface",
+      "min": 3.0,
+      "ratio": 4.17,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "ok",
+      "bg": "ok-bg",
+      "min": 4.5,
+      "ratio": 8.34,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "warn",
+      "bg": "warn-bg",
+      "min": 4.5,
+      "ratio": 6.24,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "danger",
+      "bg": "danger-bg",
+      "min": 4.5,
+      "ratio": 6.26,
+      "pass": true
+    },
+    {
+      "theme": "light",
+      "fg": "info",
+      "bg": "info-bg",
+      "min": 4.5,
+      "ratio": 6.15,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "text",
+      "bg": "bg",
+      "min": 4.5,
+      "ratio": 16.37,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "text",
+      "bg": "surface",
+      "min": 4.5,
+      "ratio": 13.84,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "text",
+      "bg": "surface-2",
+      "min": 4.5,
+      "ratio": 15.15,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "text-2",
+      "bg": "bg",
+      "min": 4.5,
+      "ratio": 10.21,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "text-2",
+      "bg": "surface",
+      "min": 4.5,
+      "ratio": 8.63,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "muted",
+      "bg": "bg",
+      "min": 4.5,
+      "ratio": 6.44,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "muted",
+      "bg": "surface",
+      "min": 4.5,
+      "ratio": 5.45,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "link",
+      "bg": "bg",
+      "min": 4.5,
+      "ratio": 8.8,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "link",
+      "bg": "surface",
+      "min": 4.5,
+      "ratio": 7.44,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "on-primary",
+      "bg": "primary",
+      "min": 4.5,
+      "ratio": 8.41,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "on-primary",
+      "bg": "primary-hover",
+      "min": 4.5,
+      "ratio": 10.1,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "focus",
+      "bg": "bg",
+      "min": 3.0,
+      "ratio": 8.41,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "focus",
+      "bg": "surface",
+      "min": 3.0,
+      "ratio": 7.11,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "ok",
+      "bg": "ok-bg",
+      "min": 4.5,
+      "ratio": 9.18,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "warn",
+      "bg": "warn-bg",
+      "min": 4.5,
+      "ratio": 7.45,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "danger",
+      "bg": "danger-bg",
+      "min": 4.5,
+      "ratio": 7.57,
+      "pass": true
+    },
+    {
+      "theme": "dark",
+      "fg": "info",
+      "bg": "info-bg",
+      "min": 4.5,
+      "ratio": 7.04,
+      "pass": true
+    },
+    {
+      "theme": "both",
+      "fg": "white",
+      "bg": "target PSX",
+      "min": 4.5,
+      "ratio": 6.7,
+      "pass": true
+    },
+    {
+      "theme": "both",
+      "fg": "white",
+      "bg": "target PSP",
+      "min": 4.5,
+      "ratio": 5.88,
+      "pass": true
+    },
+    {
+      "theme": "both",
+      "fg": "white",
+      "bg": "target PS2",
+      "min": 4.5,
+      "ratio": 5.58,
+      "pass": true
+    },
+    {
+      "theme": "both",
+      "fg": "white",
+      "bg": "target Windows · Linux · Android",
+      "min": 4.5,
+      "ratio": 7.38,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "WindowBg",
+      "min": 4.5,
+      "ratio": 16.37,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "ChildBg",
+      "min": 4.5,
+      "ratio": 15.15,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "PopupBg",
+      "min": 4.5,
+      "ratio": 13.84,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "FrameBg",
+      "min": 4.5,
+      "ratio": 13.84,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "FrameBgHovered",
+      "min": 4.5,
+      "ratio": 10.48,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "FrameBgActive",
+      "min": 4.5,
+      "ratio": 6.95,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TitleBg",
+      "min": 4.5,
+      "ratio": 16.37,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TitleBgActive",
+      "min": 4.5,
+      "ratio": 13.84,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "Button",
+      "min": 4.5,
+      "ratio": 10.48,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "ButtonHovered",
+      "min": 4.5,
+      "ratio": 6.95,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "ButtonActive",
+      "min": 4.5,
+      "ratio": 6.22,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "Header",
+      "min": 4.5,
+      "ratio": 9.24,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "HeaderHovered",
+      "min": 4.5,
+      "ratio": 6.48,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "Tab",
+      "min": 4.5,
+      "ratio": 15.15,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TabHovered",
+      "min": 4.5,
+      "ratio": 10.48,
+      "pass": true
+    },
+    {
+      "theme": "editor",
+      "fg": "text",
+      "bg": "TextSelectedBg",
+      "min": 4.5,
+      "ratio": 6.81,
+      "pass": true
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Pequi">
+<path d="M33 14c0-4 1-7 3-9" stroke="#5a4326" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+<path d="M35 10c6-6 15-6 19-2-5 5-13 6-19 2z" fill="#4f7d2a"/>
+<circle cx="32" cy="37" r="23" fill="#5f8f34" stroke="#3f6420" stroke-width="2"/>
+<circle cx="32" cy="38" r="15" fill="#f2a516"/>
+<circle cx="32" cy="38" r="15" fill="none" stroke="#d98a0b" stroke-width="1.5"/>
+<ellipse cx="27" cy="33" rx="5" ry="3.5" fill="#ffd66b" opacity="0.85"/>
+</svg>
