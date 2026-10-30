@@ -225,7 +225,7 @@ int main(int argc, char** argv) {
   const char* shotPath = nullptr;
   const char* startScene = nullptr;
   u32 maxFrames = 0, stressCount = 0, checkAt = 0;
-  bool audioStress = false;
+  bool audioStress = false, injectDemo = false;
   for (int i = 1; i < argc; ++i) {
     if (!strcmp(argv[i], "--pack") && i + 1 < argc) packPath = argv[++i];
     else if (!strcmp(argv[i], "--scene") && i + 1 < argc) startScene = argv[++i];
@@ -235,8 +235,9 @@ int main(int argc, char** argv) {
     else if (!strcmp(argv[i], "--audio-stress")) audioStress = true;
     else if (!strcmp(argv[i], "--check-at") && i + 1 < argc) checkAt = static_cast<u32>(atoi(argv[++i]));
     else if (!strcmp(argv[i], "--headless-gl")) {}
+    else if (!strcmp(argv[i], "--inject-demo")) injectDemo = true;  // F3.06: virtual pad + key events (InputTest screenshot)
     else {
-      fprintf(stderr, "usage: rensga_desktop [--pack game.rpak] [--scene name] [--frames N] [--screenshot out.png] [--stress-sprites N] [--audio-stress] [--check-at N] [--headless-gl]\n");
+      fprintf(stderr, "usage: rensga_desktop [--pack game.rpak] [--scene name] [--frames N] [--screenshot out.png] [--stress-sprites N] [--audio-stress] [--check-at N] [--headless-gl] [--inject-demo]\n");
       return 1;
     }
   }
@@ -408,6 +409,7 @@ int main(int argc, char** argv) {
 
   GameLoop loop;
   loop.init(world);
+  Input::bindPlatform(&platform);  // rumble requests leave the loop through IPlatform::setVibration
   loop.setFixedStepHook(physics::fixedStep, nullptr);
 
   double last = platform.timeSeconds();
@@ -423,6 +425,7 @@ int main(int argc, char** argv) {
       if (watcher.check()) hotReload();
     }
 #endif
+    if (injectDemo) platform.injectDemo(frame);
     platform.pollInput(pad);
     loop.frame(static_cast<Scalar>(now - last), pad);
     last = now;

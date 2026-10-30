@@ -8,10 +8,12 @@
 //   F2.05 gameplay: SpriteRenderer, SpriteAnimator, Tilemap, TilemapCollider, BoxCollider2D (Move), UIText,
 //   UIImage, UIButton (OnUIClick), Camera2D, Physics2D::IgnoreLayerCollision, DontDestroyOnLoad (Object.h),
 //   SceneManager::LoadScene, Save::SaveFile / LoadFile / SaveInt / LoadInt.
+//   F3.05 events: StartCoroutine(Wait(1).Then(f)) / step functions, Invoke / InvokeRepeating, Event<Args>, UnityEvent, METHOD(Name).
 #pragma once
 #include "rensga/core/application.h"
 #include "rensga/core/components.h"
 #include "rensga/core/debug.h"
+#include "rensga/core/event.h"
 #include "rensga/core/gameplay.h"
 #include "rensga/core/guid.h"
 #include "rensga/core/input.h"
@@ -23,6 +25,7 @@
 #include "rensga/core/save.h"
 #include "rensga/core/scene_manager.h"
 #include "rensga/core/time.h"
+#include "rensga/core/unity_event.h"
 #include "rensga/core/world.h"
 
 // Physics (engine/api): static-box world queries and the CharacterController are in

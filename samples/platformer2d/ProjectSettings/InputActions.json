@@ -1,5 +1,7 @@
 {
  "format": 1,
+ "stickDeadZone": 0.2,
+ "stickOuterClamp": 0.95,
  "actions": [
   {
    "name": "Move",
@@ -15,6 +17,87 @@
    "name": "Jump",
    "kind": "button",
    "source": "south"
+  },
+  {
+   "name": "Horizontal",
+   "kind": "axis",
+   "source": "leftx"
+  },
+  {
+   "name": "Vertical",
+   "kind": "axis",
+   "source": "lefty"
+  },
+  {
+   "name": "Steer",
+   "kind": "axis",
+   "source": "rightx",
+   "positive": "key:E",
+   "negative": "key:Q",
+   "gravity": 3,
+   "sensitivity": 3,
+   "snap": true
+  },
+  {
+   "name": "Aim",
+   "kind": "axis2",
+   "source": "rightstick"
+  },
+  {
+   "name": "Keys",
+   "kind": "axis2",
+   "source": "composite",
+   "up": "key:I",
+   "down": "key:K",
+   "left": "key:J",
+   "right": "key:L",
+   "gravity": 4,
+   "sensitivity": 6
+  },
+  {
+   "name": "TriggerL",
+   "kind": "axis",
+   "source": "l2"
+  },
+  {
+   "name": "TriggerR",
+   "kind": "axis",
+   "source": "r2"
+  },
+  {
+   "name": "Fire",
+   "kind": "button",
+   "source": "east"
+  },
+  {
+   "name": "Use",
+   "kind": "button",
+   "source": "west"
+  },
+  {
+   "name": "Special",
+   "kind": "button",
+   "source": "north"
+  },
+  {
+   "name": "BumperL",
+   "kind": "button",
+   "source": "l"
+  },
+  {
+   "name": "BumperR",
+   "kind": "button",
+   "source": "r"
+  },
+  {
+   "name": "Menu",
+   "kind": "button",
+   "source": "start"
+  },
+  {
+   "name": "Back",
+   "kind": "button",
+   "source": "select"
   }
  ]
 }

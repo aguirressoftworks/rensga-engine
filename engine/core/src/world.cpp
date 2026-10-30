@@ -167,6 +167,7 @@ bool World::init(const WorldConfig& config, Arena& arena) {
   delayedCount_ = 0;
   delayed_ = config.maxDelayedDestroys ? arena.allocateArray<DelayedDestroy>(config.maxDelayedDestroys) : nullptr;
   if (config.maxDelayedDestroys && !delayed_) return false;
+  if (!scheduler_.init(*this, arena, config.maxCoroutines, config.maxInvokes)) return false;
   active_ = this;
   return true;
 }
@@ -176,6 +177,7 @@ void World::shutdown() {
     if (objects_[i].alive && !objects_[i].dying && !objects_[i].transform.parent_) destroy(&objects_[i]);
   flushNow();
   delayedCount_ = 0;
+  scheduler_.shutdown();
   if (active_ == this) active_ = nullptr;
 }
 
@@ -528,6 +530,7 @@ void World::awakeSubtree(GameObject* go) {
 void World::setObjectActive(GameObject* go, bool active) {
   if (!go || go->selfActive_ == active) return;
   go->selfActive_ = active;
+  if (!active) scheduler_.onObjectDeactivated(go);  // coroutines and Invoke timers stop with the object
   refreshEnabled(go, true);
   if (active) awakeSubtree(go);  // first activation: Awake + OnEnable now, Start before the next Update
 }
@@ -569,14 +572,24 @@ void World::fixedUpdate() { RENSGA_RUN_PHASE(FixedUpdate); }
 void World::update() { RENSGA_RUN_PHASE(Update); }
 void World::lateUpdate() { RENSGA_RUN_PHASE(LateUpdate); }
 
-void World::sendTriggerEnter(GameObject* self, GameObject* other) {
+void World::sendTriggerEnter(GameObject* self, GameObject* other) { sendContact(self, other, Contact::TriggerEnter); }
+
+void World::sendContact(GameObject* self, GameObject* other, Contact kind) {
   if (!self || self->dying) return;
   for (u32 i = 0; i < self->componentCount; ++i) {
     ComponentPool* p = poolFor(self->components[i].typeId);
     u32 slot = self->components[i].slot;
     if (!p || !p->type->asBehaviour) continue;
     if ((p->flags[slot] & (kSlotAlive | kSlotDying | kSlotStarted)) != (kSlotAlive | kSlotStarted)) continue;
-    p->type->asBehaviour(p->at(slot))->OnTriggerEnter(other);
+    Behaviour* b = p->type->asBehaviour(p->at(slot));
+    switch (kind) {
+      case Contact::TriggerEnter: b->OnTriggerEnter(other); break;
+      case Contact::TriggerExit: b->OnTriggerExit(other); break;
+      case Contact::TriggerEnter2D: b->OnTriggerEnter2D(other); break;
+      case Contact::TriggerExit2D: b->OnTriggerExit2D(other); break;
+      case Contact::CollisionEnter2D: b->OnCollisionEnter2D(other); break;
+      case Contact::CollisionExit2D: b->OnCollisionExit2D(other); break;
+    }
   }
 }
 
@@ -756,5 +769,32 @@ void World::destroyImmediate(GameObject* go) {
   destroy(go);
   flushNow();
 }
+
+}  // namespace rensga
+
+// ---- handles (F3.05) -------------------------------------------------------------------------------------------------
+
+namespace rensga {
+
+bool World::handleOf(const Component* c, ComponentHandle& out) const {
+  if (!c || c->world_ != this) return false;
+  const ComponentPool* p = poolFor(c->typeId_);
+  if (!p || c->slot_ >= p->highWater) return false;
+  out.world = const_cast<World*>(this);
+  out.typeId = c->typeId_;
+  out.slot = c->slot_;
+  out.generation = p->generations[c->slot_];
+  return true;
+}
+
+Component* World::resolveHandle(const ComponentHandle& h) const {
+  if (h.world != this || h.typeId == kInvalidIndex) return nullptr;
+  const ComponentPool* p = poolFor(h.typeId);
+  if (!p || h.slot >= p->highWater) return nullptr;
+  if ((p->flags[h.slot] & (kSlotAlive | kSlotDying)) != kSlotAlive || p->generations[h.slot] != h.generation) return nullptr;
+  return static_cast<Component*>(p->type->asComponent(p->at(h.slot)));
+}
+
+Component* ComponentHandle::resolve() const { return world ? world->resolveHandle(*this) : nullptr; }
 
 }  // namespace rensga

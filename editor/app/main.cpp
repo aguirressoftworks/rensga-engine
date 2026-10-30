@@ -1,7 +1,7 @@
 // rensga-editor: SDL2 + OpenGL 3.3 + Dear ImGui (docking). Brand theme, Unity-style default layout.
 // Usage: rensga-editor [--project <dir>] [--play] [--quit-after N]
 //                      [--no-splash] [--splash-only] [--config-dir <dir>]
-//                      [--no-auto-rebuild | --auto-rebuild] [--restore-state]
+//                      [--no-auto-rebuild | --auto-rebuild]
 //                      [--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window>] [--ui-event click|rclick|move:x,y ...]]
 #include <SDL.h>
 #include <SDL_opengl.h>
@@ -24,7 +24,9 @@
 #include <vector>
 
 #include "app.h"
+#include "panels/asset_ui.h"
 #include "rensga/editor/editor_log.h"
+#include "rensga/editor/game_module.h"
 
 using namespace rensga;
 using namespace rensga::editor;
@@ -38,6 +40,10 @@ bool App::openProject(const std::string& dir) {
   project = std::move(p);
   loaded = true;
   if (!project.target.empty() && TargetRegistry::find(project.target)) target = project.target;
+  else if (!project.target.empty()) {  // F3.02: a target without a TargetModule (PS2 until F8.07): edit and cook generically, no console run
+    target.clear();
+    log.info("target '" + project.target + "' has no editor module: console build and run are disabled");
+  }
   log.info("project loaded: " + project.name + " (" + std::to_string(project.scenes.size()) + " scene(s))");
   doc = SceneDocument();
   if (!project.scenes.empty()) {
@@ -56,7 +62,9 @@ bool App::openProject(const std::string& dir) {
   std::error_code ec;
   if (persistLayout && fs::exists(layoutIni, ec)) ImGui::LoadIniSettingsFromDisk(layoutIni.string().c_str());
   else resetLayout = true;
-  scriptsSync(*this);  // sources changed since the last build? rebuild in the background
+  scriptsOnProjectOpen(*this);  // module current? load it, else build it in the background
+  // Headless runs (screenshots, --ui-event, --no-auto-rebuild) have no background job: build and load here.
+  if (!scripts.enabled) ensureGameModule(project.root, true);
   return true;
 }
 
@@ -87,7 +95,7 @@ int main(int argc, char** argv) {
   std::string projectDir, shotFile, selectName, focusName, configDir;
   bool noSplash = false, splashOnly = false;
   std::vector<std::string> uiEvents;  // screenshot tooling: click|rclick|move:x,y, one every 6 frames from frame 6
-  bool autoPlay = false, restoreState = false;
+  bool autoPlay = false;
   int autoRebuild = -1;  // -1 default (on, except in screenshot mode), 0 off, 1 on
   double quitAfter = -1;
   int shotFrames = 30;
@@ -97,7 +105,6 @@ int main(int argc, char** argv) {
     else if (!std::strcmp(argv[i], "--splash-only")) splashOnly = true;
     else if (!std::strcmp(argv[i], "--config-dir") && i + 1 < argc) configDir = argv[++i];
     else if (!std::strcmp(argv[i], "--play")) autoPlay = true;
-    else if (!std::strcmp(argv[i], "--restore-state")) restoreState = true;
     else if (!std::strcmp(argv[i], "--no-auto-rebuild")) autoRebuild = 0;
     else if (!std::strcmp(argv[i], "--auto-rebuild")) autoRebuild = 1;
     else if (!std::strcmp(argv[i], "--quit-after") && i + 1 < argc) quitAfter = std::atof(argv[++i]);
@@ -107,18 +114,12 @@ int main(int argc, char** argv) {
     else if (!std::strcmp(argv[i], "--select") && i + 1 < argc) selectName = argv[++i];
     else if (!std::strcmp(argv[i], "--ui-event") && i + 1 < argc) uiEvents.push_back(argv[++i]);
     else {
-      std::fprintf(stderr, "usage: rensga-editor [--project <dir>] [--no-splash] [--splash-only] [--config-dir <dir>] [--play] [--quit-after N] [--no-auto-rebuild | --auto-rebuild] [--restore-state] "
+      std::fprintf(stderr, "usage: rensga-editor [--project <dir>] [--no-splash] [--splash-only] [--config-dir <dir>] [--play] [--quit-after N] [--no-auto-rebuild | --auto-rebuild] "
                            "[--screenshot <file.png> [--screenshot-frames N] [--select <object name>] [--focus <window> | --tab <window>] [--ui-event click|rclick|move:x,y ...]]\n");
       return 2;
     }
   }
   const bool shotMode = !shotFile.empty();
-  // The binary to re-execute after a script rebuild, resolved now (the rebuild replaces the file).
-  std::error_code selfEc;
-  const fs::path selfExe = fs::read_symlink("/proc/self/exe", selfEc);
-  std::vector<std::string> restartArgs;
-  for (int i = 0; i < argc; ++i) restartArgs.push_back(argv[i]);
-  if (!restoreState) restartArgs.push_back("--restore-state");
 
   App app;
   EditorLog& log = EditorLog::instance();
@@ -175,18 +176,9 @@ int main(int argc, char** argv) {
   };
   if (startMode != Mode::Splash) for (int i = 0; i < 4; ++i) runStep(i);
   app.hub.initStep = startMode == Mode::Splash ? 0 : 4;
-#if defined(RENSGA_EDITOR_BUILD_DIR) && defined(RENSGA_EDITOR_PROJECT_DIR)
-  app.scripts.buildDir = RENSGA_EDITOR_BUILD_DIR;
-  app.scripts.compiledProject = RENSGA_EDITOR_PROJECT_DIR;
-  app.scripts.cmake = RENSGA_EDITOR_CMAKE;
-  app.scripts.enabled = autoRebuild == 1 || (autoRebuild == -1 && !shotMode && !selfEc);
-#endif
+  app.scripts.enabled = autoRebuild == 1 || (autoRebuild == -1 && !shotMode);  // background script builds + hot reload
   if (!projectDir.empty()) {
     if (app.openProject(projectDir) && !shotMode) hubNoteOpened(app);
-    if (restoreState) {
-      restoreReloadState(app);
-      if (restoreState && app.doc.loaded() && !app.restoreFocus.empty()) focusName = app.restoreFocus;
-    }
     if (shotMode) app.resetLayout = true;
     if (!selectName.empty()) {
       for (const SceneObject& o : app.doc.scene().objects)
@@ -197,7 +189,10 @@ int main(int argc, char** argv) {
 
   Uint64 start = SDL_GetPerformanceCounter();
   const double freq = static_cast<double>(SDL_GetPerformanceFrequency());
-  bool running = true, playTriggered = false, restartNow = false;
+  bool running = true, playTriggered = false;
+  size_t evIdx = 0;  // next --ui-event; one every 6 frames from frame 6, held back by the wait* verbs
+  int evNext = 6;
+  std::string pendingShot;
   std::string focusedPanel;
   int exitCode = 0, frame = 0;
   std::string lastTitle;
@@ -212,29 +207,17 @@ int main(int argc, char** argv) {
       if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) scriptsOnFocus(app);
     }
     tickScripts(app);
-    if (app.scripts.restartRequested && !restartNow) {
-      restartNow = true;
-      app.play.stop();
-      saveLayout(app);
-      saveReloadState(app, focusedPanel, app.scripts.playAfter || app.restoredPlayAfter);
-      running = false;
-    }
     double t = static_cast<double>(SDL_GetPerformanceCounter() - start) / freq;
     if (autoPlay && !playTriggered && t > 0.3) {
       playTriggered = true;
       doPlay(app);
-      // Idle after doPlay: it could not start, unless Play is waiting for the script rebuild (the restart resumes it)
+      // Idle after doPlay: it could not start, unless Play is waiting for the script rebuild (it resumes when the build ends)
       if (app.play.status() == PlayStatus::Idle && !app.scripts.builder.busy()) { exitCode = 1; running = false; }
     }
     if (autoPlay && playTriggered && !app.scripts.builder.busy() && app.scripts.failed) {
       log.error("play: script compile failed");
       exitCode = 1;
       running = false;
-    }
-    if (restoreState && !playTriggered && app.restoredPlayAfter && !autoPlay && t > 0.3) {
-      playTriggered = true;  // Play was waiting for the rebuild: resume it
-      app.restoredPlayAfter = false;
-      doPlay(app);
     }
     if (quitAfter >= 0 && t >= quitAfter) running = false;
     if (app.quitRequested) running = false;
@@ -285,14 +268,22 @@ int main(int argc, char** argv) {
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame();
-    if (!restoreState && frame >= 6 && (frame - 6) % 6 == 0 && static_cast<size_t>((frame - 6) / 6) < uiEvents.size()) {
-      const std::string& e = uiEvents[(frame - 6) / 6];
+    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx])) {
+      const std::string& e = uiEvents[evIdx++];
+      evNext = frame + 6;
       float x = 0, y = 0;
       size_t c = e.find(':');
       const std::string act = e.substr(0, c), arg = c == std::string::npos ? std::string() : e.substr(c + 1);
       // test hooks that run the same code paths as the UI
       if (hubHook(app, act, arg)) {}
+      else if (assetUiHook(app, act, arg)) {}                                  // F3.02: asset, assettab, assetset, vram, ...
       else if (act == "script") createScriptAction(app, arg);                       // Create > C++ Script
+      else if (act == "component") createScriptAction(app, arg, ScriptKind::Component);  // Create > C++ Script > Empty Component
+      else if (act == "openerror") openBuildError(arg.empty() ? 0 : std::atoi(arg.c_str()));  // double-click a console error
+      else if (act == "cancelbuild") scriptsCancel(app);
+      else if (act == "edit") scriptsTestEdit(app, arg);                       // edit:<file under project>|<old>|<new>
+      else if (act == "shot") pendingShot = arg;                               // PNG of this frame, run goes on
+      else if (act == "quit") running = false;
       else if (act == "focus") scriptsOnFocus(app);                            // window focus gained
       else if (act == "save") app.saveScene();
       else if (act == "play") doPlay(app);
@@ -321,6 +312,7 @@ int main(int argc, char** argv) {
     } else {
       drawMenuBar(app);
       drawToolbar(app);
+      drawStatusBar(app);
       drawDockSpaceAndLayout(app);
       drawHierarchy(app);
       drawSceneView(app);
@@ -347,12 +339,20 @@ int main(int argc, char** argv) {
     if (app.hub.mode == Mode::Splash) drawSplashBackground(shotMode ? frame * 0.05f : static_cast<float>(t), w, h);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     ++frame;
+    // Proof that a script build never blocks the UI thread: tests read these lines (frame number + seconds).
+    if (app.scripts.builder.busy() && frame % 20 == 0) std::fprintf(stderr, "rensga-editor: building frame=%d t=%.2f\n", frame, t);
     if (app.hub.mode == Mode::Splash && app.hub.initStep < 4 && frame >= 1) runStep(app.hub.initStep++);
     if (shotMode && frame >= shotFrames) {
       if (writeScreenshotPng(shotFile.c_str(), w, h)) std::printf("screenshot: %s (%dx%d, %d frames)\n", shotFile.c_str(), w, h, frame);
       else { std::fprintf(stderr, "screenshot failed: %s\n", shotFile.c_str()); exitCode = 1; }
       running = false;
     }
+    if (!pendingShot.empty()) {
+      if (writeScreenshotPng(pendingShot.c_str(), w, h)) std::printf("screenshot: %s (%dx%d, frame %d)\n", pendingShot.c_str(), w, h, frame);
+      pendingShot.clear();
+    }
+    if (app.scripts.builder.busy() && frame % 60 == 0)  // proves the window keeps drawing while scripts compile
+      std::printf("rensga-editor: frame %d (compiling scripts %d%%)\n", frame, app.scripts.builder.percent());
     SDL_GL_SwapWindow(window);
 
     if (io.WantSaveIniSettings) { saveLayout(app); io.WantSaveIniSettings = false; }
@@ -362,8 +362,7 @@ int main(int argc, char** argv) {
     if (title != lastTitle) { SDL_SetWindowTitle(window, title.c_str()); lastTitle = title; }
   }
 
-  const std::string restartProject = app.project.root.string();
-  if (!restartNow) saveLayout(app);
+  saveLayout(app);
   app.saveCamera();
   app.play.stop();
   app.play.pump();
@@ -373,21 +372,5 @@ int main(int argc, char** argv) {
   SDL_GL_DeleteContext(gl);
   SDL_DestroyWindow(window);
   SDL_Quit();
-  if (restartNow) {  // the rebuilt editor takes over this process; the saved state brings the session back
-    std::vector<std::string> args;  // re-open the project that was open (it may have come from the picker)
-    for (size_t i = 0; i < restartArgs.size(); ++i) {
-      if (restartArgs[i] == "--project" && i + 1 < restartArgs.size()) { ++i; continue; }
-      args.push_back(restartArgs[i]);
-    }
-    args.push_back("--project");
-    args.push_back(restartProject);
-    std::vector<char*> av;
-    for (std::string& a : args) av.push_back(a.data());
-    av.push_back(nullptr);
-    std::fflush(nullptr);
-    execv(selfExe.c_str(), av.data());
-    std::fprintf(stderr, "rensga-editor: restart failed (%s)\n", std::strerror(errno));
-    return 1;
-  }
   return exitCode;
 }

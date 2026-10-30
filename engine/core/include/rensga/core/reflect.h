@@ -28,8 +28,9 @@ namespace rensga {
 
 class Component;
 class Behaviour;
+struct UnityEvent;  // unity_event.h (F3.05)
 
-enum class FieldType : u8 { Scalar, I32, Bool, Vector3, Quaternion, Color32, Guid };
+enum class FieldType : u8 { Scalar, I32, Bool, Vector3, Quaternion, Color32, Guid, UnityEvent };
 
 // Byte size of a field value in the pack blob (and in memory for all but Bool padding rules).
 u32 fieldBlobSize(FieldType t);
@@ -78,6 +79,16 @@ class TypeRegistry {
   // Internal: used by the macros.
   TypeInfo* add(const char* name, u32 size, u32 align);
 
+  // ---- script modules (Editor 4 hot reload) ----
+  // A game module registers its types when it is loaded. mark() before the load and unregisterFrom(mark) before
+  // the unload remove exactly those types again; engine types (registered first) never go away. Hooks run for
+  // each type just before it is cleared, so registries keyed by TypeInfo* (methods, drawers) can forget it.
+  // Worlds that still hold components of a removed type must be gone before that.
+  typedef void (*UnregisterHook)(const TypeInfo*);
+  static bool addUnregisterHook(UnregisterHook hook);  // false when the (small, fixed) hook table is full
+  u32 mark() const { return count_; }
+  void unregisterFrom(u32 mark);
+
  private:
   TypeInfo types_[kMaxTypes];
   u32 count_ = 0;
@@ -124,6 +135,7 @@ template <> struct FieldTypeOf<Vector3> { static constexpr FieldType value = Fie
 template <> struct FieldTypeOf<Quaternion> { static constexpr FieldType value = FieldType::Quaternion; };
 template <> struct FieldTypeOf<Color32> { static constexpr FieldType value = FieldType::Color32; };
 template <> struct FieldTypeOf<Guid> { static constexpr FieldType value = FieldType::Guid; };
+template <> struct FieldTypeOf<UnityEvent> { static constexpr FieldType value = FieldType::UnityEvent; };
 
 // Reads `static constexpr i32 kExecutionOrder` from a class (see EXECUTION_ORDER); 0 when absent.
 template <class C, class = void>

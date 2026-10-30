@@ -1,8 +1,5 @@
 #include "rensga/editor/script_assets.h"
 
-#include <sys/wait.h>
-#include <unistd.h>
-
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -34,7 +31,7 @@ std::vector<ScriptInfo> scanProjectScripts(const fs::path& root) {
   const fs::path assets = root / "Assets";
   if (!fs::is_directory(assets, ec)) return out;
   static const std::regex re(
-      R"((?:struct|class)\s+(\w+)\s*:\s*(?:public\s+)?(?:rensga::)?Behaviour\b[^{;]*\{\s*REFLECT\s*\(\s*(\w+)\s*\))");
+      R"((?:struct|class)\s+(\w+)\s*:\s*(?:public\s+)?(?:rensga::)?(?:Behaviour|Component)\b[^{;]*\{\s*REFLECT\s*\(\s*(\w+)\s*\))");
   std::set<std::string> seen;
   for (fs::recursive_directory_iterator it(assets, ec), end; !ec && it != end; it.increment(ec)) {
     if (!it->is_regular_file(ec)) continue;
@@ -90,13 +87,21 @@ std::string validateScriptName(const fs::path& root, const std::string& name, co
   return "";
 }
 
-std::string scriptTemplate(const std::string& name) {
+std::string scriptTemplate(const std::string& name, ScriptKind kind) {
   std::string s;
   s += "#include <rensga/Rensga.h>\n\nusing namespace rensga;\n\n";
+  if (kind == ScriptKind::Component) {
+    s += "// A data component: fields only, other scripts read it with GetComponent<" + name + ">().\n";
+    s += "struct " + name + " : Component {\n";
+    s += "  REFLECT(" + name + ")\n};\n";
+    return s;
+  }
   s += "struct " + name + " : Behaviour {\n";
   s += "  REFLECT(" + name + ")\n";
   s += "  HEADER(\"Settings\")\n";
+  s += "  RANGE(0, 10)\n";
   s += "  SERIALIZE_FIELD(Scalar, speed, 1.0f)\n\n";
+  s += "  void Awake() override {\n    // Called when the component is created.\n  }\n\n";
   s += "  void Start() override {\n    // Called once before the first Update.\n  }\n\n";
   s += "  void Update() override {\n    // Called every frame. Use Scalar, not float, for game values.\n  }\n";
   s += "};\n";
@@ -125,7 +130,8 @@ bool allowComponentInProject(const fs::path& root, const std::string& typeName) 
   return static_cast<bool>(o);
 }
 
-bool createScriptAsset(const fs::path& root, const std::string& name, fs::path& outFile, std::string& err) {
+bool createScriptAsset(const fs::path& root, const std::string& name, fs::path& outFile, std::string& err,
+                       ScriptKind kind) {
   const fs::path dir = root / "Assets" / "Scripts";
   std::error_code ec;
   fs::create_directories(dir, ec);
@@ -133,7 +139,7 @@ bool createScriptAsset(const fs::path& root, const std::string& name, fs::path& 
   if (fs::exists(cpp, ec)) { err = cpp.filename().string() + " already exists"; return false; }
   {
     std::ofstream o(cpp, std::ios::binary);
-    o << scriptTemplate(name);
+    o << scriptTemplate(name, kind);
     if (!o) { err = "cannot write " + cpp.string(); return false; }
   }
   {
@@ -186,27 +192,6 @@ bool writeScriptsHash(const fs::path& root, const std::string& hash) {
   std::ofstream o(f, std::ios::binary | std::ios::trunc);
   o << hash << "\n";
   return static_cast<bool>(o);
-}
-
-std::string externalEditorCommand() {
-  for (const char* v : {"VISUAL", "EDITOR"}) {
-    const char* e = std::getenv(v);
-    if (e && *e) return e;
-  }
-  return "xdg-open";
-}
-
-bool openInExternalEditor(const fs::path& file) {
-  const std::string cmd = externalEditorCommand() + " \"$1\" </dev/null >/dev/null 2>&1 &";
-  pid_t pid = fork();
-  if (pid < 0) return false;
-  if (pid == 0) {
-    execl("/bin/sh", "sh", "-c", cmd.c_str(), "sh", file.c_str(), static_cast<char*>(nullptr));
-    _exit(127);
-  }
-  int st = 0;
-  waitpid(pid, &st, 0);  // the shell backgrounds the editor and exits at once
-  return WIFEXITED(st) && WEXITSTATUS(st) == 0;
 }
 
 }  // namespace editor

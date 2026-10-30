@@ -18,7 +18,8 @@ class Ps2Platform : public IPlatform {
   // Init order, each step documented in the .cpp: SifInitRpc, optional IOP reset, rom0: IRX load, libpad, ROMVER.
   bool init() override;
   void shutdown() override {}
-  void pollInput(VirtualGamepad& pad) override;
+  void pollInput(VirtualGamepad& pad) override;  // DualShock 2: both sticks (analog mode), L2/R2 as buttons
+  void setVibration(Scalar low, Scalar high, Scalar seconds) override;  // F3.06: small motor on/off, large motor 0-255
   double timeSeconds() override;  // EE cycle counter, accumulated to 64 bits (call at least every 10 s)
   bool shouldQuit() override { return false; }
   const Ps2Info& info() const { return info_; }
@@ -27,6 +28,9 @@ class Ps2Platform : public IPlatform {
   Ps2Info info_;
   bool padInit_ = false;
   bool padModeSet_ = false;
+  bool actAligned_ = false, vibDirty_ = false;
+  Scalar vibLow_ = 0, vibHigh_ = 0;
+  void applyVibration();
   unsigned long long ticks_ = 0;  // accumulated EE CPU cycles
   unsigned lastTick_ = 0;
   bool clockStarted_ = false;

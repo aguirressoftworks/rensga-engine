@@ -22,6 +22,7 @@
 #include <timer.h>
 #include <unistd.h>
 
+#include "rensga/core/input.h"
 #include "rensga/core/log.h"
 
 namespace rensga {
@@ -98,15 +99,40 @@ void Ps2Platform::pollInput(VirtualGamepad& pad) {
   h.down = b & PAD_DOWN;
   h.left = b & PAD_LEFT;
   h.right = b & PAD_RIGHT;
+  h.l2 = (b & PAD_L2) != 0;
+  h.r2 = (b & PAD_R2) != 0;
+  pad.l2Value = h.l2 ? 1.0f : 0.0f;  // digital here; DualShock 2 pressure values are not used
+  pad.r2Value = h.r2 ? 1.0f : 0.0f;
   if ((d.mode >> 4) == 7) {  // DualShock analog mode
-    auto nub = [](unsigned char v) -> Scalar {
-      Scalar f = (static_cast<Scalar>(v) - 128.0f) / 127.0f;
-      if (f > -0.15f && f < 0.15f) return 0;
-      return f > 1 ? 1 : (f < -1 ? -1 : f);
-    };
-    pad.leftX = nub(d.ljoy_h);
-    pad.leftY = -nub(d.ljoy_v);  // stick Y grows downward; the pad's +Y is up
+    pad.leftX = Input::stickFromByte(d.ljoy_h);  // raw: Input applies the dead zone
+    pad.leftY = -Input::stickFromByte(d.ljoy_v);  // stick Y grows downward; the pad's +Y is up
+    pad.rightX = Input::stickFromByte(d.rjoy_h);
+    pad.rightY = -Input::stickFromByte(d.rjoy_v);
   }
+  applyVibration();
+}
+
+// DualShock 2 actuators: motor 0 is the small one (on/off), motor 1 the large one (0..255). Input's `high` is the light
+// motor and `low` the heavy one. Sent from pollInput so libpad is only touched from the polling thread, once the pad
+// is stable.
+void Ps2Platform::setVibration(Scalar low, Scalar high, Scalar) {
+  vibLow_ = low;
+  vibHigh_ = high;
+  vibDirty_ = true;
+}
+
+void Ps2Platform::applyVibration() {
+  if (!vibDirty_) return;
+  static char align[6] = {0, 1, static_cast<char>(0xff), static_cast<char>(0xff), static_cast<char>(0xff), static_cast<char>(0xff)};
+  static char act[6] = {0, 0, 0, 0, 0, 0};
+  if (!actAligned_) {
+    padSetActAlign(0, 0, align);  // motor 0 -> byte 0, motor 1 -> byte 1
+    actAligned_ = true;
+  }
+  act[0] = vibHigh_ > 0 ? 1 : 0;
+  act[1] = static_cast<char>(vibLow_ <= 0 ? 0 : (vibLow_ >= 1 ? 255 : static_cast<int>(vibLow_ * 255.0f)));
+  padSetActDirect(0, 0, act);
+  vibDirty_ = false;
 }
 
 double Ps2Platform::timeSeconds() {

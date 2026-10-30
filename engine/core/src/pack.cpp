@@ -2,6 +2,7 @@
 
 #include "rensga/core/components.h"
 #include "rensga/core/log.h"
+#include "rensga/core/unity_event.h"
 #include "rensga/core/world.h"
 
 namespace rensga {
@@ -139,6 +140,10 @@ bool World::loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex) {
   const PackVertex* verts = pack.records<PackVertex>(pack_section::VERT, &vertCount);
   const PackInputAction* inputs = pack.records<PackInputAction>(pack_section::INPT, &inputCount);
   const PackConsoleTarget* ctgt = pack.records<PackConsoleTarget>(pack_section::CTGT);
+  if (const PackSchedulerLimits* lim = pack.records<PackSchedulerLimits>(pack_section::CORO)) {
+    if (lim->maxCoroutines && !scheduler_.resize(*arena_, lim->maxCoroutines, lim->maxInvokes))
+      RLOG_WARN("pack", "cannot resize the coroutine pool to %u (coroutines are running); keeping the current size", lim->maxCoroutines);
+  }
 
   if (!objs || xfrmCount != objCount) {
     RLOG_ERROR("pack", "scene sections missing or inconsistent (OBJS=%u XFRM=%u)", objCount, xfrmCount);
@@ -264,6 +269,17 @@ bool World::loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex) {
     if (meshes[i].objectIndex < first || meshes[i].objectIndex - first >= count) continue;
     GameObject* go = &objects_[map[meshes[i].objectIndex - first]];
     if (MeshRenderer* mr = getComponent<MeshRenderer>(go)) mr->meshIndex = i;
+  }
+  if (ok) {  // UnityEvent targets are looked up by GUID at fire time; warn now about the ones that cannot resolve
+    for (u32 i = 0; i < compCount; ++i) {
+      if (comps[i].objectIndex < first || comps[i].objectIndex - first >= count) continue;
+      const TypeInfo* t = TypeRegistry::instance().findByHash(comps[i].typeHash);
+      GameObject* go = &objects_[map[comps[i].objectIndex - first]];
+      Component* c = t ? getComponent(go, *t) : nullptr;
+      for (u32 f = 0; c && f < t->fieldCount; ++f)
+        if (t->fields[f].type == FieldType::UnityEvent)
+          reinterpret_cast<const UnityEvent*>(static_cast<const u8*>(static_cast<const void*>(c)) + t->fields[f].offset)->validate(*this, go->name);
+    }
   }
   if (wake) {
     --cloneDepth_;

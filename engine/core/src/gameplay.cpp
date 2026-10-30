@@ -614,47 +614,91 @@ void UI::update(World& world) {
   }
 }
 
-// ---- 2D trigger events ------------------------------------------------------------------------------------------
+// ---- 2D contact events ------------------------------------------------------------------------------------------
+// Each fixed step lists the overlapping pairs and diffs them with the previous step: new pairs send Enter, pairs that
+// disappeared send Exit. Triggers pair with solid boxes (OnTriggerEnter/Exit and the *2D names, on both objects);
+// two overlapping solid boxes send OnCollisionEnter2D/Exit2D (solid boxes do not push each other, tiles do).
+// Fixed-size tables, no heap; pairs are identified by object index + generation so reused slots do not confuse them.
 namespace {
-struct TriggerMemory2D { u32 generation = 0; u32 mask = 0; };
-constexpr u32 kMemory2D = 1024;
-TriggerMemory2D g_memory2D[kMemory2D];
-}  // namespace
+struct Pair2D {
+  u32 aIdx, aGen, bIdx, bGen;
+  bool trigger;
+  bool operator==(const Pair2D& o) const {
+    return aIdx == o.aIdx && aGen == o.aGen && bIdx == o.bIdx && bGen == o.bGen && trigger == o.trigger;
+  }
+};
+constexpr u32 kMaxPairs2D = 256;
+Pair2D g_prevPairs[kMaxPairs2D], g_curPairs[kMaxPairs2D];
+u32 g_prevCount = 0, g_curCount = 0;
 
-void Gameplay2D::resetTriggerMemory() {
-  for (TriggerMemory2D& m : g_memory2D) m = TriggerMemory2D();
+bool hasPair(const Pair2D* list, u32 n, const Pair2D& p) {
+  for (u32 i = 0; i < n; ++i)
+    if (list[i] == p) return true;
+  return false;
 }
 
+void sendPair(World& world, const Pair2D& p, bool enter) {
+  GameObject* a = world.objectAt(p.aIdx);
+  GameObject* b = world.objectAt(p.bIdx);
+  if (!a || !b || a->generation != p.aGen || b->generation != p.bGen) return;  // one side is gone: no callback
+  Ref<GameObject> ra = a->ref(), rb = b->ref();
+  using C = World::Contact;
+  const C plain = enter ? C::TriggerEnter : C::TriggerExit, twoD = enter ? C::TriggerEnter2D : C::TriggerExit2D;
+  const C coll = enter ? C::CollisionEnter2D : C::CollisionExit2D;
+  if (p.trigger) {
+    if (ra) { world.sendContact(ra.get(), b, plain); }
+    if (ra) { world.sendContact(ra.get(), b, twoD); }
+    if (ra && rb) { world.sendContact(rb.get(), ra.get(), plain); }
+    if (ra && rb) { world.sendContact(rb.get(), ra.get(), twoD); }
+  } else {
+    if (ra) world.sendContact(ra.get(), b, coll);
+    if (ra && rb) world.sendContact(rb.get(), ra.get(), coll);
+  }
+}
+}  // namespace
+
+void Gameplay2D::resetTriggerMemory() { g_prevCount = 0; }
+
 void Gameplay2D::fixedStep(World& world) {
+  g_curCount = 0;
+  auto add = [](GameObject* a, GameObject* b, bool trigger) {
+    if (g_curCount < kMaxPairs2D) g_curPairs[g_curCount++] = {a->index, a->generation, b->index, b->generation, trigger};
+  };
   const ComponentPool* p = world.pool<BoxCollider2D>();
-  if (!p || p->liveCount < 2) return;
-  struct Mover { GameObject* go; Rect box; };
-  Mover movers[32];
-  u32 n = 0;
-  world.forEach<BoxCollider2D>([&](BoxCollider2D& b) {
-    GameObject* go = b.gameObject();
-    if (b.isTrigger || n >= 32 || !b.enabled() || !go || !go->activeInHierarchy()) return;
-    movers[n++] = {go, b.bounds()};
-  });
-  if (!n) return;
-  world.forEach<BoxCollider2D>([&](BoxCollider2D& b) {
-    GameObject* trig = b.gameObject();
-    if (!b.isTrigger || !b.enabled() || !trig || !trig->activeInHierarchy() || trig->index >= kMemory2D) return;
-    const Rect tb = b.bounds();
-    TriggerMemory2D& m = g_memory2D[trig->index];
-    if (m.generation != trig->generation) { m.generation = trig->generation; m.mask = 0; }
-    u32 now = 0;
-    for (u32 i = 0; i < n; ++i)
-      if (movers[i].box.Overlaps(tb) && Physics2D::layersCollide(movers[i].go, trig)) now |= 1u << i;
-    const u32 entered = now & ~m.mask;
-    m.mask = now;
-    for (u32 i = 0; i < n; ++i) {
-      if (!(entered & (1u << i))) continue;
-      Ref<GameObject> tr = trig->ref(), pl = movers[i].go->ref();
-      if (tr) world.sendTriggerEnter(tr.get(), movers[i].go);
-      if (tr && pl) world.sendTriggerEnter(pl.get(), tr.get());
+  if (p && p->liveCount >= 2) {
+    struct Mover { GameObject* go; Rect box; };
+    Mover movers[32];
+    u32 n = 0;
+    world.forEach<BoxCollider2D>([&](BoxCollider2D& b) {
+      GameObject* go = b.gameObject();
+      if (b.isTrigger || n >= 32 || !b.enabled() || !go || !go->activeInHierarchy()) return;
+      movers[n++] = {go, b.bounds()};
+    });
+    if (n) {
+      world.forEach<BoxCollider2D>([&](BoxCollider2D& b) {
+        GameObject* trig = b.gameObject();
+        if (!b.isTrigger || !b.enabled() || !trig || !trig->activeInHierarchy()) return;
+        const Rect tb = b.bounds();
+        for (u32 i = 0; i < n; ++i)
+          if (movers[i].box.Overlaps(tb) && Physics2D::layersCollide(movers[i].go, trig)) add(trig, movers[i].go, true);
+      });
+      for (u32 i = 0; i < n; ++i)
+        for (u32 j = i + 1; j < n; ++j)
+          if (movers[i].box.Overlaps(movers[j].box) && Physics2D::layersCollide(movers[i].go, movers[j].go))
+            add(movers[i].go, movers[j].go, false);
     }
-  });
+  }
+  // The callbacks may create or destroy objects but never touch these tables: work on a local copy of the counts.
+  Pair2D cur[kMaxPairs2D], prev[kMaxPairs2D];
+  const u32 curN = g_curCount, prevN = g_prevCount;
+  for (u32 i = 0; i < curN; ++i) cur[i] = g_curPairs[i];
+  for (u32 i = 0; i < prevN; ++i) prev[i] = g_prevPairs[i];
+  for (u32 i = 0; i < curN; ++i) g_prevPairs[i] = cur[i];
+  g_prevCount = curN;
+  for (u32 i = 0; i < curN; ++i)
+    if (!hasPair(prev, prevN, cur[i])) sendPair(world, cur[i], true);
+  for (u32 i = 0; i < prevN; ++i)
+    if (!hasPair(cur, curN, prev[i])) sendPair(world, prev[i], false);
 }
 
 // ---- drawing ----------------------------------------------------------------------------------------------------

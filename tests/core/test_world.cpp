@@ -157,14 +157,15 @@ TEST(loop_fixed_timestep) {
 
 TEST(input_actions_by_name) {
   Input::clearActions();
+  Input::setStickSettings(0.0f, 1.0f);
   Input::defineAxis2("Move", PackInputSource::Nub);
   Input::defineButton("Jump", PackInputSource::South);
   VirtualGamepad pad;
   pad.leftX = 0.5f;
-  pad.leftY = -1.0f;
+  pad.leftY = -0.5f;
   Input::update(pad);
   CHECK_EQ(Input::GetAxis("Move"), 0.5f);
-  CHECK_EQ(Input::GetAxis2("Move").y, -1.0f);
+  CHECK_EQ(Input::GetAxis2("Move").y, -0.5f);
   CHECK(!Input::GetButton("Jump"));
   pad.held.south = true;
   Input::update(pad);
@@ -173,6 +174,7 @@ TEST(input_actions_by_name) {
   Input::update(pad);
   CHECK(Input::GetButton("Jump"));
   CHECK(!Input::GetButtonDown("Jump"));  // only on the first frame
+  Input::setStickSettings(0.2f, 0.95f);
 }
 
 TEST(null_backends_drive_loop_and_renderer) {

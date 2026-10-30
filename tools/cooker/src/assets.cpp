@@ -261,6 +261,7 @@ bool ICookerFormatPlugin::cookTexture(const ImageRgba& image, const TextureImpor
 bool ICookerFormatPlugin::cookAudio(PcmAudio& pcm, const AudioImport& s, std::string&) {
   if (s.mono) audioDownmixMono(pcm);
   if (s.halveRate) audioHalveRate(pcm);
+  if (s.sampleRate) audioResample(pcm, s.sampleRate);
   return true;
 }
 

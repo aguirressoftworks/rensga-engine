@@ -2,6 +2,7 @@
 #pragma once
 #include "rensga/core/math.h"
 #include "rensga/core/memory.h"
+#include "rensga/core/keycode.h"
 #include "rensga/core/pack_format.h"
 #include "rensga/core/types.h"
 
@@ -10,6 +11,8 @@ namespace rensga {
 struct VirtualGamepad {
   Scalar leftX = 0, leftY = 0;    // left stick / nub, -1..1 (+Y is up/forward)
   Scalar rightX = 0, rightY = 0;  // right stick, -1..1 (0 on pads without one)
+  Scalar l2Value = 0, r2Value = 0;  // analog triggers 0..1 (digital pads report 0 or 1 with held.l2 / held.r2)
+  KeyState keys;                    // keyboard, empty where the target has none
   // Only bools: Input::update walks this struct as a bool array.
   struct Buttons {
     bool south = false, east = false, west = false, north = false;
@@ -31,6 +34,10 @@ class IPlatform {
   virtual void pollInput(VirtualGamepad& pad) = 0;
   virtual double timeSeconds() = 0;
   virtual bool shouldQuit() = 0;
+  // F3.06: pad vibration. `low` is the heavy (low-frequency) motor, `high` the light one, both 0..1; the call
+  // replaces the previous one and (0, 0) stops it. Input only calls this on targets whose ConsoleTarget says
+  // "rumble": true. `seconds` is how long Input will keep the effect (SDL uses it; others wait for the (0, 0) call).
+  virtual void setVibration(Scalar low, Scalar high, Scalar seconds) { (void)low; (void)high; (void)seconds; }
 };
 
 // Meshes are cooked vertex bytes (pack VERT section) described by MeshRec entries.

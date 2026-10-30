@@ -12,7 +12,7 @@ const TargetModule* App::targetModule() const { return TargetRegistry::find(targ
 // The single entry point for Play: the toolbar button and --play both call it.
 void doPlay(App& a) {
   if (!a.loaded) { EditorLog::instance().error("play: no project loaded"); return; }
-  if (a.target.empty()) { EditorLog::instance().error("play: no target registered"); return; }
+  if (a.target.empty()) { EditorLog::instance().error("play: the project's target (" + a.project.target + ") has no editor module; console run is not available"); return; }
   if (a.scripts.enabled) {  // changed scripts must be compiled in first; the restart that follows resumes the Play
     ScriptSync sync = scriptsSync(a);
     if (sync == ScriptSync::Building) {
@@ -79,10 +79,13 @@ void drawToolbar(App& a) {
     ImGui::SetCursorPos(ImVec2((W - total) * 0.5f, top));
     bool busy = a.play.busy();
     const bool blocked = scriptsBlockPlay(a);
-    ImGui::BeginDisabled(busy || blocked);
+    const bool noModule = a.target.empty();  // F3.02: the project's target has no TargetModule (console run/build greyed)
+    ImGui::BeginDisabled(busy || blocked || noModule);
     if (primaryButton("      Play", ImVec2(pw, bh))) doPlay(a);
     ImGui::EndDisabled();
     if (blocked && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Fix script compile errors first");
+    else if (noModule && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+      ImGui::SetTooltip("The '%s' target has no editor module yet, so the editor cannot build or run it. Assets, scenes and cooking work.", a.project.target.c_str());
     ImGui::SameLine(0, gap);
     ImGui::BeginDisabled(!busy);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8);
@@ -111,7 +114,7 @@ void drawToolbar(App& a) {
     ImGui::SetCursorPos(ImVec2(W - 12 - stw - 14 - cw, top));
     ImGui::SetNextItemWidth(cw);
     const TargetModule* tm = a.targetModule();
-    if (ImGui::BeginCombo("##target", tm ? std::string(tm->displayName()).c_str() : "(no target)")) {
+    if (ImGui::BeginCombo("##target", tm ? std::string(tm->displayName()).c_str() : (a.project.target + " (no editor module)").c_str())) {
       for (TargetModule* m : TargetRegistry::all()) {
         std::string id(m->id());
         if (ImGui::Selectable((std::string(m->displayName()) + "##" + id).c_str(), id == a.target)) a.target = id;

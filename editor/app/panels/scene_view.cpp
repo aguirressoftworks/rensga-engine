@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "app.h"
+#include "panels/asset_ui.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -145,6 +146,8 @@ void drawSceneView(App& a) {
       if (hit.empty()) EditorLog::instance().warn("drop a script on an object in the Scene view");
       else addScriptToObject(a, hit, static_cast<const char*>(p->Data));
     }
+    if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(kAssetGuidPayload))
+      acceptAssetDrop(a, static_cast<const char*>(p->Data), pickObject(sd, rayAt(io.MousePos)));  // texture: new sprite object
     ImGui::EndDragDropTarget();
   }
 

@@ -232,6 +232,7 @@ int main() {
 
   static GameLoop loop;
   loop.init(world, LoopConfig::forRefreshHz(video.pal ? 50 : 60));
+  Input::bindPlatform(&platform);
   loop.setFixedStepHook(physics::fixedStep, nullptr);
 
   RLOG_INFO("game", "rensga: stress sprites=%u virtual=%ux%u", stress, renderer.width(), renderer.height());

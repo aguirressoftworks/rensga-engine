@@ -26,6 +26,7 @@ static void scramble(const TypeInfo& t, void* obj, int seed) {
         *reinterpret_cast<Color32*>(p) = Color32(u8(10 * k), u8(20 + k), u8(255 - k), u8(100 + k));
         break;
       case FieldType::Guid: Guid::parse("00000000-0000-4000-8000-00000000d00d", *reinterpret_cast<Guid*>(p)); break;
+      case FieldType::UnityEvent: break;  // covered by the unity_event tests
     }
   }
 }

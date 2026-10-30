@@ -30,6 +30,10 @@ ConsoleTargetData loadConsoleTarget(const std::filesystem::path& file) {
     t.trianglesPerFrame = b.at("trianglesPerFrame").get<uint64_t>();
     t.maxObjects = b.at("maxObjects").get<uint64_t>();
     t.maxComponentsPerType = b.at("maxComponentsPerType").get<uint64_t>();
+    t.maxCoroutines = b.value("maxCoroutines", 64u);
+    t.maxInvokes = b.value("maxInvokes", 64u);
+    if (t.maxCoroutines < 1 || t.maxCoroutines > 4096) throw std::runtime_error("budgets.maxCoroutines must be between 1 and 4096");
+    if (t.maxInvokes < 1 || t.maxInvokes > 4096) throw std::runtime_error("budgets.maxInvokes must be between 1 and 4096");
     t.depth = j.value("depth", "zbuffer");
     t.media = j.value("media", "");
     t.sectorAligned = j.value("packSectorAligned", t.media == "iso" || t.media == "disc" || t.media == "cd" || t.media == "dvd");
@@ -39,9 +43,17 @@ ConsoleTargetData loadConsoleTarget(const std::filesystem::path& file) {
       if (t.audioSampleRate != 22050 && t.audioSampleRate != 44100) throw std::runtime_error("audio.sampleRate must be 22050 or 44100");
       if (t.audioVoices < 1 || t.audioVoices > 32) throw std::runtime_error("audio.voices must be between 1 and 32");
     }
+    if (j.contains("capabilities")) t.rumble = j["capabilities"].value("rumble", false);
     t.refreshHz = j.value("refreshHz", 60u);
     if (t.refreshHz < 24 || t.refreshHz > 120) throw std::runtime_error("refreshHz must be between 24 and 120");
     for (const json& c : j.at("allowedComponents")) t.allowedComponents.push_back(c.get<std::string>());
+    if (j.contains("textureFormats"))
+      for (const json& f : j["textureFormats"]) t.textureFormats.push_back(f.get<std::string>());
+    if (j.contains("framebuffer")) {
+      t.fbBuffers = j["framebuffer"].value("buffers", 2u);
+      t.fbBpp = j["framebuffer"].value("bpp", 32u);
+      t.fbDepthBits = j["framebuffer"].value("depthBits", 16u);
+    }
     if (j.contains("tessellation")) {
       t.sphereSegments = j["tessellation"].value("sphereSegments", 12);
       t.capsuleSegments = j["tessellation"].value("capsuleSegments", 12);
@@ -66,6 +78,9 @@ std::string generateConsoleTargetHeader(const ConsoleTargetData& t) {
        "constexpr unsigned kScreenHeight = " << t.height << ";\n"
        "constexpr unsigned kAudioSampleRate = " << t.audioSampleRate << "u;\n"
        "constexpr unsigned kAudioVoices = " << t.audioVoices << "u;\n"
+       "constexpr unsigned kMaxCoroutines = " << t.maxCoroutines << "u;\n"
+       "constexpr unsigned kMaxInvokes = " << t.maxInvokes << "u;\n"
+       "constexpr bool kRumble = " << (t.rumble ? "true" : "false") << ";\n"
        "constexpr unsigned kRefreshHz = " << t.refreshHz << "u;\n"
        "constexpr unsigned kRamBytes = " << t.ramBytes << "u;\n"
        "constexpr unsigned kVramBytes = " << t.vramBytes << "u;\n"

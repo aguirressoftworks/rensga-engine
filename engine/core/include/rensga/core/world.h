@@ -12,6 +12,8 @@ struct WorldConfig {
   u32 maxComponentsPerType = 256;
   u32 spareComponents = 8;  // extra slots per loaded type for runtime Instantiate
   u32 maxDelayedDestroys = 128;  // pending Destroy(obj, delay) entries
+  u32 maxCoroutines = kDefaultMaxCoroutines;  // live coroutines (ConsoleTarget budgets.maxCoroutines)
+  u32 maxInvokes = kDefaultMaxInvokes;        // pending Invoke / InvokeRepeating timers
 };
 
 enum PoolFlags : u8 {
@@ -139,6 +141,9 @@ class World {
   void refreshEnabled(GameObject* go, bool recursive);
   // Calls OnTriggerEnter on every behaviour attached to `self`.
   void sendTriggerEnter(GameObject* self, GameObject* other);
+  // Calls the matching contact callback (Behaviour::OnTriggerExit, OnTriggerEnter2D, ...) on every behaviour of `self`.
+  enum class Contact : u8 { TriggerEnter, TriggerExit, TriggerEnter2D, TriggerExit2D, CollisionEnter2D, CollisionExit2D };
+  void sendContact(GameObject* self, GameObject* other, Contact kind);
   // Calls OnUIClick on every behaviour attached to `self`.
   void sendUIClick(GameObject* self);
 
@@ -153,6 +158,13 @@ class World {
   void dontDestroyOnLoad(GameObject* go);
 
   Arena& arena() { return *arena_; }
+
+  // ---- coroutines, Invoke (F3.05): the loop resumes them at Unity's points; see coroutine.h
+  Scheduler& scheduler() { return scheduler_; }
+  // Handle to a live component of this world (false for null or a component of another world).
+  bool handleOf(const Component* c, ComponentHandle& out) const;
+  // The component a handle names, or null once it is destroyed or dying.
+  Component* resolveHandle(const ComponentHandle& h) const;
 
  private:
   friend class Component;
@@ -170,6 +182,7 @@ class World {
   void forEachBehaviour(F&& f);
 
   WorldConfig config_;
+  Scheduler scheduler_;
   Arena* arena_ = nullptr;
   GameObject* objects_ = nullptr;
   u32* freeObjects_ = nullptr;
@@ -262,6 +275,37 @@ inline GameObject* GameObject::FindWithTag(const char* objectTag) {
 }
 inline u32 GameObject::FindGameObjectsWithTag(const char* objectTag, GameObject** out, u32 capacity) {
   return World::active() ? World::active()->findAllByTag(objectTag, out, capacity) : 0;
+}
+
+// Unity's Object.FindObjectOfType<T>(): the first live component of type T on an active object (slot order) in the
+// active World, or null. includeInactive also accepts components of inactive objects. No heap.
+template <class T>
+T* FindObjectOfType(bool includeInactive = false) {
+  World* w = World::active();
+  const ComponentPool* p = w ? w->pool<T>() : nullptr;
+  if (!p) return nullptr;
+  for (u32 i = 0; i < p->highWater; ++i) {
+    if ((p->flags[i] & (kSlotAlive | kSlotDying)) != kSlotAlive) continue;
+    T* c = static_cast<T*>(p->at(i));
+    GameObject* go = c->gameObject();
+    if (go && (includeInactive || go->activeInHierarchy())) return c;
+  }
+  return nullptr;
+}
+// Fills `out` (up to `capacity`) with every such component; returns the count found.
+template <class T>
+u32 FindObjectsOfType(T** out, u32 capacity, bool includeInactive = false) {
+  World* w = World::active();
+  const ComponentPool* p = w ? w->pool<T>() : nullptr;
+  u32 n = 0;
+  if (!p) return 0;
+  for (u32 i = 0; i < p->highWater && n < capacity; ++i) {
+    if ((p->flags[i] & (kSlotAlive | kSlotDying)) != kSlotAlive) continue;
+    T* c = static_cast<T*>(p->at(i));
+    GameObject* go = c->gameObject();
+    if (go && (includeInactive || go->activeInHierarchy())) out[n++] = c;
+  }
+  return n;
 }
 
 }  // namespace rensga

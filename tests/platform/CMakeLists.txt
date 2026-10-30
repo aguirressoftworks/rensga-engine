@@ -14,6 +14,21 @@ if(TARGET rensga_platform_sdl)
   endif()
 endif()
 
+# F3.06: PSP pad mapping (pure) and SDL virtual controller + injected keys -> Input.
+if(TARGET rensga_platform_sdl)
+  add_executable(rensga_pad_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp test_pad.cpp)
+  target_link_libraries(rensga_pad_tests PRIVATE rensga_core rensga_platform_sdl)
+  target_include_directories(rensga_pad_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests
+                             ${CMAKE_SOURCE_DIR}/engine/backends/platform/psp/include)
+  rensga_runtime_target(rensga_pad_tests)
+  add_test(NAME pad_psp_map COMMAND rensga_pad_tests pad_psp_)
+  if(RENSGA_XVFB_RUN)
+    add_test(NAME pad_sdl_events COMMAND ${CMAKE_COMMAND} -E env --unset=WAYLAND_DISPLAY SDL_VIDEODRIVER=x11
+             ${RENSGA_XVFB_RUN} -a -s "-screen 0 1280x720x24" $<TARGET_FILE:rensga_pad_tests> pad_sdl_)
+    set_tests_properties(pad_sdl_events PROPERTIES TIMEOUT 60 LABELS "gl")
+  endif()
+endif()
+
 # F2.03: desktop hot reload of a pack copy (skipped without a cooked pack or xvfb).
 if(TARGET rensga_desktop)
   add_test(NAME hot_reload_desktop COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.sh $<TARGET_FILE:rensga_desktop>

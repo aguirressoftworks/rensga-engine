@@ -227,9 +227,9 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
       continue;
     }
     TextureImport ti;
-    ti.format = s.value("format", std::string("auto"));
+    if (!parseTextureImport(a.importSettings, ti, err)) { fail(a, err); continue; }
     CookedTexture ct;
-    if (!plugin.cookTexture(img, ti, ct, err)) { fail(a, err); continue; }
+    if (!cookTextureImage(plugin, img, ti, ct, err)) { fail(a, err); continue; }
     if (cache) {
       storeTex(cache->dir / entry, ct, img.width, img.height);
       usedEntries.insert(entry);
@@ -248,12 +248,7 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     std::string err;
     if (!readBytes(a.path, bytes)) { fail(a, "cannot read file"); continue; }
     AudioImport ai;
-    ai.mono = s.value("mono", false);
-    ai.halveRate = s.value("halveRate", false);
-    ai.smallerAudio = s.value("smallerAudio", false);
-    ai.loop = s.value("loop", false);
-    ai.loopStart = s.value("loopStart", static_cast<int64_t>(0));
-    ai.loopEnd = s.value("loopEnd", static_cast<int64_t>(-1));
+    if (!parseAudioImport(a.importSettings, ai, err)) { fail(a, err); continue; }
     uint32_t srcFrames = 0, srcRate = 0;
     std::string entry;
     bool hit = false;
@@ -449,7 +444,7 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     for (size_t i = 0; i < r.charCount; ++i) r.advance[i] = 8;
     out.fonts.insert(out.fonts.begin(), r);
   }
-  if (cache && ok) {  // drop entries no asset needs any more (changed or deleted sources)
+  if (cache && ok && cache->prune) {  // drop entries no asset needs any more (changed or deleted sources)
     std::error_code ec;
     for (const auto& e : fs::directory_iterator(cache->dir, ec)) {
       const std::string name = e.path().filename().string();

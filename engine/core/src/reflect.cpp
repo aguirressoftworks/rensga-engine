@@ -4,6 +4,7 @@
 
 
 #include "rensga/core/log.h"
+#include "rensga/core/unity_event.h"
 
 namespace rensga {
 
@@ -16,6 +17,7 @@ u32 fieldBlobSize(FieldType t) {
     case FieldType::Quaternion: return 4 * sizeof(Scalar);
     case FieldType::Color32: return 4;
     case FieldType::Guid: return 16;
+    case FieldType::UnityEvent: return sizeof(UnityEvent);
   }
   return 0;
 }
@@ -29,6 +31,7 @@ const char* fieldTypeName(FieldType t) {
     case FieldType::Quaternion: return "Quaternion";
     case FieldType::Color32: return "Color32";
     case FieldType::Guid: return "Guid";
+    case FieldType::UnityEvent: return "UnityEvent";
   }
   return "?";
 }
@@ -71,6 +74,31 @@ TypeInfo* TypeRegistry::add(const char* name, u32 size, u32 align) {
   }
   ++count_;
   return &t;
+}
+
+namespace {
+constexpr u32 kMaxUnregisterHooks = 8;
+TypeRegistry::UnregisterHook g_unregisterHooks[kMaxUnregisterHooks];
+u32 g_unregisterHookCount = 0;
+}  // namespace
+
+bool TypeRegistry::addUnregisterHook(UnregisterHook hook) {
+  if (!hook) return false;
+  for (u32 i = 0; i < g_unregisterHookCount; ++i)
+    if (g_unregisterHooks[i] == hook) return true;
+  if (g_unregisterHookCount >= kMaxUnregisterHooks) return false;
+  g_unregisterHooks[g_unregisterHookCount++] = hook;
+  return true;
+}
+
+void TypeRegistry::unregisterFrom(u32 markCount) {
+  if (markCount >= count_) return;
+  for (u32 i = count_; i > markCount; --i) {
+    const TypeInfo* t = &types_[i - 1];
+    for (u32 h = 0; h < g_unregisterHookCount; ++h) g_unregisterHooks[h](t);
+  }
+  for (u32 i = markCount; i < count_; ++i) types_[i] = TypeInfo();
+  count_ = markCount;
 }
 
 namespace reflect {
@@ -182,7 +210,7 @@ int loadState(const TypeInfo& t, void* obj, const u8* data, u32 size) {
   // First pass validates the framing so a bad blob leaves the object untouched.
   u32 off = 4;
   for (u32 i = 0; i < count; ++i) {
-    if (size - off < 5 || data[off + 4] > static_cast<u8>(FieldType::Guid)) return -1;
+    if (size - off < 5 || data[off + 4] > static_cast<u8>(FieldType::UnityEvent)) return -1;
     u32 n = fieldBlobSize(static_cast<FieldType>(data[off + 4]));
     if (size - off - 5 < n) return -1;
     off += 5 + n;

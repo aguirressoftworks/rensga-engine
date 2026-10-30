@@ -3,6 +3,7 @@
 #include <psppower.h>
 
 #include "rensga/platform/psp.h"
+#include "rensga/platform/psp_pad_map.h"
 
 namespace rensga {
 
@@ -31,31 +32,17 @@ bool PspPlatform::init() {
 
 void PspPlatform::shutdown() { sceKernelExitGame(); }
 
-static Scalar nub(u8 v) {
-  Scalar f = (static_cast<Scalar>(v) - 128.0f) / 127.0f;
-  if (f > -0.15f && f < 0.15f) return 0;  // dead zone
-  return f > 1 ? 1 : (f < -1 ? -1 : f);
-}
+static_assert(psp_pad::kCross == PSP_CTRL_CROSS && psp_pad::kCircle == PSP_CTRL_CIRCLE && psp_pad::kSquare == PSP_CTRL_SQUARE &&
+              psp_pad::kTriangle == PSP_CTRL_TRIANGLE && psp_pad::kLTrigger == PSP_CTRL_LTRIGGER &&
+              psp_pad::kRTrigger == PSP_CTRL_RTRIGGER && psp_pad::kStart == PSP_CTRL_START && psp_pad::kSelect == PSP_CTRL_SELECT &&
+              psp_pad::kUp == PSP_CTRL_UP && psp_pad::kDown == PSP_CTRL_DOWN && psp_pad::kLeft == PSP_CTRL_LEFT &&
+              psp_pad::kRight == PSP_CTRL_RIGHT,
+              "psp_pad_map.h bit values must match pspctrl.h");
 
 void PspPlatform::pollInput(VirtualGamepad& pad) {
   SceCtrlData d;
   sceCtrlPeekBufferPositive(&d, 1);
-  unsigned b = d.Buttons;
-  pad.leftX = nub(d.Lx);
-  pad.leftY = -nub(d.Ly);  // PSP nub Y grows downward; the pad's +Y is up
-  VirtualGamepad::Buttons& h = pad.held;
-  h.south = b & PSP_CTRL_CROSS;
-  h.east = b & PSP_CTRL_CIRCLE;
-  h.west = b & PSP_CTRL_SQUARE;
-  h.north = b & PSP_CTRL_TRIANGLE;
-  h.l = b & PSP_CTRL_LTRIGGER;
-  h.r = b & PSP_CTRL_RTRIGGER;
-  h.start = b & PSP_CTRL_START;
-  h.select = b & PSP_CTRL_SELECT;
-  h.up = b & PSP_CTRL_UP;
-  h.down = b & PSP_CTRL_DOWN;
-  h.left = b & PSP_CTRL_LEFT;
-  h.right = b & PSP_CTRL_RIGHT;
+  psp_pad::map(d.Buttons, d.Lx, d.Ly, pad);
 }
 
 double PspPlatform::timeSeconds() {

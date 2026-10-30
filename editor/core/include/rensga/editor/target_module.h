@@ -38,6 +38,33 @@ struct InspectorRules {
   std::vector<std::string> allowedComponents;  // component type names; others are greyed out with a reason
 };
 
+// F3.02 (Editor 3): the VRAM map. The editor lists what a target keeps in video memory (VramItem, from the ConsoleTarget
+// and the cooked texture sizes); a TargetModule may place the items the way its hardware does.
+struct VramItem {
+  std::string name;   // "Draw buffer 0", "Depth buffer", an asset path
+  std::string kind;   // "framebuffer" | "depth" | "texture" | "palette"
+  std::string guid;   // asset GUID for textures and palettes, else empty
+  uint64_t bytes = 0;
+  uint32_t width = 0, height = 0;  // pixels (informational)
+  uint32_t bits = 0;               // bits per pixel of the stored data
+};
+struct VramPlacement {
+  VramItem item;
+  uint64_t offset = 0;  // byte offset in VRAM
+  uint64_t size = 0;    // bytes the item occupies, including padding
+  bool outside = false; // starts or ends beyond the capacity
+};
+struct VramLayout {
+  uint64_t capacity = 0;  // ConsoleTarget budgets.vramBytes
+  uint64_t used = 0;      // end of the last placed item
+  std::vector<VramPlacement> items;
+  bool overBudget() const { return used > capacity; }
+};
+// Generic layout: items in order, each aligned to `align` bytes. A module that has real rules calls its own placer.
+VramLayout linearVramLayout(const ConsoleTargetData& ct, const std::vector<VramItem>& items, uint64_t align = 256);
+// The items every target has from its ConsoleTarget: the color buffers and, with a z-buffer, the depth buffer.
+std::vector<VramItem> framebufferVramItems(const ConsoleTargetData& ct);
+
 class TargetModule {
  public:
   virtual ~TargetModule() = default;
@@ -48,6 +75,8 @@ class TargetModule {
   // overrides them only to add rules the file cannot express.
   virtual PreviewRules previewRules(const ConsoleTargetData& ct) const { return PreviewRules{static_cast<int>(ct.width), static_cast<int>(ct.height)}; }
   virtual InspectorRules inspectorRules(const ConsoleTargetData& ct) const { return InspectorRules{ct.allowedComponents}; }
+  // F3.02: where the items sit in video memory. The default is the generic linear layout.
+  virtual VramLayout vramLayout(const ConsoleTargetData& ct, const std::vector<VramItem>& items) const { return linearVramLayout(ct, items); }
   virtual bool validate(const BuildContext& ctx, EventSink sink) = 0;
   virtual bool compile(const BuildContext& ctx, EventSink sink) = 0;
   virtual bool package(const BuildContext& ctx, EventSink sink) = 0;

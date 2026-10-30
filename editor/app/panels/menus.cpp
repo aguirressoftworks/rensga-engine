@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "app.h"
+#include "panels/asset_ui.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -77,6 +78,8 @@ void drawMenuBar(App& a) {
       ImGui::EndMenu();
     }
     if (ImGui::MenuItem("Reset Layout")) a.resetLayout = true;
+    ImGui::Separator();
+    ImGui::MenuItem("VRAM Map", nullptr, &assetUi().showVram, a.loaded);
     ImGui::EndMenu();
   }
   if (ImGui::BeginMenu("Help")) {

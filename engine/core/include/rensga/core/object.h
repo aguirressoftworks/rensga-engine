@@ -2,6 +2,9 @@
 // Raw pointers returned by the API (gameObject(), transform(), GetComponent) are transient:
 // use them inside one callback and keep a Ref<T> for anything longer-lived.
 #pragma once
+#include <string.h>
+
+#include "rensga/core/coroutine.h"
 #include "rensga/core/guid.h"
 #include "rensga/core/math.h"
 #include "rensga/core/ref.h"
@@ -110,6 +113,9 @@ class Component {
   void setEnabled(bool e);
   // Instantiate calls this after copying the reflected fields, for runtime-only state that must carry over.
   virtual void OnCloned(const Component* /*source*/) {}
+  // Engine internals for handles (coroutines, Invoke, Event): the owning World and the registry type id.
+  World* ownerWorld() const { return world_; }
+  u32 typeId() const { return typeId_; }
 
  private:
   friend class World;
@@ -132,9 +138,64 @@ class Behaviour : public Component {
   virtual void LateUpdate() {}
   virtual void OnDisable() {}
   virtual void OnDestroy() {}
+  // Contacts (sent by the fixed step of the physics modules; `other` is the object touched).
+  // 3D triggers send OnTriggerEnter / OnTriggerExit. 2D triggers (BoxCollider2D.isTrigger) send OnTriggerEnter /
+  // OnTriggerExit and also the *2D names, so Unity-style 2D scripts work; override one pair, not both.
+  // Two overlapping solid BoxCollider2D send OnCollisionEnter2D / OnCollisionExit2D to both objects.
   virtual void OnTriggerEnter(GameObject* /*other*/) {}
+  virtual void OnTriggerExit(GameObject* /*other*/) {}
+  virtual void OnTriggerEnter2D(GameObject* /*other*/) {}
+  virtual void OnTriggerExit2D(GameObject* /*other*/) {}
+  virtual void OnCollisionEnter2D(GameObject* /*other*/) {}
+  virtual void OnCollisionExit2D(GameObject* /*other*/) {}
   // The UIButton on this object was pressed (focus + south button).
   virtual void OnUIClick() {}
+
+  // ---- coroutines (API 4, see coroutine.h): StartCoroutine(Wait(1).Then(f)) or a step function
+  template <class F>
+  Coroutine StartCoroutine(F f) {
+    if constexpr (detail::IsChain<F>::value) {
+      if (f.overflowed()) return Coroutine();  // chain longer than kMaxChainSteps: the builder refused a step
+    }
+    return detail::startCoroutine(this, CoroutineBody(f));
+  }
+  void StopCoroutine(const Coroutine& c) { detail::stopCoroutine(c, this); }
+  void StopAllCoroutines() { detail::stopAllCoroutines(this); }
+
+  // ---- Invoke (API 4): scaled-time timers that follow this Behaviour; no heap. The method must be void().
+  template <class T>
+  void Invoke(void (T::*method)(), Scalar delay) {
+    u8 b[16] = {};
+    memcpy(b, &method, sizeof(method));
+    detail::invoke(this, &detail::callMember<T>, b, sizeof(method), delay, 0);
+  }
+  template <class T>
+  void InvokeRepeating(void (T::*method)(), Scalar delay, Scalar repeatRate) {
+    u8 b[16] = {};
+    memcpy(b, &method, sizeof(method));
+    detail::invoke(this, &detail::callMember<T>, b, sizeof(method), delay, repeatRate > 0 ? repeatRate : 0.0001f);
+  }
+  template <class T>
+  void CancelInvoke(void (T::*method)()) {
+    u8 b[16] = {};
+    memcpy(b, &method, sizeof(method));
+    detail::cancelInvoke(this, b, sizeof(method));
+  }
+  template <class T>
+  bool IsInvoking(void (T::*method)()) const {
+    u8 b[16] = {};
+    memcpy(b, &method, sizeof(method));
+    return detail::isInvoking(this, b, sizeof(method));
+  }
+  // By name through the method registry (METHOD(Name) in the class, see reflect_method.h).
+  void Invoke(const char* methodName, Scalar delay) { detail::invokeByName(this, methodName, delay, 0); }
+  void InvokeRepeating(const char* methodName, Scalar delay, Scalar repeatRate) {
+    detail::invokeByName(this, methodName, delay, repeatRate > 0 ? repeatRate : 0.0001f);
+  }
+  void CancelInvoke(const char* methodName) { detail::cancelInvokeByName(this, methodName); }
+  void CancelInvoke() { detail::cancelAllInvokes(this); }
+  bool IsInvoking(const char* methodName) const { return detail::isInvokingByName(this, methodName); }
+  bool IsInvoking() const { return detail::isInvokingAny(this); }
 };
 
 constexpr u32 kMaxComponentsPerObject = 8;

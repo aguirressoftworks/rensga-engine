@@ -1,0 +1,14 @@
+{
+  "format": 1,
+  "guid": "00000000-0000-4000-8000-00000000d0f2",
+  "objects": [
+    { "guid": "00000000-0000-4000-8000-0000000000b1", "name": "Door", "parent": null, "active": true,
+      "transform": { "position": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+      "components": [ { "type": "Door", "fields": { "openSeconds": 2.0,
+        "OnOpened": [ { "target": "00000000-0000-4000-8000-0000000000b2", "type": "DoorBell", "method": "NotDeclared" },
+                      { "target": "00000000-0000-4000-8000-0000000000b2", "type": "DoorBell", "method": "SetVolume", "arg": 0.75 } ] } } ], "prefab": null },
+    { "guid": "00000000-0000-4000-8000-0000000000b2", "name": "Bell", "parent": null, "active": true,
+      "transform": { "position": [3, 0, 0], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1] },
+      "components": [ { "type": "DoorBell", "fields": {} } ], "prefab": null }
+  ]
+}

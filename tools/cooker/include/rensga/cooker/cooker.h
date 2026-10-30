@@ -20,10 +20,17 @@ struct ConsoleTargetData {
   uint64_t ramBytes = 0, vramBytes = 0, trianglesPerFrame = 0, maxObjects = 0, maxComponentsPerType = 0;
   std::string depth, media;
   uint32_t audioSampleRate = 22050, audioVoices = 16;  // optional "audio": {"sampleRate", "voices"}
+  uint32_t maxCoroutines = 64, maxInvokes = 64;  // optional budgets.maxCoroutines / maxInvokes (F3.05)
+  bool rumble = false;  // optional "capabilities": {"rumble": bool}: the target's pad has vibration motors (F3.06)
   uint32_t refreshHz = 60;  // optional "refreshHz" (60 NTSC, 50 PAL); the loop's fixed step is 1/refreshHz
   std::vector<std::string> allowedComponents;
   bool sectorAligned = false;  // optional "packSectorAligned"; defaults to true for disc media (iso, disc, cd, dvd)
   int sphereSegments = 12, capsuleSegments = 12;
+  // F3.02: texture formats the target accepts ("rgba8", "clut4", "clut8"); empty = RGBA8 only.
+  std::vector<std::string> textureFormats;
+  // F3.02: optional "framebuffer" {"buffers", "bpp", "depthBits"}; feeds the editor's VRAM map. Defaults: 2 x 32-bit,
+  // 16-bit depth when depth == "zbuffer".
+  uint32_t fbBuffers = 2, fbBpp = 32, fbDepthBits = 16;
 };
 
 // Throws std::runtime_error with a message naming the file and field.
@@ -111,7 +118,11 @@ struct AssetCache {
   std::string salt;
   bool reuse = true;          // false (--force): never read entries, still write them
   uint32_t cooked = 0, cached = 0;  // out: PNG/WAV assets cooked this run / taken from the cache
+  bool prune = true;          // false: leave entries of other assets alone (single-asset reimport in the editor)
 };
+// Same text as the salt cookProject uses, so an editor reimport and a full cook share Library/Cache/<target>/ entries.
+std::string assetCacheSalt(const std::filesystem::path& projectRoot, const std::string& target);
+std::string reflectionLayoutHash();
 // Cooks every asset with a known extension (.png, .wav, .tilemap.json, .anim.json, .font.json) plus the
 // default font, in project-path order. Reports errors (naming the asset and GUID) through `report`
 // and returns false if any failed.

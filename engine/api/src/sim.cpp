@@ -7,9 +7,9 @@ namespace rensga {
 
 // ---- InputScript -----------------------------------------------------------
 
-bool InputScript::add(u32 frame, Scalar x, Scalar y, u32 buttons) {
+bool InputScript::add(u32 frame, Scalar x, Scalar y, u32 buttons, Scalar rx, Scalar ry, Scalar l2, Scalar r2) {
   if (count_ >= kMaxSteps) return false;
-  steps_[count_++] = {frame, x, y, buttons};
+  steps_[count_++] = {frame, x, y, buttons, rx, ry, l2, r2};
   return true;
 }
 
@@ -21,6 +21,12 @@ void InputScript::apply(u32 frame, VirtualGamepad& pad) const {
   if (!cur) return;
   pad.leftX = cur->x;
   pad.leftY = cur->y;
+  pad.rightX = cur->rx;  // F3.06: the recorded snapshot carries the right stick and the analog triggers too
+  pad.rightY = cur->ry;
+  pad.l2Value = cur->l2;
+  pad.r2Value = cur->r2;
+  pad.held.l2 = cur->l2 >= 0.5f;
+  pad.held.r2 = cur->r2 >= 0.5f;
   const u32 b = cur->buttons;
   pad.held.south = b & South; pad.held.east = b & East; pad.held.west = b & West; pad.held.north = b & North;
   pad.held.l = b & L; pad.held.r = b & R; pad.held.start = b & Start; pad.held.select = b & Select;
@@ -55,7 +61,7 @@ bool InputScript::parse(const char* text, size_t size) {
     if (p >= end || *p == ']') break;
     if (*p != '{') return false;
     ++p;
-    Step st = {0, 0, 0, 0};
+    Step st = {0, 0, 0, 0, 0, 0, 0, 0};
     for (;;) {
       p = skipWs(p, end);
       if (p >= end) return false;
@@ -89,9 +95,13 @@ bool InputScript::parse(const char* text, size_t size) {
         if (kn == 5 && strncmp(k, "frame", 5) == 0) st.frame = static_cast<u32>(v);
         else if (kn == 1 && *k == 'x') st.x = static_cast<Scalar>(v);
         else if (kn == 1 && *k == 'y') st.y = static_cast<Scalar>(v);
+        else if (kn == 2 && strncmp(k, "rx", 2) == 0) st.rx = static_cast<Scalar>(v);
+        else if (kn == 2 && strncmp(k, "ry", 2) == 0) st.ry = static_cast<Scalar>(v);
+        else if (kn == 2 && strncmp(k, "l2", 2) == 0) st.l2 = static_cast<Scalar>(v);
+        else if (kn == 2 && strncmp(k, "r2", 2) == 0) st.r2 = static_cast<Scalar>(v);
       }
     }
-    if (!add(st.frame, st.x, st.y, st.buttons)) return false;
+    if (!add(st.frame, st.x, st.y, st.buttons, st.rx, st.ry, st.l2, st.r2)) return false;
   }
   return true;
 }

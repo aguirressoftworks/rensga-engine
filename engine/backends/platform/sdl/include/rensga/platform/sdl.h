@@ -20,6 +20,20 @@ class SdlPlatform : public IPlatform {
   bool touchOverlayVisible() const;
   const TouchZones& touchZones() const { return touch_.zones(); }
   TouchPad& touch() { return touch_; }  // exposed for tests
+  // F3.06: SDL_GameControllerRumble on the first controller; others ignore it. `seconds` becomes the SDL duration.
+  void setVibration(Scalar low, Scalar high, Scalar seconds) override;
+  // Dev and test hooks: a virtual SDL game controller (no hardware needed) and keyboard events injected as SDL would
+  // deliver them. The controller is opened like a real one, so everything below pollInput is the production path.
+  // Axis/button numbers are SDL_GameControllerAxis / SDL_GameControllerButton values. Rumble sent to the virtual
+  // controller is stored in virtualRumble().
+  bool attachVirtualPad();
+  void setVirtualAxis(int axis, short value);
+  void setVirtualButton(int button, bool down);
+  void injectKey(int sdlScancode, bool down);
+  void virtualRumble(unsigned short& low, unsigned short& high) const { low = vrLow_; high = vrHigh_; }
+  // --inject-demo of rensga_desktop: attaches the virtual pad and drives sticks, triggers, buttons and keys by frame number.
+  void injectDemo(unsigned frame);
+  static void virtualRumbleSink(void* user, unsigned short low, unsigned short high);
 
  private:
   void openFirstController();
@@ -29,6 +43,9 @@ class SdlPlatform : public IPlatform {
   bool quit_ = false;
   TouchPad touch_;
   u32 touchView_[2] = {480, 272};
+  unsigned char evKeys_[512] = {};  // keys held according to SDL_KEYDOWN / SDL_KEYUP events (covers injected events)
+  int virtualId_ = -1;
+  unsigned short vrLow_ = 0, vrHigh_ = 0;
 };
 
 }  // namespace rensga

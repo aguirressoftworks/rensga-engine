@@ -4,6 +4,7 @@
 // Encoding: Scalar/I32 -> number, Bool -> bool, Vector3 -> [x,y,z], Quaternion -> [x,y,z,w],
 // Guid -> "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", Color32 -> [r,g,b,a]. Writing emits integers
 // 0..255. Reading accepts integers 0..255, or floats 0..1 when any element is a float.
+// UnityEvent -> [{"target": guid, "type": name, "method": name, "arg": value}, ...] (see unity_event.h).
 #pragma once
 #include <string>
 

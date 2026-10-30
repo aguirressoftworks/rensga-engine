@@ -21,8 +21,9 @@ void GameLoop::init(World& world, const LoopConfig& config) {
 bool GameLoop::frame(Scalar realDt, const VirtualGamepad& pad) {
   FrameHeapGuard::begin();
   if (realDt > config_.maxFrameTime) realDt = config_.maxFrameTime;
-  Input::update(pad);
+  Input::update(pad, realDt);
   TimeInternal::beginFrame(realDt);
+  world_->scheduler().beginFrame();
 
   world_->startPending();
   // The accumulator runs on scaled time: timeScale 0.5 gives half the fixed steps per second.
@@ -33,6 +34,7 @@ bool GameLoop::frame(Scalar realDt, const VirtualGamepad& pad) {
     world_->fixedUpdate();
     if (hook_) hook_(*world_, config_.fixedDelta, hookUser_);
     Gameplay2D::fixedStep(*world_);
+    world_->scheduler().runFixed();  // WaitForFixedUpdate resumes after the fixed step
     accumulator_ -= config_.fixedDelta;
     ++steps;
     ++fixedSteps_;
@@ -40,11 +42,15 @@ bool GameLoop::frame(Scalar realDt, const VirtualGamepad& pad) {
   if (steps == config_.maxStepsPerFrame && accumulator_ >= config_.fixedDelta) accumulator_ = 0;
   TimeInternal::setInterpolation(accumulator_ / config_.fixedDelta);
   UI::update(*world_);
+  world_->scheduler().runInvokes();  // Invoke / InvokeRepeating timers fire before Update
   world_->update();
+  world_->scheduler().runUpdate();   // coroutines: next frame, WaitForSeconds, WaitUntil, WaitWhile
   world_->lateUpdate();
+  world_->scheduler().runEndOfFrame();  // WaitForEndOfFrame
   world_->flushDestroyed();
   SceneManager::processPending(*world_);  // scene changes happen at the end of the frame
   ++frames_;
+  Input::flushVibration();
   heap::noteFrameDone();
   return FrameHeapGuard::end();
 }

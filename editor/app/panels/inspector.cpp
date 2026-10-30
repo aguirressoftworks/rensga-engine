@@ -12,6 +12,7 @@
 #include <imgui_internal.h>
 
 #include "app.h"
+#include "panels/asset_ui.h"
 #include "rensga/core/reflect.h"
 #include "rensga/core/reflect_json.h"
 
@@ -202,6 +203,9 @@ bool fieldWidget(App& a, const FieldDesc& f, const std::string& rowKey, const js
       }
       return ed;
     }
+    case FieldType::UnityEvent:  // F3.05: stored and cooked; the listener drawer comes with the inspector stage
+      ImGui::TextDisabled("%d listener(s)", value.is_array() ? static_cast<int>(value.size()) : 0);
+      return false;
     case FieldType::Guid: {
       std::string cur = value.is_string() ? value.get<std::string>() : std::string();
       std::string nv;
@@ -219,6 +223,7 @@ void drawInspector(App& a) {
   if (g_gesture && !ImGui::IsAnyItemActive()) { a.doc.endGesture(); g_gesture = false; }
   if (!a.showInspector) return;
   if (!ImGui::Begin("Inspector", nullptr)) { ImGui::End(); return; }
+  if (drawAssetInspector(a)) { ImGui::End(); return; }  // F3.02: a Project asset is selected
   const SceneObject* o = a.doc.find(a.doc.selected());
   if (!o) {
     ImGui::TextDisabled("Select an object");
@@ -299,6 +304,10 @@ void drawInspector(App& a) {
         }
         if (inTable) ImGui::EndTable();
       } else {  // type unknown to the editor (e.g. a project script): show the raw scene data
+        // The scene JSON keeps the component and saves it unchanged (the script may be compiling, renamed or removed).
+        ImGui::PushStyleColor(ImGuiCol_Text, brandToken("warn"));
+        ImGui::TextWrapped("Missing script (%s)", c.type.c_str());
+        ImGui::PopStyleColor();
         if (beginFields("##raw")) {
           for (auto it = c.fields.begin(); it != c.fields.end(); ++it) {
             row(it.key().c_str());

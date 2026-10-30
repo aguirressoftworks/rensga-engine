@@ -81,6 +81,7 @@ TEST(platformer_bot_clears_the_room_and_stores_the_best_score) {
   {
     Game g;
     CHECK(g.boot(pack, saveDir, kRoom));
+    Input::setStickSettings(0.0f, 1.0f);  // the script holds raw stick values: no dead zone
     CHECK(GameObject::Find("AutoPilot") == nullptr);
     for (u32 f = 0; f < framesToWin + 3; ++f) {
       recorded.apply(f, g.pad);
@@ -95,6 +96,7 @@ TEST(platformer_bot_clears_the_room_and_stores_the_best_score) {
     fs::path other = tempDir("roombot2");
     Game g;
     CHECK(g.boot(pack, other, kRoom));
+    Input::setStickSettings(0.0f, 1.0f);
     for (u32 f = 0; f < framesToWin + 3; ++f) {
       recorded.apply(f, g.pad);
       g.frame();

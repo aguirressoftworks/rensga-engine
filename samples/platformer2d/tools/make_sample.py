@@ -41,7 +41,7 @@ TEX_TILES, TEX_PLAYER, TEX_COIN, TEX_ENEMY, TEX_PROPS = guid(0x101), guid(0x102)
 MAP_ROOM = guid(0x111)
 ANIM_IDLE, ANIM_RUN, ANIM_JUMP, ANIM_COIN = guid(0x121), guid(0x122), guid(0x123), guid(0x124)
 ANIM_WALK, ANIM_HOP_IDLE, ANIM_HOP_AIR, ANIM_FLAG_OFF, ANIM_FLAG_ON = guid(0x125), guid(0x126), guid(0x127), guid(0x128), guid(0x129)
-SCENE_TITLE, SCENE_ROOM, SCENE_BOT = guid(0x301), guid(0x302), guid(0x303)
+SCENE_TITLE, SCENE_ROOM, SCENE_BOT, SCENE_INPUT = guid(0x301), guid(0x302), guid(0x303), guid(0x304)
 
 # ---- tileset: 8 tiles of 32x32 (0 brick, 1 grass, 2 backdrop, 3 wood platform, 4 slope up-right, 5 slope up-left, 6 one-way plank) ----
 BRICK, BRICK_D, GRASS, DIRT, SKY, SKY_D, WOOD, WOOD_D = (150, 70, 50, 255), (110, 45, 35, 255), (70, 170, 70, 255), (120, 85, 50, 255), (60, 90, 150, 255), (70, 100, 160, 255), (200, 150, 80, 255), (150, 105, 55, 255)
@@ -342,19 +342,59 @@ meta(os.path.join(root, "Assets/Scenes/Room.scene"), SCENE_ROOM)
 write_json(os.path.join(root, "Assets/Scenes/RoomBot.scene"), {"format": 1, "guid": SCENE_BOT, "objects": build_room(True)})
 meta(os.path.join(root, "Assets/Scenes/RoomBot.scene"), SCENE_BOT)
 
+# InputTest (F3.06): every axis, button and key the Input API reports, plus rumble. Not part of the Title -> Room flow.
+_oid = [0x600]
+gray = [200, 200, 200, 255]
+inp = [obj("InBackdrop", comps=[comp("UIImage", x=0, y=0, w=640, h=448, color=[24, 28, 44, 255], sortingOrder=-10)]),
+       obj("InTitle", comps=[comp("UIText", x=16, y=12, color=[250, 210, 40, 255])]),
+       obj("InHint", comps=[comp("UIText", x=16, y=410, color=gray)]),
+       obj("InKeys", comps=[comp("UIText", x=16, y=300, color=white)]),
+       obj("InAnyKey", comps=[comp("UIText", x=16, y=316, color=gray)]),
+       obj("InRumble", comps=[comp("UIText", x=16, y=340, color=[255, 170, 90, 255])]),
+       obj("InHud", comps=[comp("InputTestHud")])]
+for i in range(10):
+    y = 44 + i * 22
+    inp.append(obj("IaL%d" % i, comps=[comp("UIText", x=16, y=y, color=white)]))
+    inp.append(obj("IaB%d" % i, comps=[comp("UIImage", x=232, y=y, w=160, h=10, color=[60, 66, 90, 255], sortingOrder=-5)]))
+    inp.append(obj("IaF%d" % i, comps=[comp("UIImage", x=232, y=y, w=0, h=10, color=[250, 210, 40, 255], sortingOrder=-4)]))
+    if i < 8:
+        inp.append(obj("IaC%d" % i, comps=[comp("UIImage", x=311, y=y - 2, w=2, h=14, color=[140, 150, 180, 255], sortingOrder=-3)]))
+for i in range(8):
+    inp.append(obj("Ib%d" % i, comps=[comp("UIText", x=440, y=44 + i * 22, color=[150, 150, 150, 255])]))
+write_json(os.path.join(root, "Assets/Scenes/InputTest.scene"), {"format": 1, "guid": SCENE_INPUT, "objects": inp})
+meta(os.path.join(root, "Assets/Scenes/InputTest.scene"), SCENE_INPUT)
+
 # ---- project settings -------------------------------------------------------------------------------------------
-write_json(os.path.join(root, "ProjectSettings/Project.json"), {"format": 1, "name": "Platformer2D", "target": "ps2", "scenes": [SCENE_TITLE, SCENE_ROOM, SCENE_BOT]})
+write_json(os.path.join(root, "ProjectSettings/Project.json"), {"format": 1, "name": "Platformer2D", "target": "ps2", "scenes": [SCENE_TITLE, SCENE_ROOM, SCENE_BOT, SCENE_INPUT]})
 write_json(os.path.join(root, "ProjectSettings/ConsoleTarget.json"), {
     "format": 1, "profile": "ps2", "scalar": "float", "resolution": [640, 448],
     "budgets": {"ramBytes": 33554432, "vramBytes": 4194304, "trianglesPerFrame": 100000, "maxObjects": 256, "maxComponentsPerType": 256},
     "textureFormats": ["clut4", "clut8", "rgba8"], "depth": "zbuffer", "media": "iso", "refreshHz": 60,
     "audio": {"sampleRate": 22050, "voices": 16},
+    "capabilities": {"rumble": True},
     "allowedComponents": ["SpriteRenderer", "SpriteAnimator", "Tilemap", "TilemapCollider", "BoxCollider2D", "UIText", "UIImage", "UIButton",
-                          "Camera2D", "PlayerController2D", "Coin", "Walker", "Hopper", "SavePoint", "AutoPilot", "HudController", "TitleMenu", "TitleScreen"]})
-write_json(os.path.join(root, "ProjectSettings/InputActions.json"), {"format": 1, "actions": [
+                          "Camera2D", "PlayerController2D", "Coin", "Walker", "Hopper", "SavePoint", "AutoPilot", "HudController", "TitleMenu", "TitleScreen", "InputTestHud"]})
+write_json(os.path.join(root, "ProjectSettings/InputActions.json"), {"format": 1, "stickDeadZone": 0.2, "stickOuterClamp": 0.95, "actions": [
     {"name": "Move", "kind": "axis2", "source": "nub"},
     {"name": "Pad", "kind": "axis2", "source": "dpad"},
-    {"name": "Jump", "kind": "button", "source": "south"}]})
+    {"name": "Jump", "kind": "button", "source": "south"},
+    # F3.06 (InputTest scene). WASD already feeds the left stick on desktop, so Horizontal / Vertical are the stick;
+    # Steer ramps on E / Q (Unity's keyboard axis) and adds the right stick; Keys is a four-key composite.
+    {"name": "Horizontal", "kind": "axis", "source": "leftx"},
+    {"name": "Vertical", "kind": "axis", "source": "lefty"},
+    {"name": "Steer", "kind": "axis", "source": "rightx", "positive": "key:E", "negative": "key:Q", "gravity": 3, "sensitivity": 3, "snap": True},
+    {"name": "Aim", "kind": "axis2", "source": "rightstick"},
+    {"name": "Keys", "kind": "axis2", "source": "composite", "up": "key:I", "down": "key:K", "left": "key:J", "right": "key:L",
+     "gravity": 4, "sensitivity": 6},
+    {"name": "TriggerL", "kind": "axis", "source": "l2"},
+    {"name": "TriggerR", "kind": "axis", "source": "r2"},
+    {"name": "Fire", "kind": "button", "source": "east"},
+    {"name": "Use", "kind": "button", "source": "west"},
+    {"name": "Special", "kind": "button", "source": "north"},
+    {"name": "BumperL", "kind": "button", "source": "l"},
+    {"name": "BumperR", "kind": "button", "source": "r"},
+    {"name": "Menu", "kind": "button", "source": "start"},
+    {"name": "Back", "kind": "button", "source": "select"}]})
 write_json(os.path.join(root, "ProjectSettings/Physics2D.json"), {"format": 1, "layers": ["Default", "Player", "Enemy", "Pickup"],
                                                                "ignore": [["Enemy", "Pickup"]]})
 print("platformer2d sample data written to", root)

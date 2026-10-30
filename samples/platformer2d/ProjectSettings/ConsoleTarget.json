@@ -25,6 +25,9 @@
   "sampleRate": 22050,
   "voices": 16
  },
+ "capabilities": {
+  "rumble": true
+ },
  "allowedComponents": [
   "SpriteRenderer",
   "SpriteAnimator",
@@ -43,6 +46,7 @@
   "AutoPilot",
   "HudController",
   "TitleMenu",
-  "TitleScreen"
+  "TitleScreen",
+  "InputTestHud"
  ]
 }

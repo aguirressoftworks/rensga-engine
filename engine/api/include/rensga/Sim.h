@@ -9,10 +9,10 @@ namespace rensga {
 class InputScript {
  public:
   static constexpr u32 kMaxSteps = 2048;
-  struct Step { u32 frame; Scalar x, y; u32 buttons; };
+  struct Step { u32 frame; Scalar x, y; u32 buttons; Scalar rx, ry, l2, r2; };  // F3.06: right stick + triggers
   enum Button : u32 { South = 1, East = 2, West = 4, North = 8, L = 16, R = 32, Start = 64, Select = 128,
                       Up = 256, Down = 512, Left = 1024, Right = 2048 };
-  bool add(u32 frame, Scalar x, Scalar y, u32 buttons);
+  bool add(u32 frame, Scalar x, Scalar y, u32 buttons, Scalar rx = 0, Scalar ry = 0, Scalar l2 = 0, Scalar r2 = 0);
   // Parses {"steps":[{"frame":0,"x":0,"y":1,"buttons":["south","l"]}, ...]} (steps in frame order).
   bool parse(const char* text, size_t size);
   void apply(u32 frame, VirtualGamepad& pad) const;

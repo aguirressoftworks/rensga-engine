@@ -10,7 +10,7 @@ TEST(gameplay_pack_has_two_scenes_and_assets) {
   CHECK(!pack.empty());
   Game g;
   CHECK(g.boot(pack, tempDir("scenes")));
-  CHECK_EQ(SceneManager::sceneCount(), 3u);
+  CHECK_EQ(SceneManager::sceneCount(), 4u);
   CHECK_EQ(strcmp(SceneManager::sceneName(0), "Title"), 0);
   CHECK_EQ(strcmp(SceneManager::sceneName(1), "Room"), 0);
   CHECK_EQ(strcmp(SceneManager::sceneName(2), "RoomBot"), 0);

@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include <nlohmann/json_fwd.hpp>
+
 #include "rensga/core/math.h"
 
 namespace rensga {
@@ -27,6 +29,9 @@ struct PcmAudio {
 // Import settings read from the asset's .meta "importSettings" object.
 struct TextureImport {
   std::string format = "auto";  // auto | rgba8 | clut4 | clut8
+  int maxSize = 0;              // F3.02: longest edge in pixels; 0 = keep (larger images are scaled down, nearest)
+  bool opaque = false;          // F3.02: "alpha": "opaque" drops the alpha channel (all 255)
+  std::string filter = "bilinear";  // F3.02: point | bilinear. Stored for the runtime sampler; it does not change the cooked bytes.
 };
 struct AudioImport {
   bool mono = false;          // downmix stereo to mono
@@ -35,6 +40,12 @@ struct AudioImport {
   bool loop = false;
   int64_t loopStart = 0;      // source frames
   int64_t loopEnd = -1;       // source frames, -1 = whole clip
+  uint32_t sampleRate = 0;    // F3.02: resample down to this rate (Hz); 0 = keep
+  bool streamed = false;      // F3.02: stored for the streaming path (files in Streaming/ today); does not change cooked bytes
+};
+struct ModelImport {          // F3.02: glTF import settings
+  float scale = 1.0f;         // uniform scale applied to positions
+  bool flatNormals = false;   // "normals": "flat" recomputes flat normals; "import" keeps the file's (default)
 };
 
 // A texture in a target's binary form (PackTexFormat values, see pack_format.h).
@@ -58,7 +69,21 @@ CookedTexture makeRgba8(const ImageRgba& img);
 // when the image has more unique colors than the palette holds.
 CookedTexture makeClut(const ImageRgba& img, int bits);
 void audioDownmixMono(PcmAudio& pcm);
+void audioResample(PcmAudio& pcm, uint32_t newRate);  // linear, only ever lowers the rate
 void audioHalveRate(PcmAudio& pcm);
+
+// ---- F3.02: import settings (shared by the cook and the editor's asset inspector) ----
+// A .meta holds "importSettings" (all targets) and "targetOverrides": {"<target id>": {...}}. The settings a target
+// cooks with are importSettings with the override's keys laid over them. No overrides = the same text as before.
+std::string effectiveImportSettings(const nlohmann::json& meta, const std::string& target);
+bool parseTextureImport(const std::string& jsonText, TextureImport& out, std::string& error);
+bool parseAudioImport(const std::string& jsonText, AudioImport& out, std::string& error);
+bool parseModelImport(const std::string& jsonText, ModelImport& out, std::string& error);
+void applyModelImport(PrimitiveMesh& mesh, const ModelImport& s);
+
+class ICookerFormatPlugin;
+// Applies maxSize and alpha, then the target plugin's cookTexture. The one path the cook and the preview both use.
+bool cookTextureImage(ICookerFormatPlugin& plugin, const ImageRgba& image, const TextureImport& settings, CookedTexture& out, std::string& error);
 
 // Default 8x8 ASCII font (public-domain font8x8): every project gets it so text always works.
 constexpr const char* kDefaultFontTextureGuid = "00000000-0000-4000-8000-00000000f0f0";

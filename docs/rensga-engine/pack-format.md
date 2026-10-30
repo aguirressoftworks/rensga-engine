@@ -79,11 +79,17 @@ A platform target (`rensga-cooker cook --target linux`) shares the project's con
 
 ### FDAT field blobs
 
-Each component's blob holds its type's reflected fields in declaration order, raw, with no padding between fields. Sizes: Scalar 4, I32 4, Bool 1, Vector3 12, Quaternion 16, Color32 4 (r, g, b, a), Guid 16. `World::loadPack` rejects a blob whose size differs from the registered type's blob size (a cook/runtime mismatch). Blobs start 4-byte aligned inside FDAT.
+Each component's blob holds its type's reflected fields in declaration order, raw, with no padding between fields. Sizes: Scalar 4, I32 4, Bool 1, Vector3 12, Quaternion 16, Color32 4 (r, g, b, a), Guid 16, UnityEvent 180. `World::loadPack` rejects a blob whose size differs from the registered type's blob size (a cook/runtime mismatch). Blobs start 4-byte aligned inside FDAT.
+
+### Scheduler limits and UnityEvent (F3.05)
+
+`CORO` (`PackSchedulerLimits`, 16 B, one record): `u32 maxCoroutines`, `u32 maxInvokes`, 2 reserved. They come from `ProjectSettings/ConsoleTarget.json` `budgets.maxCoroutines` and `budgets.maxInvokes` (both optional, default 64, 1 to 4096). The loader sizes the World's coroutine and Invoke pools from it (grow or shrink, only while nothing is running). A pack without `CORO` keeps the World's defaults (64 / 64), so old packs load unchanged. The cooker also writes `kMaxCoroutines` / `kMaxInvokes` into `console_target.gen.h`.
+
+FDAT field type 7, `UnityEvent` (180 B): `u32 count` (0 to 4) then four listeners of 44 B: `Guid target` (object GUID, null = empty), `u32 typeHash` (FNV-1a 32 of the component type name), `u32 methodHash` (FNV-1a 32 of the `METHOD(Name)` name), `u8 argKind` (0 none, 1 Scalar, 2 i32, 3 bool, 4 object GUID), 3 pad, `u8 arg[16]` (Scalar or i32 in the first 4 bytes, bool in the first byte, a GUID in all 16). Targets are found by GUID when the event fires, so the same bytes work on every platform. The cooker rejects a listener whose target object, component type or `METHOD` does not exist. Types without a UnityEvent field cook exactly as before.
 
 ### Cooker output order
 
-STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, INPT, CTGT, SCNE, BLOB, TEXR, AUDI, TMAP, ANIM, FONT, PH2D (only when `ProjectSettings/Physics2D.json` exists). Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
+STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, INPT, CTGT, CORO, SCNE, BLOB, TEXR, AUDI, TMAP, ANIM, FONT, PH2D (only when `ProjectSettings/Physics2D.json` exists). Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
 | `SCNE` | `PackSceneRec` 32 B | F2.05 scene list in build-settings order: `Guid`, `nameStr` (file name without extension), `firstObject`, `objectCount`, reserved. OBJS, XFRM and COMP hold the objects of every scene, one contiguous block per scene; `objectIndex` and `parentIndex` stay global. A pack without SCNE is one scene. |
 | `PH2D` | `PackPhysics2D` 128 B | F2.05 2D layer collision matrix, one record, only when `ProjectSettings/Physics2D.json` exists (see "Layer collision matrix"). |
 

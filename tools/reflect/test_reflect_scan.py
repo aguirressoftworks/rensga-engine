@@ -69,6 +69,8 @@ cases = {
     "dangling.h": "struct X { REFLECT(X)\n RANGE(0,1)\n };\n",
     "badtype.h": "struct Y { REFLECT(Y)\n SERIALIZE_FIELD(std::string, s, \"\")\n };\n",
     "dup.h": "struct Z { REFLECT(Z)\n SERIALIZE_FIELD(i32, a, 0)\n SERIALIZE_FIELD(i32, a, 1)\n };\n",
+    "dupmethod.h": "struct M1 { REFLECT(M1)\n METHOD(Go)\n METHOD(Go)\n };\n",
+    "badmethod.h": "struct M2 { REFLECT(M2)\n METHOD(a.b)\n };\n",
     "mismatch.h": "struct W { REFLECT(V)\n };\n",
 }
 for n, text in cases.items():
@@ -82,4 +84,12 @@ open(ok, "w").write("namespace a { namespace b {\n// REFLECT(Nope)\nstruct Q : B
                     " SERIALIZE_FIELD(Vector3, v, Vector3(1, 2, 3))\n}; } }\n")
 assert run(os.path.join(tmp, "o_ok"), ("g", [ok])).returncode == 0
 assert "using T = ::a::b::Q;" in open(os.path.join(tmp, "o_ok", "g", "ok_h.reflect.gen.cpp")).read()
+# F3.05: METHOD(Name) and UnityEvent fields
+me = os.path.join(tmp, "me.h")
+open(me, "w").write("struct Door { REFLECT(Door)\n SERIALIZE_FIELD(UnityEvent, OnOpened, {})\n METHOD(Open)\n METHOD(SetSpeed)\n"
+                    " void Open(); void SetSpeed(Scalar s);\n // METHOD(Hidden)\n};\n")
+assert run(os.path.join(tmp, "o_me"), ("g", [me])).returncode == 0
+g = open(os.path.join(tmp, "o_me", "g", "me_h.reflect.gen.cpp")).read()
+assert "FieldType::UnityEvent" in g and "addMethod<T, &T::Open>(ti, \"Open\")" in g and "&T::SetSpeed" in g
+assert "Hidden" not in g and g.index("addField") < g.index("addMethod")
 print("reflect_scan: ok")

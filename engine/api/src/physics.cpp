@@ -140,13 +140,15 @@ void fixedStep(World& world, Scalar, void*) {
     u32 now = 0;
     for (u32 i = 0; i < nctl; ++i)
       if (hit[i]) now |= 1u << i;
-    u32 entered = now & ~m.mask;
+    u32 entered = now & ~m.mask, exited = m.mask & ~now;
     m.mask = now;
     for (u32 i = 0; i < nctl; ++i) {
-      if (!(entered & (1u << i))) continue;
+      if (!((entered | exited) & (1u << i))) continue;
+      const bool enter = (entered & (1u << i)) != 0;
       Ref<GameObject> tr = trig->ref(), pl = ctls[i].go->ref();
-      if (tr) world.sendTriggerEnter(tr.get(), ctls[i].go);
-      if (tr && pl) world.sendTriggerEnter(pl.get(), tr.get());
+      const World::Contact kind = enter ? World::Contact::TriggerEnter : World::Contact::TriggerExit;
+      if (tr) world.sendContact(tr.get(), ctls[i].go, kind);
+      if (tr && pl) world.sendContact(pl.get(), tr.get(), kind);
     }
   };
 

@@ -28,7 +28,10 @@ constexpr u32 FDAT = makeFourCC('F', 'D', 'A', 'T');  // reflected field blobs
 constexpr u32 MESH = makeFourCC('M', 'E', 'S', 'H');  // PackMeshRec[count]
 constexpr u32 VERT = makeFourCC('V', 'E', 'R', 'T');  // PackVertex[count]
 constexpr u32 INPT = makeFourCC('I', 'N', 'P', 'T');  // PackInputAction[count]
+constexpr u32 INPX = makeFourCC('I', 'N', 'P', 'X');  // F3.06: PackInputActionExt[count], parallel to INPT (absent in older packs)
+constexpr u32 INPS = makeFourCC('I', 'N', 'P', 'S');  // F3.06: PackInputSettings (one record; absent = defaults)
 constexpr u32 CTGT = makeFourCC('C', 'T', 'G', 'T');  // PackConsoleTarget (one record)
+constexpr u32 CORO = makeFourCC('C', 'O', 'R', 'O');  // F3.05: PackSchedulerLimits (one record; absent = defaults 64 / 64)
 // v2 asset sections. Records are POD and read in place; payload offsets point into BLOB.
 constexpr u32 BLOB = makeFourCC('B', 'L', 'O', 'B');  // payload bytes: pixels, palettes, PCM, tiles, frame rects
 constexpr u32 TEXR = makeFourCC('T', 'E', 'X', 'R');  // PackTexRec[count]
@@ -111,15 +114,22 @@ struct PackVertex {
 };
 static_assert(sizeof(PackVertex) == 16, "PackVertex is 16 bytes");
 
-// INPT record: 16 bytes.
-enum class PackInputKind : u32 { Button = 0, Axis2 = 1 };
+// INPT record: 16 bytes. Kinds: Button (held/pressed/released), Axis2 (Vector2, y up), Axis (one Scalar, -1..1).
+enum class PackInputKind : u32 { Button = 0, Axis2 = 1, Axis = 2 };
 enum class PackInputSource : u32 {
-  // Axis2 sources
+  // Axis2 sources (Composite: built from the four direction bindings in INPX)
   Nub = 0,
   DPad = 1,
+  RightStick = 2,
+  Composite = 3,
   // Button sources
-  South = 16, East, West, North, L, R, Start, Select, Up, Down, Left, Right
+  South = 16, East, West, North, L, R, Start, Select, Up, Down, Left, Right, L2, R2,
+  // Axis (one value) sources; Composite makes an Axis from positive/negative bindings only
+  AxisLeftX = 32, AxisLeftY, AxisRightX, AxisRightY, AxisL2, AxisR2,
 };
+// A binding in INPX is a button PackInputSource, a key (kInputKeyBase + KeyCode) or kInputNone.
+constexpr u32 kInputKeyBase = 0x100;
+constexpr u32 kInputNone = 0xFFFFFFFFu;
 struct PackInputAction {
   u32 nameStr;  // byte offset in STRS
   u32 kind;     // PackInputKind
@@ -127,6 +137,27 @@ struct PackInputAction {
   u32 reserved;
 };
 static_assert(sizeof(PackInputAction) == 16, "PackInputAction is 16 bytes");
+
+// INPX record: 48 bytes, same index as INPT. bind[] by kind:
+//   Button: bind[0] = second source.   Axis: bind[0..1] positive, bind[2..3] negative.
+//   Axis2 Composite: bind[0..1] up, [2..3] down, [4..5] left, [6..7] right.
+// gravity / sensitivity are Unity's keyboard ramp speeds (units per second); `dead` rescales a 1D analog axis.
+struct PackInputActionExt {
+  u32 bind[8];
+  float gravity, sensitivity, dead;
+  u32 flags;  // bit 0 snap (reverse direction passes through 0), bit 1 invert
+};
+static_assert(sizeof(PackInputActionExt) == 48, "PackInputActionExt is 48 bytes");
+constexpr u32 kInputFlagSnap = 1, kInputFlagInvert = 2;
+
+// INPS: radial dead zone and outer clamp of the sticks (InputActions.json "stickDeadZone" / "stickOuterClamp").
+struct PackInputSettings {
+  float deadZone, outerClamp;
+  u32 reserved[2];
+};
+static_assert(sizeof(PackInputSettings) == 16, "PackInputSettings is 16 bytes");
+
+constexpr u32 kTargetCapRumble = 1u << 0;  // the target's pad has vibration motors (ConsoleTarget "capabilities".rumble)
 
 // CTGT record: 48 bytes, the ConsoleTarget summary the runtime sizes itself from.
 struct PackConsoleTarget {
@@ -139,9 +170,17 @@ struct PackConsoleTarget {
   u32 maxComponentsPerType;
   u32 audioSampleRate;  // mixer rate (22050 or 44100); 0 in packs cooked before F2.04 (use 22050)
   u32 audioVoices;      // voice budget of the target; 0 = default 16
-  u32 reserved;
+  u32 capabilities;     // F3.06: kTargetCap* bits (0 in packs cooked before)
 };
 static_assert(sizeof(PackConsoleTarget) == 48, "PackConsoleTarget is 48 bytes");
+
+// CORO record: 16 bytes. Pool sizes of the coroutine and Invoke scheduler (ConsoleTarget budgets.maxCoroutines / maxInvokes).
+struct PackSchedulerLimits {
+  u32 maxCoroutines;
+  u32 maxInvokes;
+  u32 reserved[2];
+};
+static_assert(sizeof(PackSchedulerLimits) == 16, "PackSchedulerLimits is 16 bytes");
 
 // ---- v2 asset records. Every record starts with the asset GUID (RULES 1.7); *Offset fields are byte
 // offsets from the start of BLOB and every payload starts on a 16-byte boundary inside BLOB. ----

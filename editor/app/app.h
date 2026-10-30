@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "rensga/editor/editor_log.h"
 #include "rensga/editor/hub.h"
 #include "rensga/editor/play_controller.h"
 #include "rensga/editor/project.h"
@@ -46,23 +47,28 @@ struct SceneViewState {
   ImVec2 clickPos{0, 0};
 };
 
-// Scripts (MVP-54..57): what is on disk, and the auto rebuild that stands in for Unity's domain reload.
+// Scripts (F3.03): what is on disk, and the background build + hot reload that stands in for Unity's domain reload.
 enum class ScriptSync { Clean, Building, Failed };
 struct ScriptState {
-  bool enabled = false;              // auto rebuild armed (needs the build dir compiled into this binary)
-  ScriptBuilder builder;
+  bool enabled = false;              // watch Assets/Scripts and rebuild in the background
+  ScriptBuildJob builder;
   std::vector<ScriptInfo> list;      // scripts found on disk
   double scanStamp = -100;
-  std::string pendingHash, failedHash;
-  bool failed = false;               // last rebuild failed and the sources have not changed since
-  bool playAfter = false;            // Play was pressed while the rebuild ran
-  bool restartRequested = false;     // rebuild finished: main saves the state and re-executes
-  // set by main
-  std::filesystem::path buildDir, compiledProject;
-  std::string cmake = "cmake";
+  std::string pendingHash;           // hash the running build started from
+  std::string builtHash;             // hash of the last build that ended (ok or not): no retry until files change
+  std::string seenHash;              // debounce: changed hash waiting to stay stable for 500 ms
+  double seenSince = 0, pollStamp = 0;
+  bool failed = false;               // last build failed and the sources have not changed since
+  bool playAfter = false;            // Play was pressed while the build ran
+  bool prefsReady = false;
+  int buildNumber = 0;               // groups console diagnostics by build
+  int lastErrors = 0, lastWarnings = 0;
+  std::string statusText;            // last result, for the status bar
+  int statusKind = 0;                // 0 neutral, 1 ok, 2 error
   // New script prompt
   bool openNewScript = false;
   char newName[96] = {};
+  int newKind = 0;                   // 0 Behaviour, 1 empty Component
   std::string newScriptError;
 };
 
@@ -124,8 +130,6 @@ struct App {
   bool openSaveLayout = false;
   char layoutName[64] = {};
   ScriptState scripts;
-  std::string restoreFocus;       // window to focus after a restart
-  bool restoredPlayAfter = false;
 
   // Project panel cache
   AssetNode assets;
@@ -158,13 +162,17 @@ nlohmann::json defaultFieldsFor(const TypeInfo& ti);               // reflected 
 bool scriptCompiled(const std::string& className);                // registered in this binary
 std::string scriptStatus(const App& a, const std::string& className);  // "" ready, else "compiling..." / "needs rebuild"
 bool addScriptToObject(App& a, const std::string& objectGuid, const std::string& className);  // one undo step
-bool createScriptAction(App& a, const std::string& name);         // Create > C++ Script (validates, writes, logs)
-void tickScripts(App& a);                                          // once per frame: rescan, poll the build
+bool createScriptAction(App& a, const std::string& name, ScriptKind kind = ScriptKind::Behaviour);  // Create > C++ Script (validates, writes, logs)
+void tickScripts(App& a);                                          // once per frame, between frames: rescan, pump the build, reload
 void scriptsOnFocus(App& a);                                       // window focus gained
-ScriptSync scriptsSync(App& a);                                    // hash check; starts a rebuild when sources changed
-bool scriptsBlockPlay(const App& a);                               // last rebuild failed
-bool saveReloadState(App& a, const std::string& focusedWindow, bool playAfter);
-bool restoreReloadState(App& a);
+void scriptsOnProjectOpen(App& a);                                 // load the module if current, else build it
+ScriptSync scriptsSync(App& a);                                    // hash check; starts a build when sources changed
+bool scriptsBlockPlay(const App& a);                               // scripts have compile errors
+void scriptsCancel(App& a);                                        // status bar Cancel
+bool openLogLine(const LogLine& l);                                // console double-click: file:line in the code editor
+bool openBuildError(int index);                                    // --ui-event openerror[:N]
+bool uiEventHolds(App& a, const std::string& event);               // --ui-event waitbuild|waitbusy: hold the queue
+bool scriptsTestEdit(App& a, const std::string& arg);              // --ui-event edit:<file>|<old>|<new> (stands in for the code editor)
 void drawScriptDialogs(App& a);
 
 // scene editing actions shared by the Hierarchy, the GameObject menu and the shortcuts (panels/actions.cpp)
@@ -184,6 +192,7 @@ void drawToolbar(App& a);
 void drawHierarchy(App& a);
 void drawInspector(App& a);
 void drawConsole(App& a);
+void drawStatusBar(App& a);
 void drawProjectPanel(App& a);
 void drawSceneView(App& a);
 void drawGameView(App& a);

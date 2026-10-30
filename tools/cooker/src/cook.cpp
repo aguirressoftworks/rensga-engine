@@ -12,10 +12,13 @@
 
 #include <nlohmann/json.hpp>
 
+#include "rensga/cooker/input_cook.h"
+
 #include "rensga/cooker/cooker.h"
 #include "rensga/core/components.h"
 #include "rensga/core/pack_format.h"
 #include "rensga/core/reflect_json.h"
+#include "rensga/core/reflect_method.h"
 
 namespace fs = std::filesystem;
 using nlohmann::json;
@@ -23,7 +26,7 @@ using nlohmann::json;
 namespace rensga {
 namespace {
 
-constexpr const char* kCookerVersion = "rensga-cooker-3";
+constexpr const char* kCookerVersion = "rensga-cooker-4";
 
 struct Ctx {
   CookResult result;
@@ -87,7 +90,7 @@ struct ObjectDef {
   std::string tag;  // empty = Untagged
   int layer = 0;
   PackTransform xf = {};
-  struct Comp { const TypeInfo* type; std::vector<uint8_t> blob; json fields; };
+  struct Comp { const TypeInfo* type; std::vector<uint8_t> blob; json fields; json srcFields; };
   std::vector<Comp> comps;
 };
 
@@ -177,7 +180,7 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
         a.path.replace_extension("");
         a.rel = relPath(proj, a.path);
         a.guid = g;
-        if (metaJson.contains("importSettings")) a.importSettings = metaJson["importSettings"].dump();
+        a.importSettings = effectiveImportSettings(metaJson, opt.target);
         if (assets.count(g)) {
           cx.error("duplicate asset GUID " + g + " in '" + a.rel + "' and '" + assets[g].rel + "'", a.rel, g);
         }
@@ -212,15 +215,7 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
   std::map<std::string, std::string> hashes;
   hashes["<cooker>"] = kCookerVersion;
   {
-    std::string layout;
-    const TypeRegistry& reg = TypeRegistry::instance();
-    for (u32 i = 0; i < reg.count(); ++i) {
-      const TypeInfo* ti = reg.byId(i);
-      layout += std::string(ti->name) + ":";
-      for (u32 f = 0; f < ti->fieldCount; ++f)
-        layout += std::string(ti->fields[f].name) + "," + std::to_string(static_cast<int>(ti->fields[f].type)) + ";";
-    }
-    hashes["<reflection>"] = hex64(fnv64(layout));
+    hashes["<reflection>"] = reflectionLayoutHash();
   }
   for (const fs::path& p : hashed) {
     std::string txt;
@@ -354,6 +349,7 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
         c.blob.resize(blobSize(*ti));
         writeBlob(*ti, inst.mem, c.blob.data());
         c.fields = fieldsToJson(*ti, inst.mem);
+        c.srcFields = cj.value("fields", json::object());  // as written: error messages name methods, not hashes
         o.comps.push_back(std::move(c));
       }
       objIndex[g] = static_cast<int>(objs.size());
@@ -385,6 +381,30 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
           cx.error("'" + o.name + "' (guid " + guidText(o.guid) + ") " + c.type->name + "." + c.type->fields[f].name +
                        " references missing GUID " + g,
                    sceneAsset.rel, sceneAsset.guid);
+      }
+  // UnityEvent listeners must name an object of this scene, a component type on it and a METHOD of that type.
+  for (const ObjectDef& o : objs)
+    for (const auto& c : o.comps)
+      for (u32 f = 0; f < c.type->fieldCount; ++f) {
+        if (c.type->fields[f].type != FieldType::UnityEvent || !c.fields.contains(c.type->fields[f].name)) continue;
+        const auto& arr = c.srcFields.contains(c.type->fields[f].name) ? c.srcFields[c.type->fields[f].name] : c.fields[c.type->fields[f].name];
+        if (!arr.is_array()) continue;  // reflect_json reports the shape error
+        for (const auto& l : arr) {
+          std::string where = "'" + o.name + "' (guid " + guidText(o.guid) + ") " + c.type->name + "." + c.type->fields[f].name + " listener ";
+          std::string tg = l.value("target", std::string());
+          auto it = objIndex.find(tg);
+          if (it == objIndex.end()) { cx.error(where + "targets missing object " + tg, sceneAsset.rel, sceneAsset.guid); continue; }
+          std::string tn = l.value("type", std::string()), mn = l.value("method", std::string());
+          const TypeInfo* tt = TypeRegistry::instance().find(tn.c_str());
+          if (!tt) { cx.error(where + "names unknown component type '" + tn + "'", sceneAsset.rel, sceneAsset.guid); continue; }
+          if (!MethodRegistry::instance().find(*tt, mn.c_str())) {
+            cx.error(where + "names method '" + tn + "." + mn + "' that is not declared with METHOD(" + mn + ")", sceneAsset.rel, sceneAsset.guid);
+            continue;
+          }
+          bool has = false;
+          for (const auto& oc : objs[static_cast<size_t>(it->second)].comps) has = has || oc.type == tt;
+          if (!has) cx.error(where + "target object has no " + tn + " component", sceneAsset.rel, sceneAsset.guid);
+        }
       }
   if (!R.errors.empty()) return R;
 
@@ -445,6 +465,13 @@ lightDone:
             cx.error("glTF import failed: " + gerr, ait->second.rel, mg);
             continue;
           }
+          ModelImport mi;
+          std::string merr;
+          if (!parseModelImport(ait->second.importSettings, mi, merr)) {
+            cx.error("bad importSettings: " + merr, ait->second.rel, mg);
+            continue;
+          }
+          applyModelImport(gm, mi);
           pit = primCache.emplace(mg, std::make_pair(PrimitiveParams(), std::move(gm))).first;
         } else {
           std::string txt, perr;
@@ -572,33 +599,17 @@ lightDone:
   std::vector<PackAnimRec> panims = cooked.anims;
   for (size_t i = 0; i < panims.size(); ++i) panims[i].nameStr = addStr(cooked.animNames[i]);
 
-  std::vector<PackInputAction> pinputs;
+  CookedInput cookedInput;  // F3.06: INPT + INPX + INPS (see input_cook.h)
   {
-    static const std::map<std::string, PackInputSource> srcs = {
-        {"nub", PackInputSource::Nub}, {"dpad", PackInputSource::DPad}, {"south", PackInputSource::South},
-        {"east", PackInputSource::East}, {"west", PackInputSource::West}, {"north", PackInputSource::North},
-        {"l", PackInputSource::L}, {"r", PackInputSource::R}, {"start", PackInputSource::Start},
-        {"select", PackInputSource::Select}, {"up", PackInputSource::Up}, {"down", PackInputSource::Down},
-        {"left", PackInputSource::Left}, {"right", PackInputSource::Right}};
-    try {
-      for (const json& a : inputsJson.at("actions")) {
-        std::string name = a.at("name").get<std::string>(), kind = a.at("kind").get<std::string>(),
-                    src = a.at("source").get<std::string>();
-        auto it = srcs.find(src);
-        if (it == srcs.end() || (kind != "axis2" && kind != "button")) {
-          cx.error("InputActions.json: action '" + name + "' has unknown kind/source '" + kind + "/" + src + "'", "ProjectSettings/InputActions.json");
-          continue;
-        }
-        PackInputAction pa = {};
-        pa.nameStr = addStr(name);
-        pa.kind = static_cast<u32>(kind == "axis2" ? PackInputKind::Axis2 : PackInputKind::Button);
-        pa.source = static_cast<u32>(it->second);
-        pinputs.push_back(pa);
-      }
-    } catch (const std::exception& e) {
-      cx.error(std::string("InputActions.json: ") + e.what(), "ProjectSettings/InputActions.json");
-    }
+    std::vector<std::string> inputErrors;
+    cookInputActions(inputsJson, [&](const std::string& n) { return addStr(n); }, cookedInput, inputErrors);
+    for (const std::string& e : inputErrors) cx.error("InputActions.json: " + e, "ProjectSettings/InputActions.json");
   }
+  std::vector<PackInputAction>& pinputs = cookedInput.actions;
+  if (!target.rumble)
+    for (const std::string& f : scriptsUsingVibration(proj))
+      cx.msg(CookMessage::Warning, "'" + f + "' uses Input::SetVibration but the '" + target.profile +
+                                       "' ConsoleTarget has no rumble (set \"capabilities\": {\"rumble\": true}); the call does nothing", f);
   if (!R.errors.empty()) return R;
 
   PackConsoleTarget ct = {};
@@ -616,6 +627,7 @@ lightDone:
     ct.maxComponentsPerType = static_cast<u32>(target.maxComponentsPerType);
     ct.audioSampleRate = target.audioSampleRate;
     ct.audioVoices = target.audioVoices;
+    ct.capabilities = target.rumble ? kTargetCapRumble : 0u;
   }
 
   std::vector<PackSceneRec> pscenes;
@@ -635,7 +647,11 @@ lightDone:
   secs.push_back({pack_section::MESH, bytesOf(meshRecs.data(), meshRecs.size() * sizeof(PackMeshRec)), static_cast<u32>(meshRecs.size())});
   secs.push_back({pack_section::VERT, vertBytes, static_cast<u32>(vertBytes.size() / sizeof(PackVertex))});
   secs.push_back({pack_section::INPT, bytesOf(pinputs.data(), pinputs.size() * sizeof(PackInputAction)), static_cast<u32>(pinputs.size())});
+  secs.push_back({pack_section::INPX, bytesOf(cookedInput.ext.data(), cookedInput.ext.size() * sizeof(PackInputActionExt)), static_cast<u32>(cookedInput.ext.size())});
+  secs.push_back({pack_section::INPS, bytesOf(&cookedInput.settings, sizeof cookedInput.settings), 1});
   secs.push_back({pack_section::CTGT, bytesOf(&ct, sizeof ct), 1});
+  PackSchedulerLimits sched = {target.maxCoroutines, target.maxInvokes, {0, 0}};
+  secs.push_back({pack_section::CORO, bytesOf(&sched, sizeof sched), 1});
   secs.push_back({pack_section::SCNE, bytesOf(pscenes.data(), pscenes.size() * sizeof(PackSceneRec)), static_cast<u32>(pscenes.size())});
   secs.push_back({pack_section::BLOB, cooked.blob, static_cast<u32>(cooked.blob.size())});
   secs.push_back({pack_section::TEXR, bytesOf(cooked.textures.data(), cooked.textures.size() * sizeof(PackTexRec)), static_cast<u32>(cooked.textures.size())});
@@ -729,6 +745,26 @@ lightDone:
           std::to_string(cooked.textures.size()) + " textures, " + std::to_string(cooked.audio.size()) + " audio clips)");
   R.ok = true;
   return R;
+}
+
+
+// F3.02: pieces of the cook cache key shared with the editor's single-asset reimport.
+std::string reflectionLayoutHash() {
+  std::string layout;
+  const TypeRegistry& reg = TypeRegistry::instance();
+  for (u32 i = 0; i < reg.count(); ++i) {
+    const TypeInfo* ti = reg.byId(i);
+    layout += std::string(ti->name) + ":";
+    for (u32 f = 0; f < ti->fieldCount; ++f)
+      layout += std::string(ti->fields[f].name) + "," + std::to_string(static_cast<int>(ti->fields[f].type)) + ";";
+  }
+  return hex64(fnv64(layout));
+}
+
+std::string assetCacheSalt(const fs::path& projectRoot, const std::string& target) {
+  std::string txt;
+  readText(projectRoot / "ProjectSettings" / "ConsoleTarget.json", txt);
+  return std::string(kCookerVersion) + "|" + target + "|" + hex64(fnv64(txt)) + "|" + reflectionLayoutHash();
 }
 
 }  // namespace rensga

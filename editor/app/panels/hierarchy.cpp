@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "app.h"
+#include "panels/asset_ui.h"
 
 namespace rensga {
 namespace editor {
@@ -47,6 +48,8 @@ static void drawObject(App& a, const std::string& guid) {
       a.doc.reparent(static_cast<const char*>(p->Data), guid);
     if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("RENSGA_SCRIPT"))
       addScriptToObject(a, guid, static_cast<const char*>(p->Data));
+    if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(kAssetGuidPayload))
+      acceptAssetDrop(a, static_cast<const char*>(p->Data), guid);
     ImGui::EndDragDropTarget();
   }
   std::string toDelete, toDup;

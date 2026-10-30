@@ -14,7 +14,7 @@ struct ScriptInfo {
   std::filesystem::path path;    // the .cpp (or .h) that declares it
 };
 
-// Finds `struct X : Behaviour { REFLECT(X) ...` in Assets/**/*.cpp and *.h, sorted by name.
+// Finds `struct X : Behaviour|Component { REFLECT(X) ...` in Assets/**/*.cpp and *.h, sorted by name.
 std::vector<ScriptInfo> scanProjectScripts(const std::filesystem::path& projectRoot);
 
 bool isCppIdentifier(const std::string& s);
@@ -23,13 +23,14 @@ bool isCppIdentifier(const std::string& s);
 std::string validateScriptName(const std::filesystem::path& projectRoot, const std::string& name,
                                const std::set<std::string>& knownTypes);
 
-// The text of a new script (Behaviour, REFLECT, HEADER, one Scalar field, Start/Update).
-std::string scriptTemplate(const std::string& name);
+enum class ScriptKind { Behaviour, Component };
+// The text of a new script. Behaviour: Awake/Start/Update stubs and one SERIALIZE_FIELD with RANGE. Component: empty.
+std::string scriptTemplate(const std::string& name, ScriptKind kind = ScriptKind::Behaviour);
 
 // Writes Assets/Scripts/<name>.cpp and its .meta (new GUID), and lists the class in the project's ConsoleTarget
 // allowedComponents so a scene that uses it cooks. Returns false and fills err.
 bool createScriptAsset(const std::filesystem::path& projectRoot, const std::string& name, std::filesystem::path& outFile,
-                       std::string& err);
+                       std::string& err, ScriptKind kind = ScriptKind::Behaviour);
 
 // Adds `typeName` to ProjectSettings/ConsoleTarget.json allowedComponents (textual edit: the rest of the file is kept
 // byte for byte). True when the name is in the list afterwards.
@@ -41,9 +42,7 @@ std::filesystem::path scriptsHashFile(const std::filesystem::path& projectRoot);
 std::string readScriptsHash(const std::filesystem::path& projectRoot);
 bool writeScriptsHash(const std::filesystem::path& projectRoot, const std::string& hash);
 
-// Shell command that opens a file: $VISUAL, else $EDITOR, else xdg-open.
-std::string externalEditorCommand();
-bool openInExternalEditor(const std::filesystem::path& file);
+// Opening a file in the user's editor (openInExternalEditor, externalEditorCommand) lives in script_build.h.
 
 }  // namespace editor
 }  // namespace rensga
