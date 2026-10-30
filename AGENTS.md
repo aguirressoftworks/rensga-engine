@@ -35,6 +35,7 @@ build/host/tools/cli/rensga build --target psp templates/psp              # rele
 build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after 30]   # --play exits 1 if the pipeline fails; changed Assets/Scripts rebuild this build tree and restart the editor (--no-auto-rebuild turns it off)
 xvfb-run -a -s "-screen 0 1600x900x24" build/host/editor/app/rensga-editor --project templates/psp --screenshot out.png [--screenshot-frames N] [--select <object>] [--ui-event click|rclick|move:x,y|script:Name|focus|create:cube|select:Name|addscript:Name|save ...]   # editor PNG, never opens a window on the desktop
 # F3.02 asset verbs for --ui-event (Project window, asset inspector, VRAM map): asset:<Assets/..path> | assettab:<default|build target id> | assetset:<key>=<value> (e.g. format=clut4) | assetapply | assetrevert | assetundo | assetredo | assetrename:<path>|<new name> | assetmove:<path>|<folder> | assetdelete:<path> | assetdrop:<path>[|<object>] | search:<text> | folder:<Assets/..> | vram   # open Window > VRAM Map; the Inspector shows the asset until an object is picked
+# F3.07 edit-mode callbacks: --ui-event editworld rebuilds the edit-mode World now and prints "scene: editworld valid= rebuilds= objects= error="; tests/editor/callbacks_ui_check.sh (ctest editor_callbacks_ui) shows the Patrol waypoint gizmos
 # F3.01 inspector verbs for --ui-event: multiselect:A|B (object names) | addcomp:<Type> | rmcomp:<i> | moveup:<i> | movedown:<i> | resetcomp:<i> | copycomp:<i> | pastecomp:<i> | ctxmenu:<i>|<method> | setfield:<Type>.<field>=<json> | setobj:<name|active|tag|layer>=<json> | undo | redo   # act on the whole selection as one undo step; combine with shot:<png>
 ctest --test-dir build/host -R "inspector"                                 # inspector model + gate F3.G2 (every edit undoes/redoes exactly), xvfb inspector screenshots (77 = skipped)
 xvfb-run -a build/host/engine/runtime/rensga_desktop --stress-sprites 1000 --frames 300 --screenshot out.png   # desktop GL player (or --pack <game.rpak>); exits 4 if alloc-check allocs != 0
@@ -47,6 +48,9 @@ tools/emulators/pcsx2_boot.sh build/ci/ps2/rensga.iso --frames 120 --log /abs/lo
 #   build/sample/tools/cooker/rensga-cooker cook --project samples/platformer2d --target ps2 --force
 #   xvfb-run -a build/sample/engine/runtime/rensga_desktop --pack samples/platformer2d/Library/Cooked/ps2/game.rpak --scene Room --frames 120 --screenshot room.png
 #   RENSGA_PS2_PROJECT=samples/platformer2d RENSGA_PS2_PACK=samples/platformer2d/Library/Cooked/ps2/game.rpak tools/ci/ps2.sh   # ISO; then pcsx2_boot.sh
+# F3 exercises (samples/editor_tour, see its README): one ctest each, driven by --ui-event under xvfb, screenshots in the build dir
+#   ctest --test-dir build/host -L f3_exercises --output-on-failure      # scene_roundtrip hot_reload play_revert door patrol input_desktop + editor_assets_ui
+#   tools/ci/editor_tour.sh                                                # console side: rensga play/build --target psp on samples/editor_tour (docker + PPSSPP, exit 77 without)
 tools/install_git_hooks.sh                                                # pre-commit guard: refuses BIOS/ROM dumps
 tools/emulators/screenshot.sh                       # PPSSPP screenshot into docs/rensga-engine/mvp/ (needs a prior cook)
 tools/check_editor_core.sh                                                # editor/core must not name a console

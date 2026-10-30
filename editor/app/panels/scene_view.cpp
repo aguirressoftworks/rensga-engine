@@ -290,7 +290,14 @@ void drawSceneView(App& a) {
       return true;
     };
     if (a.doc.loaded()) buildDocumentGizmos(a.doc, gc);
-    // Script OnDrawGizmos output is appended to the same list here (wired in F3 stage 3).
+    // Script OnDrawGizmos / OnDrawGizmosSelected output goes into the same list: from the edit-mode World, or from the
+    // running one during Play in editor (F3.07).
+    a.editWorld.update(a.doc, a.project.root, a.project.target, io.DeltaTime, a.session.active());
+    if (a.session.active()) {
+      if (a.session.world() && a.session.world()->valid()) EditModeWorld::drawGizmos(a.session.world()->world(), a.doc.selected());
+    } else {
+      a.editWorld.drawGizmos(a.doc.selected());
+    }
   }
   a.renderer.render(a.sceneRT, sd, ro);
   ImGui::Image(static_cast<ImTextureID>(a.sceneRT.tex), sz, ImVec2(0, 1), ImVec2(1, 0));
@@ -634,6 +641,10 @@ bool sceneUiHook(App& a, const std::string& act, const std::string& arg) {
   } else if (act == "gizmos") {
     std::printf("scene: gizmos lines=%u triangles=%u dropped=%u mode=%s\n", GizmoDraw::lineCount(), GizmoDraw::triangleCount(),
                 GizmoDraw::dropped(), a.sv.mode2d ? "2d" : "3d");
+  } else if (act == "editworld") {  // F3.07: rebuilds the edit-mode World now, prints its state (it runs the script gizmo callbacks)
+    if (!a.session.active()) a.editWorld.sync(a.doc, a.project.root, a.project.target);
+    std::printf("scene: editworld valid=%d rebuilds=%u objects=%u error=%s\n", a.editWorld.valid() ? 1 : 0, a.editWorld.rebuilds(),
+                a.editWorld.valid() ? a.editWorld.world()->world().objectCount() : 0u, a.editWorld.lastError().c_str());
   } else {
     return false;
   }

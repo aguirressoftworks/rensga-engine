@@ -1,12 +1,16 @@
 # SceneDocument tests (host only; exceptions on).
 if(TARGET rensga_editor_core)
   rensga_reflect_scan(tests_play RENSGA_PLAY_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_play_session.cpp)  # PlayMover (F3.04)
-  add_executable(rensga_editor_tests ../test_main.cpp test_scene_document.cpp test_target_module.cpp test_undo.cpp test_script_build.cpp test_game_module.cpp ${RENSGA_PLAY_TEST_SRCS})
+  # F3.07 edit-mode World: EditProbe / EditDormant plus the real Patrol script of samples/editor_tour
+  rensga_reflect_scan(tests_editmode RENSGA_EDITMODE_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_edit_mode_world.cpp
+                      ${CMAKE_SOURCE_DIR}/samples/editor_tour/Assets/Scripts/Patrol.cpp)
+  add_executable(rensga_editor_tests ../test_main.cpp test_scene_document.cpp test_target_module.cpp test_undo.cpp test_script_build.cpp test_game_module.cpp ${RENSGA_PLAY_TEST_SRCS} ${RENSGA_EDITMODE_TEST_SRCS})
   target_link_libraries(rensga_editor_tests PRIVATE rensga_editor_core rensga_cooker_lib rensga_api)
   target_include_directories(rensga_editor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
   target_compile_definitions(rensga_editor_tests PRIVATE
     RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"
     RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp"
+    RENSGA_TOUR_DIR="${CMAKE_SOURCE_DIR}/samples/editor_tour"
     RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp")
   rensga_link_whole_archive(rensga_editor_tests PRIVATE rensga_target_dummy)
   # The game module resolves engine symbols from the test executable, like the editor.
@@ -101,4 +105,29 @@ if(TARGET rensga-editor)
   add_test(NAME editor_scene_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/scene_ui_check.sh $<TARGET_FILE:rensga-editor>
            ${CMAKE_SOURCE_DIR}/samples/platformer2d ${CMAKE_SOURCE_DIR}/templates/psp ${CMAKE_CURRENT_BINARY_DIR}/scene_ui)
   set_tests_properties(editor_scene_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600 LABELS "slow;gl")
+endif()
+
+# F3 roadmap exercises (label f3_exercises, `ctest -L f3_exercises`): each one drives the real editor / player under xvfb on a
+# temp copy of samples/editor_tour (or samples/platformer2d) and leaves a screenshot in the work dir. Exit 77 = skipped.
+#   Editor 2 save and reopen a scene | Editor 3 import a texture (editor_assets_ui) | Editor 4 hot-reload a Rotator
+#   Editor 5 play and revert | API 4 coroutine door | API 5 input test scene | API 11 patrol script with gizmos
+if(TARGET rensga-editor)
+  set(RENSGA_EXERCISE_SAMPLE_BUILD "${CMAKE_BINARY_DIR}/exercise_sample" CACHE PATH "Project build tree for the API 5 exercise (incremental when it exists)")
+  set(TOUR ${CMAKE_SOURCE_DIR}/samples/editor_tour)
+  foreach(ex IN ITEMS scene_roundtrip hot_reload play_revert door patrol)
+    add_test(NAME exercise_${ex} COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/exercise_${ex}.sh $<TARGET_FILE:rensga-editor> ${TOUR}
+             ${CMAKE_CURRENT_BINARY_DIR}/exercise_${ex})
+    set_tests_properties(exercise_${ex} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl;f3_exercises" ENVIRONMENT "RENSGA_JOBS=2")
+  endforeach()
+  set_tests_properties(editor_assets_ui PROPERTIES LABELS "slow;gl;f3_exercises")   # Editor 3 "import a texture"
+  add_test(NAME exercise_input_desktop COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/exercise_input_desktop.sh ${CMAKE_SOURCE_DIR}
+           ${RENSGA_EXERCISE_SAMPLE_BUILD} ${CMAKE_SOURCE_DIR}/samples/platformer2d ${CMAKE_CURRENT_BINARY_DIR}/exercise_input_desktop)
+  set_tests_properties(exercise_input_desktop PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 3600 LABELS "slow;gl;f3_exercises" ENVIRONMENT "RENSGA_JOBS=2")
+endif()
+
+# F3.07 (API 11): edit-mode script callbacks in the real editor on samples/editor_tour (Patrol gizmos screenshot). Exit 77 = skipped.
+if(TARGET rensga-editor)
+  add_test(NAME editor_callbacks_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/callbacks_ui_check.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/editor_tour ${CMAKE_CURRENT_BINARY_DIR}/callbacks_ui)
+  set_tests_properties(editor_callbacks_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl;f3_exercises" ENVIRONMENT "RENSGA_JOBS=2")
 endif()

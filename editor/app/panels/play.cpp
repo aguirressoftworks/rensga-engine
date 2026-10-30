@@ -28,6 +28,7 @@ bool startPlayInEditor(App& a) {
     if (sync == ScriptSync::Failed) { log.error("play: fix script compile errors first"); return false; }
   }
   std::string err;
+  a.editWorld.release();  // the edit-mode World shares the engine's global state with the session
   log.info("play: cooking '" + a.doc.path().stem().string() + "' for " + a.project.target + " (from memory)");
   if (!a.session.start(a.doc, a.project.root, a.project.target, err)) {
     log.error("play: " + err);
@@ -183,7 +184,9 @@ bool playUiHook(App& a, const std::string& act, const std::string& arg) {
     GameObject* go = o ? a.session.objectByKey(o->guid) : nullptr;
     if (!go) { std::printf("playdump: %s not found\n", p[0].c_str()); return true; }
     const Vector3 lp = go->transform.lpos_;
-    std::printf("playdump: %s pos=%.4f,%.4f,%.4f frames=%llu fixed=%llu", p[0].c_str(), lp.x, lp.y, lp.z,
+    const Quaternion lr = go->transform.lrot_;
+    std::printf("playdump: %s pos=%.4f,%.4f,%.4f rot=%.4f,%.4f,%.4f,%.4f frames=%llu fixed=%llu", p[0].c_str(), lp.x, lp.y, lp.z,
+                lr.x, lr.y, lr.z, lr.w,
                 static_cast<unsigned long long>(a.session.frames()), static_cast<unsigned long long>(a.session.fixedSteps()));
     if (p.size() == 3) {
       const u32 ci = static_cast<u32>(std::atoi(p[1].c_str()));

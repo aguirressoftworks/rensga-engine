@@ -7,7 +7,7 @@ add_library(rensga_editor_core STATIC
 target_sources(rensga_editor_core PRIVATE src/asset_database.cpp src/import_settings.cpp src/file_watcher.cpp src/vram_map.cpp)  # F3.02
 target_sources(rensga_editor_core PRIVATE src/game_module.cpp src/inspector_model.cpp)  # F3.03 / F3.01 inspector model (added by the F3.02 build until the hot-reload change lists it)
 target_sources(rensga_editor_core PRIVATE src/scene2d.cpp src/document_gizmos.cpp)  # F3.01 scene (2D layer, built-in gizmos)
-target_sources(rensga_editor_core PRIVATE src/editor_world.cpp src/play_session.cpp)  # F3.04 Play in editor
+target_sources(rensga_editor_core PRIVATE src/editor_world.cpp src/play_session.cpp src/edit_mode_world.cpp)  # F3.04 Play in editor
 target_include_directories(rensga_editor_core PUBLIC include)
 target_link_libraries(rensga_editor_core PUBLIC rensga_pipeline_headers rensga_cooker_lib
                       rensga_core rensga_api nlohmann_json::nlohmann_json Threads::Threads

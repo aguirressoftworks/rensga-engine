@@ -129,6 +129,13 @@ class World {
   template <class T>
   T* resolve(u32 index, u32 generation) const;
 
+  // Editor edit mode (Unity ExecuteInEditMode): while on, only behaviours of types declared EXECUTE_IN_EDIT_MODE() take part in
+  // Awake / OnEnable / Start / Update / LateUpdate / FixedUpdate. Everything else stays dormant.
+  void setEditMode(bool on) { editMode_ = on; }
+  bool editMode() const { return editMode_; }
+  // Editor: calls f(ctx, behaviour, owner, enabled) for every live behaviour, running or not (gizmo callbacks). No heap.
+  void visitBehaviours(void (*f)(void* ctx, Behaviour* b, GameObject* owner, bool enabled), void* ctx);
+
   // ---- lifecycle (one call each per frame, driven by GameLoop)
   void startPending();   // Awake + OnEnable for new behaviours, then Start
   void fixedUpdate();
@@ -193,6 +200,7 @@ class World {
   u32 poolOrder_[kMaxTypes] = {};
   u32 poolCount_ = 0;
   bool pendingDestroy_ = false;
+  bool editMode_ = false;
   bool started_ = false;      // true after the first startPending(): later components Awake immediately
   u32 cloneDepth_ = 0;        // >0 while Instantiate copies: the clone wakes up once it is complete
   DelayedDestroy* delayed_ = nullptr;

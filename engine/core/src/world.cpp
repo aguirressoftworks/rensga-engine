@@ -477,10 +477,25 @@ void World::forEachBehaviour(F&& f) {
   for (u32 pi = 0; pi < poolCount_; ++pi) {
     ComponentPool& p = pools_[poolOrder_[pi]];
     if (!p.type->asBehaviour) continue;
+    if (editMode_ && !p.type->executeInEditMode) continue;
     for (u32 slot = 0; slot < p.highWater; ++slot) {  // highWater re-read: new slots may appear
       if ((p.flags[slot] & (kSlotAlive | kSlotDying)) != kSlotAlive) continue;
       Behaviour* b = p.type->asBehaviour(p.at(slot));
       f(p, slot, b);
+    }
+  }
+}
+
+void World::visitBehaviours(void (*f)(void*, Behaviour*, GameObject*, bool), void* ctx) {
+  for (u32 pi = 0; pi < poolCount_; ++pi) {
+    ComponentPool& p = pools_[poolOrder_[pi]];
+    if (!p.type->asBehaviour) continue;
+    for (u32 slot = 0; slot < p.highWater; ++slot) {
+      if ((p.flags[slot] & (kSlotAlive | kSlotDying)) != kSlotAlive) continue;
+      Behaviour* b = p.type->asBehaviour(p.at(slot));
+      GameObject* go = objectAt(b->ownerIndex_);
+      if (!go || go->dying) continue;
+      f(ctx, b, go, go->activeInHierarchy() && b->enabled());
     }
   }
 }
@@ -508,6 +523,7 @@ void World::refreshEnabled(GameObject* go, bool recursive) {
 
 void World::awakeComponent(ComponentPool& p, u32 slot, GameObject* go) {
   if (!p.type->asBehaviour) return;
+  if (editMode_ && !p.type->executeInEditMode) return;
   if ((p.flags[slot] & (kSlotAlive | kSlotDying | kSlotAwoken)) != kSlotAlive || !go->activeInHierarchy()) return;
   Behaviour* b = p.type->asBehaviour(p.at(slot));
   p.flags[slot] |= kSlotAwoken;

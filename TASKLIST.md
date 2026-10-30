@@ -24,7 +24,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..57) done after the review, 13/13 tests |
 | F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 4.8% — closed (all tasks and gates) |
 | F2 · Shared core | 9.3% | 14.1% | 5.06% ticked + 4.23% half ticked (◐ F2.01, F2.02, F2.05, G1: Android run deferred) — API 1-3, Engine 3 and Engine 4 done and accepted; Engine 1, 2 and 5 are built and tested on the host and PS2 and wait only for the Android phone run (`tools/ci/android_device.sh`); gates: G2 met, G1 met except Android (built, not run) |
-| F3 · Editor core | 9.3% | 23.4% | 0% |
+| F3 · Editor core | 9.3% | 23.4% | 0% ticked + 9.3% half ticked (◐ F3.01-F3.07: all built and tested on the host, 52/52 ctest; console and CI checks not run, docker unavailable in this session); gates G1-G3 met |
 | F4 · 2D slice everywhere + PSP base | 8.0% | 31.4% | 0% |
 | F5 · PSP track | 16.4% | 47.8% | 0% |
 | F6 · Full editor and API | 16.2% | 64.0% | 0% |
@@ -177,13 +177,13 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | Reflection macros | `engine/core/reflect` | build-time codegen tables (`tools/reflect`), thin static registrar | done in F1.05 |
 | `Ref<T>`, object model | `engine/core` | done in F2.07 (tags, layers, Instantiate/Destroy, hierarchy API) | done in F2.07 |
 | Lifecycle | `engine/api` | done in F2.08 (all eight callbacks, execution order, `Time` getters) | done in F2.08 |
-| Input actions | `InputActions.json`, `engine/api` | Move, Jump, Camera | **F3.06**&nbsp;API 5, **F6.04**&nbsp;Editor 10 |
-| 2D gameplay | `engine/core/gameplay`, `engine/api` | tile flags (solid, one-way, slopes), BoxCollider2D, Physics2D layers, Camera2D, DontDestroyOnLoad; no editor gizmos for 2D components; no PSP or PSX 2D | **F3.01**&nbsp;Editor 2 (gizmos), **F4**&nbsp;2D slice (PSP), **F9**&nbsp;PSX Engine 3 |
+| Input actions | `InputActions.json`, `engine/api` | done in F3.06 (axes, buttons, actions, rumble, composites; PSP pad map, SDL pads); PS2 libpad rumble and PSP static_asserts never compiled (docker) | **F6.04**&nbsp;Editor 10 (action editor) |
+| 2D gameplay | `engine/core/gameplay`, `engine/api` | tile flags (solid, one-way, slopes), BoxCollider2D, Physics2D layers, Camera2D, DontDestroyOnLoad; 2D editor gizmos done in F3.01; no PSP or PSX 2D | **F4**&nbsp;2D slice (PSP), **F9**&nbsp;PSX Engine 3 |
 | Real-PS2 timing and memory card | `backends/platform/ps2`, `runtime_audio` | measured only in PCSX2 (emulated timing); no `icon.sys` on the card; no real-pad play-through | **F4.01**&nbsp;2D vertical slice |
 | Physics | `engine/api` | CharacterController, box colliders, sphere triggers | **F6.08**&nbsp;API 6 |
 | ConsoleTarget + profile defines | `ProjectSettings/`, generated header | PSP profile | **F1.02**&nbsp;API 0, **F5.12**&nbsp;PSP API 0 |
-| Project layout, `.meta`, `Library/` | templates, cooker | layout and GUIDs; no asset database | **F3.02**&nbsp;Editor 3 |
-| Pack format | `tools/cooker`, runtime loader | v2 (TEXR, AUDI, TMAP, ANIM, FONT, SCNE, PH2D, CTGT audio fields; readers accept v1 and v2); per-asset cook cache (PNG, WAV) and desktop pack hot reload done in F2.03; the editor's asset database is F3.02 | **F3.02**&nbsp;Editor 3 |
+| Project layout, `.meta`, `Library/` | templates, cooker, `editor/core` asset database | done in F3.02 (GUID index, importer settings with per-target overrides, Project window, VRAM map); moving or renaming the open scene file does not update `project.scenes`; the PS2 VRAM map uses the generic layout | **F8.07**&nbsp;PS2 Editor (PS2 TargetModule) |
+| Pack format | `tools/cooker`, runtime loader | v2 (TEXR, AUDI, TMAP, ANIM, FONT, SCNE, PH2D, CTGT audio fields; readers accept v1 and v2); per-asset cook cache (PNG, WAV) and desktop pack hot reload done in F2.03; the editor's asset database is done in F3.02; F3.05 added the CORO section (scheduler limits) | done in F3.02 |
 | `ICookerFormatPlugin` | `tools/cooker` | PSP meshes only | **F4.05**&nbsp;PSP Engine 3, **F9.05**&nbsp;PSX Engine 4 |
 | Primitive generator | shared lib | 5 shapes | **F7.01**&nbsp;PSP Template 0 |
 | Budget validator | `tools/pipeline` | RAM, triangles, capacity | **F6.05**&nbsp;Editor 11 |
@@ -191,17 +191,17 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | `EmulatorLauncher` | `tools/pipeline` | PPSSPP; log via file tail | **F5.19**&nbsp;Emulator Play 0, **F5.22**&nbsp;Emulator Play 3 |
 | EBOOT packaging | `editor/targets/psp` packager | placeholder icon | **F5.03**&nbsp;PSP Engine 8 |
 | `TargetModule` | `editor/core`, `editor/targets/psp` | PSP only | **F1.04**&nbsp;Editor 0.5, **F5.04**&nbsp;PSP Editor 0 |
-| Inspector | `editor/app`, `editor/core` | reflection-driven editing, Add / Remove Component; no prefabs, multi-edit or custom drawers | **F3.01**&nbsp;Editor 2 |
+| Inspector | `editor/app/panels/drawers`, `editor/core/inspector_model` | done in F3.01 and F3.07 (multi-edit, drawer registry, UnityEvent and reference drawers, component clipboard, attributes); no prefabs | **F6.02**&nbsp;Editor 8 (prefabs) |
 | GL scene renderer | `editor/app/render` | OpenGL 3.3, vertex color x lambert, no textures (the 2D sprite batcher is separate, in `backends/render/gl`) | **F8.01**&nbsp;Engine 7 (matching GL look) |
 | `SceneDocument` undo | `editor/core` | JSON snapshots, 200 steps | **F1.05**&nbsp;Editor 1 |
-| Scene editing | `editor/app/panels` | pick, gizmos, hierarchy and inspector edits | **F3.01**&nbsp;Editor 2 |
-| Game tab preview | `editor/app/panels/game_view.cpp` | GL approximation at the target resolution | **F3.04**&nbsp;Editor 5, **F5.07**&nbsp;PSP Editor 3 (preview look) |
+| Scene editing | `editor/app/panels`, `editor/core/scene_document` | done in F3.01 (multi-select, drag reparent, 2D mode, ID-buffer picking, box select, Gizmos API); a texture dropped on the 2D view lands at the origin | **F6.01**&nbsp;Editor 7 |
+| Game tab preview | `editor/app/panels/game_view.cpp` | Play in editor renders the real runtime into an offscreen GL target at the profile resolution (letterbox, integer scale, budget warnings); no audio in editor play | **F5.07**&nbsp;PSP Editor 3 (preview look) |
 | Editor theme | `editor/app/theme.cpp` | built from `brand/palette.json` at configure time | **F6.12**&nbsp;Editor 13 polish |
-| Play dropdown | `editor/core` | "Play in editor" greyed out | **F3.04**&nbsp;Editor 5 |
+| Play dropdown | `editor/core/play_session`, `editor/app/panels/play.cpp` | "Play in editor" (default), Pause, Step, Stop with revert, hot reload during play; the document is read-only while playing; "Play on console" runs the emulator pipeline | **F5.19**&nbsp;Emulator Play 0 |
 | CLI `--json` events | `tools/cli` | `validate`, `cook`, `build`, `play` | **F6.05**&nbsp;Editor 11 and CI |
-| Script rebuild + restart | `editor/app/panels/scripts.cpp`, `editor/core/script_build` | rebuilds the editor build tree and re-executes the editor with its state restored | **F3.03**&nbsp;Editor 4 (hot reload) |
-| Create C++ Script | `editor/core/script_assets` | fixed template, `Assets/Scripts/<Name>.cpp` | **F3.03**&nbsp;Editor 4 |
-| Script drag-and-drop | `editor/app/panels` | Project to Hierarchy, Scene view, Inspector; scripts found by regex scan for `REFLECT` | **F3.01**&nbsp;Editor 2, **F3.02**&nbsp;Editor 3 (asset database) |
+| Script module hot reload | `editor/core/game_module`, `script_build` | done in F3.03: scripts build as a per-project shared module (background `ScriptBuildJob`, status bar progress and Cancel), loaded with dlopen and reloaded with script state kept; compile errors with file:line open in the external editor. Windows path (LoadLibrary, import lib) written but never built: `TODO(Windows)` in `editor/app/CMakeLists.txt` | **F10**&nbsp;Windows editor build |
+| Create C++ Script | `editor/core/script_assets` | fixed template, `Assets/Scripts/<Name>.cpp`; builds and hot reloads on creation | **F6.03**&nbsp;Editor 9 (templates) |
+| Script drag-and-drop | `editor/app/panels` | done in F3.01 and F3.02: `RENSGA_ASSET_GUID` payload, Project to Hierarchy, Scene view and Inspector | done |
 | Template project | `templates/psp` | test level and controller | **F7.04**&nbsp;PSP Template 3 |
 | CMake presets | `CMakePresets.json` | `linux-host`, `psp`, `windows`, `android`, `ps2` enabled (cross builds in pinned Docker images via `tools/docker/*.sh`); `psx` declared | done in F1.01 (psx: **F9**) |
 
@@ -220,7 +220,7 @@ Recorded deviations:
 - **Dev Play boots the ELF directly with assets from `host0:`;** the release PRX/EBOOT is only built by `rensga build` (placeholder ICON0).
 - **PPSSPP is the distro package (`/usr/bin/PPSSPPSDL`) found by `fetch_ppsspp.sh`, never linked.** Reason: GPL, separate process only.
 - **MVP-43 screenshot comes from the game, not a window grab.** PPSSPP's GL window reads black to xwd/import/ffmpeg under Xvfb and PPSSPPHeadless cannot compare/emit screenshots. `tools/emulators/screenshot.sh` builds the ELF with `RENSGA_EXIT_AFTER_FRAMES` (dumps the displayed frame to `host0:/rensga_shot.bmp` on exit), runs it in PPSSPPHeadless (software renderer) and converts it to `docs/rensga-engine/mvp/psp-template.png`.
-- **Script changes rebuild the editor and restart it.** Scripts compile into the editor, CLI, cooker and headless runtime at build time (see the entry above), so there is no hot reload. After a change the editor runs CMake on its own build tree and re-executes itself with the scene, selection, camera and tab restored; undo history is not kept across the restart. Finished by Editor 4 hot reload (F3.03).
+- **Script changes rebuild the editor and restart it. (Resolved in F3.03.)** Scripts now compile into a per-project shared module that the editor loads and reloads without restarting; the CLI, cooker and headless runtime still link the scripts at build time (`-DRENSGA_PROJECT_DIR`). Reason for the per-project module: the editor stays one binary for every project. Undo history survives a reload.
 - **F1 CI runs on GitHub** (private repo `aguirressoftworks/rensga-engine`). The first run failed only in the psp job (runner lacked GLU headers to build PPSSPPHeadless; fixed in `ce67819`), then all 5 jobs went green. `tools/ci/run_local.sh` runs the same jobs locally. Reflection codegen needs Python 3 on the host (cross images have none; `tools/reflect/prescan.sh` writes the tables).
 - **Editor exit code** (fixed in MVP-53): `rensga-editor --play` now exits 1 when the pipeline fails or cannot start.
 - **Bugs found in the user's play-testing of the MVP** (all fixed; none was caught by acceptance):
@@ -288,19 +288,29 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga
 
 Roadmaps: [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
-- [ ] **F3.01** Editor 2 · Scene, hierarchy and inspector — gameObjects, Transforms, gizmos · `1.69%` 🔶
-- [ ] **F3.02** Editor 3 · Asset database and project window — .meta files, importers, VRAM map · `1.69%` 🔶
-- [ ] **F3.03** Editor 4 · C++ scripting workflow — behaviours, hot reload, compile errors · `2.11%`
-- [ ] **F3.04** Editor 5 · Play mode and Game view — play, pause, step, revert, profile previews · `1.27%` 🔶
-- [ ] **F3.05** API 4 · Coroutines, Invoke and events — waiting over time, C# events, UnityEvent · `1.05%`
-- [ ] **F3.06** API 5 · Input — axes, buttons, actions, rumble · `0.63%` 🔶
-- [ ] **F3.07** API 11 · Editor-facing attributes — serializeField, Range, RequireComponent · `0.84%`
+- ◐ **F3.01** Editor 2 · Scene, hierarchy and inspector — gameObjects, Transforms, gizmos · `1.69%` 🔶 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (docker unavailable in this session; run tools/ci/run_local.sh).*
+  - Evidence: `rensga_sceneedit_tests`, `editor_scene_ui`, `editor_callbacks_ui`, `exercise_patrol`. Not run: PSP/PS2/Windows/Android compile of the Gizmos no-op branch and reflect metadata.
+- ◐ **F3.02** Editor 3 · Asset database and project window — .meta files, importers, VRAM map · `1.69%` 🔶 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (docker unavailable in this session; run tools/ci/run_local.sh).*
+  - Evidence: `rensga_asset_tests`, `editor_assets_ui` (dropped PNG, ps2 override clut8 to clut4). Not run: PS2 VRAM on a console.
+- ◐ **F3.03** Editor 4 · C++ scripting workflow — behaviours, hot reload, compile errors · `2.11%` 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (docker unavailable in this session; run tools/ci/run_local.sh).*
+  - Evidence: `editor_script_build_ui` (frames keep advancing during a build, error file:line), `exercise_hot_reload`, `editor_play_hot_reload`, `rensga_editor_tests` game module tests. Not run: Windows build of the module loader.
+- ◐ **F3.04** Editor 5 · Play mode and Game view — play, pause, step, revert, profile previews · `1.27%` 🔶 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (docker unavailable in this session; run tools/ci/run_local.sh).*
+  - Evidence: `editor_play_psp`, `editor_play_platformer`, `exercise_play_revert`. Known gap: no audio in editor play. Not run: `editor --play` through the emulator pipeline (docker).
+- ◐ **F3.05** API 4 · Coroutines, Invoke and events — waiting over time, C# events, UnityEvent · `1.05%` 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (docker unavailable in this session; run tools/ci/run_local.sh).*
+  - Evidence: `rensga_core_tests` coroutine tests (allocs=0), `rensga_cooker_tests` door/UnityEvent, `exercise_door`. Not run: PSP/PS2 builds.
+- ◐ **F3.06** API 5 · Input — axes, buttons, actions, rumble · `0.63%` 🔶 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (docker unavailable in this session; run tools/ci/run_local.sh).*
+  - Evidence: `rensga_core_tests` input tests, `pad_psp_map`, `pad_sdl_events`, `input_cook`, `exercise_input_desktop`. Not run: PS2 libpad rumble, PSP pad on PPSSPP.
+- ◐ **F3.07** API 11 · Editor-facing attributes — serializeField, Range, RequireComponent · `0.84%` 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (docker unavailable in this session; run tools/ci/run_local.sh).*
+  - Evidence: `rensga_inspector_tests`, `rensga_strip_tests`, `reflect_scan_codegen`. Not run: cross builds of the new `Behaviour` virtuals.
 
 **Gates**
 
-- [ ] **F3.G1** A scene saved, reloaded and saved again produces no diff.
-- [ ] **F3.G2** Every inspector edit can be undone and redone.
-- [ ] **F3.G3** The Play dropdown's "Play in editor" works and Stop restores the scene.
+- [x] **F3.G1** A scene saved, reloaded and saved again produces no diff.
+  - Evidence: `exercise_scene_roundtrip` (save, reopen, save: no diff), `editor_scene_ui`, every shipped scene saves unchanged (`rensga_sceneedit_tests`).
+- [x] **F3.G2** Every inspector edit can be undone and redone.
+  - Evidence: `rensga_inspector_tests` (`test_inspector_model.cpp`): every edit path undone and redone, JSON identical; `editor_inspector_ui`.
+- [x] **F3.G3** The Play dropdown's "Play in editor" works and Stop restores the scene.
+  - Evidence: `editor_play_psp`, `editor_play_platformer`, `exercise_play_revert` (Stop restores the scene), `rensga_editor_tests` session tests.
 
 ### F4 · 2D slice everywhere + PSP base — 8.0% (cumulative 31.4%)
 

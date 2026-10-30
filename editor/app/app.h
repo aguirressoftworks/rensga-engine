@@ -9,6 +9,7 @@
 #include "rensga/editor/editor_log.h"
 #include "rensga/editor/hub.h"
 #include "rensga/editor/play_controller.h"
+#include "rensga/editor/edit_mode_world.h"
 #include "rensga/editor/play_session.h"
 #include "rensga/editor/project.h"
 #include "rensga/editor/script_assets.h"
@@ -127,6 +128,7 @@ struct App {
   SceneDocument doc;
   PlayController play;                // Play on console (emulator pipeline)
   PlaySession session;                // Play in editor (F3.04)
+  EditModeWorld editWorld;            // edit-mode script callbacks: gizmos, EXECUTE_IN_EDIT_MODE (F3.07)
   bool playInEditor = true;           // Play dropdown: true = Play in editor (default), false = Play on console
   bool gameIntegerScale = false, gameStats = true, gameFocused = false;  // Game view options / focus
   std::string playKeys;               // --ui-event playkeys: SDL key names held as the Game view input

@@ -12,6 +12,11 @@ step "F2 checks registered"
 for t in touch_pad_logic touch_sdl_events hot_reload_desktop audio_sdl_disk audio_stress_desktop rensga_cooker_tests; do
   ctest --test-dir "$B" -N | grep -q " $t\$" || { echo "ctest: $t is not registered" >&2; exit 1; }
 done
+# F3 exercises (ctest -L f3_exercises, run by the ctest above): every roadmap exercise stays registered.
+step "F3 exercises registered"
+for t in exercise_scene_roundtrip exercise_hot_reload exercise_play_revert exercise_door exercise_input_desktop exercise_patrol editor_assets_ui; do
+  ctest --test-dir "$B" -N -L f3_exercises | grep -q " $t\$" || { echo "ctest: $t is not in the f3_exercises label" >&2; exit 1; }
+done
 "$B/tests/cooker/rensga_cooker_tests" assets_cook_cache_reuses_unchanged_assets
 # ctest above includes alloc_check_linux (headless + desktop player allocs=0) and determinism_linux_trace.
 step "check_editor_core"; tools/check_editor_core.sh

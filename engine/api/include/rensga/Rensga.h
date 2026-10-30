@@ -15,6 +15,7 @@
 #include "rensga/core/debug.h"
 #include "rensga/core/event.h"
 #include "rensga/core/gameplay.h"
+#include "rensga/core/gizmos.h"
 #include "rensga/core/guid.h"
 #include "rensga/core/input.h"
 #include "rensga/core/loop.h"
