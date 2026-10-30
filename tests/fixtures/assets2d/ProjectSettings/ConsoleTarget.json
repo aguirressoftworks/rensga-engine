@@ -1,0 +1,26 @@
+{
+ "format": 1,
+ "profile": "ps2",
+ "scalar": "float",
+ "resolution": [
+  640,
+  448
+ ],
+ "budgets": {
+  "ramBytes": 33554432,
+  "vramBytes": 4194304,
+  "trianglesPerFrame": 100000,
+  "maxObjects": 512,
+  "maxComponentsPerType": 512
+ },
+ "textureFormats": [
+  "clut4",
+  "clut8",
+  "rgba8"
+ ],
+ "depth": "zbuffer",
+ "media": "iso",
+ "allowedComponents": [
+  "Camera"
+ ]
+}

@@ -58,4 +58,22 @@ struct DirectionalLight : Component {
   SERIALIZE_FIELD(Color32, color, Color32(255, 255, 255, 255))
 };
 
+// Plays an AudioClip through the engine mixer (Engine 4). The clip is a GUID into the clip table
+// (AudioSystem::registerClip, filled by the pack loader from AUDI). Implemented in engine/api/src/audio.cpp.
+// Not required in v1: spatialBlend (no 3D attenuation). pitch is supported by the mixer.
+struct AudioSource : Component {
+  REFLECT(AudioSource)
+  SERIALIZE_FIELD(Guid, clip, Guid())
+  SERIALIZE_FIELD(Scalar, volume, 1.0f)
+  SERIALIZE_FIELD(Scalar, pitch, 1.0f)
+  SERIALIZE_FIELD(Scalar, panStereo, 0.0f)
+  SERIALIZE_FIELD(bool, loop, false)
+  // Runtime only (not reflected): the mixer voice of the last Play().
+  u32 voice = 0;
+  void Play();                       // (re)starts the clip on this source
+  void Stop();
+  void PlayOneShot(const Guid& other, Scalar volumeScale = 1.0f);  // fire and forget; does not touch `voice`
+  bool isPlaying() const;
+};
+
 }  // namespace rensga

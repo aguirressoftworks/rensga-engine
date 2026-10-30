@@ -4,11 +4,12 @@
 # Usage: tools/emulators/pcsx2_boot.sh <elf-or-iso> [--frames N] [--timeout S] [--log out.txt]
 #   --frames N   success when a heartbeat with frame >= N is seen (default 60, i.e. the first heartbeat)
 #   --timeout S  give up after S seconds (default 90)
-#   --log FILE   keep the captured console log (default build/pcsx2/last.log)
+#   --log FILE   keep the captured console log (default build/pcsx2/last.log; give an absolute path)
+#   --shot FILE  also save a PNG of the emulator window once the success heartbeat is seen (ImageMagick `import`)
 # Exit: 0 heartbeat seen, 1 timeout/no heartbeat, 2 setup error.
 # How it works:
 #   * WAYLAND_DISPLAY is unset and Qt/SDL are forced to X11 (xcb), otherwise Qt picks Wayland and opens a real window.
-#   * Always runs under xvfb-run (never opens a window on the desktop), with QT_QPA_PLATFORM=xcb inside that server.
+#   * Always runs under its own Xvfb (never opens a window on the desktop), with QT_QPA_PLATFORM=xcb inside that server.
 #   * Config is sandboxed: XDG_CONFIG_HOME=build/pcsx2/xdg, so the user's ~/.config/PCSX2 is never read or written.
 #   * BIOS: path read from ~/.config/rensga/emulators.json {"pcsx2":{"bios":"<abs path to a BIOS .bin>"}}; created
 #     with ~/.config/PCSX2/bios/scph39001.bin if missing. The sandbox only REFERENCES the BIOS directory (Folders/Bios
@@ -20,17 +21,17 @@
 #   * The script then polls stdout+stderr of PCSX2 and the sandbox emulog.txt for the heartbeat and kills PCSX2.
 set -u
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMG=""; FRAMES=60; TMO=90; OUTLOG=""
+IMG=""; FRAMES=60; TMO=90; OUTLOG=""; SHOT=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --frames) FRAMES="$2"; shift 2;; --timeout) TMO="$2"; shift 2;; --log) OUTLOG="$2"; shift 2;;
+    --frames) FRAMES="$2"; shift 2;; --timeout) TMO="$2"; shift 2;; --log) OUTLOG="$2"; shift 2;; --shot) SHOT="$2"; shift 2;;
     -h|--help) sed -n 2,12p "$0"; exit 0;; *) IMG="$1"; shift;;
   esac
 done
 [ -n "$IMG" ] && [ -f "$IMG" ] || { echo "usage: $0 <elf-or-iso> [--frames N] [--timeout S] [--log out.txt]" >&2; exit 2; }
 IMG="$(readlink -f "$IMG")"
 command -v pcsx2-qt >/dev/null || { echo "pcsx2-qt not installed" >&2; exit 2; }
-command -v xvfb-run >/dev/null || { echo "xvfb-run not installed" >&2; exit 2; }
+command -v Xvfb >/dev/null || { echo "Xvfb not installed" >&2; exit 2; }
 
 CFG="$HOME/.config/rensga/emulators.json"
 if [ ! -f "$CFG" ]; then
@@ -46,6 +47,7 @@ W="$REPO/build/pcsx2"; XDG="$W/xdg"; LOG="${OUTLOG:-$W/last.log}"
 rm -rf "$XDG"; mkdir -p "$XDG/PCSX2/inis" "$W"
 cat > "$XDG/PCSX2/inis/PCSX2.ini" <<INI
 [UI]
+SettingsVersion = 1
 SetupWizardIncomplete = false
 ConfirmShutdown = false
 StartFullscreen = false
@@ -60,20 +62,27 @@ EnableFastBoot = true
 HostFs = true
 EnableCheats = false
 [EmuCore/GS]
-Renderer = 13
+Renderer = 12
 [Logging]
 EnableSystemConsole = true
 EnableEEConsole = true
 EnableIOPConsole = true
 EnableFileLogging = true
 INI
-# Renderer 13 = Software; no GPU or GL context needed under Xvfb.
+# Renderer 12 = OpenGL through Mesa llvmpipe (LIBGL_ALWAYS_SOFTWARE below): Vulkan/Software renderers fail to create a device
+# under Xvfb ("Failed to create render device"), which used to look like a hang with an empty log.
 : > "$LOG"
 ARGS=(-batch -nogui -fastboot)
 case "${IMG,,}" in *.elf) ARGS+=(-elf "$IMG");; *) ARGS+=(-- "$IMG");; esac
 HOSTROOT="$(dirname "$IMG")"
-( cd "$HOSTROOT" && env -u WAYLAND_DISPLAY XDG_CONFIG_HOME="$XDG" XDG_DATA_HOME="$XDG/data" XDG_CACHE_HOME="$XDG/cache" QT_QPA_PLATFORM=xcb SDL_VIDEODRIVER=x11 \
-  timeout "$((TMO + 10))" xvfb-run -a -s "-screen 0 1280x720x24" pcsx2-qt "${ARGS[@]}" >>"$LOG" 2>&1 ) &
+# Own Xvfb (not xvfb-run) so the display is known for the screenshot.
+rm -f "$W/display"; : > "$W/display"
+Xvfb -displayfd 3 -screen 0 1280x720x24 -nolisten tcp 3>"$W/display" >/dev/null 2>&1 &
+XVFB=$!
+for _ in $(seq 50); do [ -s "$W/display" ] && break; sleep 0.2; done
+DSP=":$(tr -d '[:space:]' < "$W/display")"
+( cd "$HOSTROOT" && env -u WAYLAND_DISPLAY DISPLAY="$DSP" LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe XDG_CONFIG_HOME="$XDG" XDG_DATA_HOME="$XDG/data" XDG_CACHE_HOME="$XDG/cache" QT_QPA_PLATFORM=xcb SDL_VIDEODRIVER=x11 \
+  timeout "$((TMO + 10))" pcsx2-qt "${ARGS[@]}" >>"$LOG" 2>&1 ) &
 RUN=$!
 rc=1; end=$((SECONDS + TMO))
 while [ $SECONDS -lt $end ] && kill -0 $RUN 2>/dev/null; do
@@ -82,9 +91,10 @@ while [ $SECONDS -lt $end ] && kill -0 $RUN 2>/dev/null; do
   if [ -n "$best" ] && [ "$best" -ge "$FRAMES" ]; then rc=0; break; fi
   sleep 1
 done
+if [ $rc = 0 ] && [ -n "$SHOT" ]; then sleep 2; DISPLAY="$DSP" import -window root "$SHOT" 2>/dev/null && echo "pcsx2_boot: screenshot $SHOT"; fi
 cat "$XDG"/PCSX2/logs/*.txt >>"$LOG" 2>/dev/null
 pkill -f "pcsx2-qt.*${IMG##*/}" 2>/dev/null; sleep 1; pkill -9 -f "pcsx2-qt.*${IMG##*/}" 2>/dev/null
-kill $RUN 2>/dev/null; wait $RUN 2>/dev/null
+kill $RUN 2>/dev/null; wait $RUN 2>/dev/null; kill $XVFB 2>/dev/null
 if [ $rc = 0 ]; then echo "pcsx2_boot: OK, heartbeat frame $best seen (log: $LOG)"; else
   echo "pcsx2_boot: no heartbeat >= $FRAMES within ${TMO}s (log: $LOG)"; grep -a -i "rensga\|error\|bios" "$LOG" | head -10; fi
 exit $rc

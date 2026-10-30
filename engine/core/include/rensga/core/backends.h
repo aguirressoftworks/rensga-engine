@@ -41,6 +41,20 @@ struct MeshTable {
   u32 vertexCount = 0;
 };
 
+// Pixel formats of TextureDesc (contract 4, Engine 2).
+namespace tex_format {
+constexpr u8 RGBA8 = 0, CLUT4 = 1, CLUT8 = 2;
+}
+// CLUT8: `pixels` is one index byte per pixel. CLUT4: two indices per byte, low nibble first, rows padded to a
+// whole byte (the same layout as the pack TEXR section). `palette` has 16 or 256 RGBA8 entries (R in the low byte).
+// RGBA8: `pixels` is width*height u32 in memory order R,G,B,A.
+struct TextureDesc {
+  u32 width = 0, height = 0;
+  u8 format = 0;
+  const void* pixels = nullptr;
+  const u32* palette = nullptr;
+};
+
 class IRenderer {
  public:
   virtual ~IRenderer() {}
@@ -56,13 +70,32 @@ class IRenderer {
   virtual void endFrame() = 0;
   virtual u32 width() const = 0;
   virtual u32 height() const = 0;
+
+  // ---- 2D (Engine 2). Defaults are no-ops so renderers without 2D (GU until F4, Null) compile untouched.
+  // Returns a texture handle (> 0), or 0 on failure.
+  virtual u32 uploadTexture(const TextureDesc&) { return 0; }
+  // src in texture pixels (origin top-left), dst in virtual pixels (origin top-left, +Y down).
+  // Sprites and rects are drawn after 3D, ordered by sortKey (then texture) at endFrame.
+  virtual void drawSprite(u32 /*tex*/, const Rect& /*src*/, const Rect& /*dst*/, Color32 /*tint*/, u32 /*sortKey*/) {}
+  virtual void drawRect(const Rect& /*dst*/, Color32 /*color*/, u32 /*sortKey*/) {}
+  virtual void drawText(u32 /*fontTex*/, const PackFontRec& /*font*/, i32 /*x*/, i32 /*y*/, const char* /*text*/,
+                        Color32 /*color*/, u32 /*sortKey*/) {}
+  // Size of the 2D coordinate space; the GL renderer letterboxes it into the window.
+  virtual void setVirtualResolution(u32 /*w*/, u32 /*h*/) {}
 };
 
+class AudioMixer;
+// Pull model (Engine 4): the backend owns the device and pulls int16 stereo frames from the mixer.
+// All calls happen on the main thread; see audio.h for the threading model.
 class IAudioBackend {
  public:
   virtual ~IAudioBackend() {}
-  virtual bool init() = 0;
+  // sampleRate 22050 or 44100. A null mixer / rate 0 opens nothing (NullAudio).
+  virtual bool init(u32 sampleRate = 0, AudioMixer* mixer = nullptr) = 0;
   virtual void shutdown() = 0;
+  // Once per frame: keeps the device fed (calls mixer->update() and mixer->mix()).
+  virtual void update() {}
+  virtual u32 sampleRate() const { return 0; }
 };
 
 class IFileSystem {
@@ -123,7 +156,7 @@ class NullRenderer : public IRenderer {
 
 class NullAudio : public IAudioBackend {
  public:
-  bool init() override { return true; }
+  bool init(u32 = 0, AudioMixer* = nullptr) override { return true; }
   void shutdown() override {}
 };
 

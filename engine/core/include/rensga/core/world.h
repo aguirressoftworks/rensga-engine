@@ -41,6 +41,7 @@ struct LoadedPack {
   MeshTable meshes;
   const PackInputAction* inputs = nullptr;
   u32 inputCount = 0;
+  PackAssets assets;  // v2 textures, audio, tilemaps, clips, fonts (empty for v1 packs)
   PackConsoleTarget target = {};
   bool hasTarget = false;
   u32 objectCount = 0;

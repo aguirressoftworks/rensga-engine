@@ -34,6 +34,9 @@ xvfb-run -a build/host/tools/cli/rensga play --target psp templates/psp --json -
 build/host/tools/cli/rensga build --target psp templates/psp              # release: EBOOT.PBP in Library/Build/psp-release/
 build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after 30]   # --play exits 1 if the pipeline fails; changed Assets/Scripts rebuild this build tree and restart the editor (--no-auto-rebuild turns it off)
 xvfb-run -a -s "-screen 0 1600x900x24" build/host/editor/app/rensga-editor --project templates/psp --screenshot out.png [--screenshot-frames N] [--select <object>] [--ui-event click|rclick|move:x,y|script:Name|focus|create:cube|select:Name|addscript:Name|save ...]   # editor PNG, never opens a window on the desktop
+xvfb-run -a build/host/engine/runtime/rensga_desktop --stress-sprites 1000 --frames 300 --screenshot out.png   # desktop GL player (or --pack <game.rpak>); exits 4 if alloc-check allocs != 0
+tools/emulators/pcsx2_boot.sh build/ci/ps2/rensga.iso --frames 120 --log /abs/log.txt [--shot out.png]   # PS2 boot in PCSX2 (local only, BIOS referenced in place via ~/.config/rensga/emulators.json)
+tools/install_git_hooks.sh                                                # pre-commit guard: refuses BIOS/ROM dumps
 tools/emulators/screenshot.sh                       # PPSSPP screenshot into docs/rensga-engine/mvp/ (needs a prior cook)
 tools/check_editor_core.sh                                                # editor/core must not name a console
 tools/check_api_rules.sh                                                  # API design rules (docs/rensga-engine/api-rules.md)

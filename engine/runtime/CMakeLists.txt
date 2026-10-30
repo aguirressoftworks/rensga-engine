@@ -75,3 +75,38 @@ elseif(RENSGA_TARGET STREQUAL "linux-host")
     rensga_runtime_target(rensga_headless)
   endif()
 endif()
+
+# Desktop player (Engine 2): SDL platform + GL renderer. linux-host and windows are executables; on android it
+# builds as the second native library `librensga_player.so` (the APK still loads libmain.so = rensga_hello; switching
+# SDLActivity to the player is part of F7 packaging). Project scripts are compiled in, like the other runtimes.
+if(TARGET rensga_platform_sdl AND TARGET rensga_render_gl AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_desktop.cpp)
+  if(RENSGA_TARGET STREQUAL "android")
+    add_library(rensga_desktop SHARED main_desktop.cpp ${RENSGA_PROJECT_SCRIPTS})
+    set_target_properties(rensga_desktop PROPERTIES OUTPUT_NAME rensga_player)
+    target_link_libraries(rensga_desktop PRIVATE log)
+  else()
+    add_executable(rensga_desktop main_desktop.cpp ${RENSGA_PROJECT_SCRIPTS})
+    if(RENSGA_TARGET STREQUAL "windows")
+      target_link_options(rensga_desktop PRIVATE -static-libgcc -static-libstdc++)
+    endif()
+  endif()
+  target_link_libraries(rensga_desktop PRIVATE rensga_api rensga_core rensga_platform_sdl rensga_render_gl)
+  target_include_directories(rensga_desktop PRIVATE ${RENSGA_GENERATED_DIR})
+  rensga_runtime_target(rensga_desktop)
+endif()
+
+# PS2 game (gsKit renderer, libpad platform, cdrom0:/host: file system). The gs role owns main_ps2.cpp.
+if(RENSGA_TARGET STREQUAL "ps2" AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_ps2.cpp)
+  add_executable(rensga_ps2 main_ps2.cpp)
+  target_link_libraries(rensga_ps2 PRIVATE rensga_core rensga_platform_ps2 rensga_render_gs gskit dmakit c)
+  set(RENSGA_PS2_STRESS_SPRITES 1000 CACHE STRING "PS2: sprites drawn per frame by rensga_ps2 (stress test)")
+  set(RENSGA_PS2_CHECK_FRAMES 300 CACHE STRING "PS2: frame at which the alloc-check line is logged")
+  set(RENSGA_PS2_SHOT_FRAME 0 CACHE STRING "PS2: dump the frame buffers to host: at this frame (0 = off)")
+  target_compile_definitions(rensga_ps2 PRIVATE RENSGA_PLATFORM_PS2 RENSGA_PS2_STRESS_SPRITES=${RENSGA_PS2_STRESS_SPRITES}
+    RENSGA_PS2_CHECK_FRAMES=${RENSGA_PS2_CHECK_FRAMES})
+  if(RENSGA_PS2_SHOT_FRAME GREATER 0)
+    target_compile_definitions(rensga_ps2 PRIVATE RENSGA_PS2_SHOT_FRAME=${RENSGA_PS2_SHOT_FRAME})
+  endif()
+  set_target_properties(rensga_ps2 PROPERTIES SUFFIX ".elf")
+  rensga_runtime_target(rensga_ps2)
+endif()

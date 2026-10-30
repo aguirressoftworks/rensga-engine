@@ -1,4 +1,4 @@
-// MVP-21: pack format v1 (spec: docs/rensga-engine/pack-format.md).
+// MVP-21 / F2.03: pack format v2 (v1 still readable) (spec: docs/rensga-engine/pack-format.md).
 // All values little-endian. Every section starts on a 16-byte boundary. The loader maps sections
 // with no parsing and refuses another version with a log line.
 #pragma once
@@ -29,6 +29,13 @@ constexpr u32 MESH = makeFourCC('M', 'E', 'S', 'H');  // PackMeshRec[count]
 constexpr u32 VERT = makeFourCC('V', 'E', 'R', 'T');  // PackVertex[count]
 constexpr u32 INPT = makeFourCC('I', 'N', 'P', 'T');  // PackInputAction[count]
 constexpr u32 CTGT = makeFourCC('C', 'T', 'G', 'T');  // PackConsoleTarget (one record)
+// v2 asset sections. Records are POD and read in place; payload offsets point into BLOB.
+constexpr u32 BLOB = makeFourCC('B', 'L', 'O', 'B');  // payload bytes: pixels, palettes, PCM, tiles, frame rects
+constexpr u32 TEXR = makeFourCC('T', 'E', 'X', 'R');  // PackTexRec[count]
+constexpr u32 AUDI = makeFourCC('A', 'U', 'D', 'I');  // PackAudioRec[count]
+constexpr u32 TMAP = makeFourCC('T', 'M', 'A', 'P');  // PackTilemapRec[count]
+constexpr u32 ANIM = makeFourCC('A', 'N', 'I', 'M');  // PackAnimRec[count] (one sprite clip each)
+constexpr u32 FONT = makeFourCC('F', 'O', 'N', 'T');  // PackFontRec[count]
 }  // namespace pack_section
 
 struct PackHeader {
@@ -130,6 +137,134 @@ struct PackConsoleTarget {
 };
 static_assert(sizeof(PackConsoleTarget) == 48, "PackConsoleTarget is 48 bytes");
 
+// ---- v2 asset records. Every record starts with the asset GUID (RULES 1.7); *Offset fields are byte
+// offsets from the start of BLOB and every payload starts on a 16-byte boundary inside BLOB. ----
+
+enum class PackTexFormat : u32 { RGBA8 = 0, CLUT4 = 1, CLUT8 = 2 };
+
+// TEXR: RGBA8 pixels are width*height*4 bytes (R,G,B,A). CLUT8 is one index byte per pixel; CLUT4
+// packs two indices per byte, low nibble first (rows padded to a whole byte). The palette is
+// paletteCount RGBA8 u32 entries (little-endian R,G,B,A byte order) at paletteOffset (16 or 256).
+struct PackTexRec {
+  Guid guid;
+  u32 width, height;
+  u32 format;  // PackTexFormat
+  u32 pixelOffset;
+  u32 pixelBytes;
+  u32 paletteOffset;  // 0 when format is RGBA8
+  u32 paletteCount;   // 0, 16 or 256
+  u32 reserved;
+};
+static_assert(sizeof(PackTexRec) == 48, "PackTexRec is 48 bytes");
+
+// AUDI: interleaved signed 16-bit PCM, frameCount frames of `channels` samples.
+struct PackAudioRec {
+  Guid guid;
+  u32 sampleRate;
+  u32 channels;    // 1 or 2
+  u32 frameCount;  // frames per channel
+  u32 loopStart;   // frames
+  u32 loopEnd;     // frames, exclusive; equals frameCount when the whole clip loops
+  u32 dataOffset;
+  u32 loops;       // 0 = one-shot, 1 = loops between loopStart and loopEnd
+  u32 reserved;
+};
+static_assert(sizeof(PackAudioRec) == 48, "PackAudioRec is 48 bytes");
+
+// TMAP: tiles are u16 tileset indices, row-major, width*height entries at tilesOffset. Tile i of the
+// tileset (row-major in the tileset texture) is solid when solid[i] != 0 (u8 array at solidOffset,
+// solidCount entries; indices past solidCount are not solid).
+struct PackTilemapRec {
+  Guid guid;
+  u32 width, height;   // in tiles
+  u32 tileSize;        // pixels, square
+  u32 tilesetTexture;  // index into TEXR
+  u32 tilesOffset;
+  u32 solidOffset;
+  u32 solidCount;
+  u32 reserved;
+};
+static_assert(sizeof(PackTilemapRec) == 48, "PackTilemapRec is 48 bytes");
+
+struct PackFrameRect {
+  u16 x, y, w, h;  // pixels in the texture
+};
+static_assert(sizeof(PackFrameRect) == 8, "PackFrameRect is 8 bytes");
+
+// ANIM: one sprite clip. Frames are PackFrameRect[frameCount] at framesOffset.
+struct PackAnimRec {
+  Guid guid;
+  u32 nameStr;  // byte offset in STRS
+  u32 texture;  // index into TEXR
+  u32 frameCount;
+  u32 framesOffset;
+  u32 fps;      // frames per second (integer: deterministic on every profile)
+  u32 loop;     // 0 or 1
+  u32 reserved[2];
+};
+static_assert(sizeof(PackAnimRec) == 48, "PackAnimRec is 48 bytes");
+
+constexpr u32 kPackFontMaxChars = 128;
+// FONT: a bitmap font laid out as a grid of glyphW x glyphH cells, `columns` per row, starting at
+// firstChar. Self-contained so IRenderer::drawText can take it by reference.
+struct PackFontRec {
+  Guid guid;
+  u32 texture;  // index into TEXR
+  u16 glyphW, glyphH;
+  u16 firstChar, charCount;  // charCount <= kPackFontMaxChars
+  u16 columns, lineHeight;
+  u8 advance[kPackFontMaxChars];  // pixels to move after each glyph; index = char - firstChar
+};
+static_assert(sizeof(PackFontRec) == 16 + 4 + 12 + 128, "PackFontRec layout");
+
+// Typed pointers into a v2 pack's asset sections. Valid while the pack memory lives.
+struct PackAssets {
+  const u8* blob = nullptr;
+  u32 blobSize = 0;
+  const PackTexRec* textures = nullptr;
+  u32 textureCount = 0;
+  const PackAudioRec* audio = nullptr;
+  u32 audioCount = 0;
+  const PackTilemapRec* tilemaps = nullptr;
+  u32 tilemapCount = 0;
+  const PackAnimRec* anims = nullptr;
+  u32 animCount = 0;
+  const PackFontRec* fonts = nullptr;
+  u32 fontCount = 0;
+
+  const PackTexRec* findTexture(const Guid& g) const {
+    for (u32 i = 0; i < textureCount; ++i) if (textures[i].guid == g) return &textures[i];
+    return nullptr;
+  }
+  const PackAudioRec* findAudio(const Guid& g) const {
+    for (u32 i = 0; i < audioCount; ++i) if (audio[i].guid == g) return &audio[i];
+    return nullptr;
+  }
+  const PackTilemapRec* findTilemap(const Guid& g) const {
+    for (u32 i = 0; i < tilemapCount; ++i) if (tilemaps[i].guid == g) return &tilemaps[i];
+    return nullptr;
+  }
+  const PackAnimRec* findAnim(const Guid& g) const {
+    for (u32 i = 0; i < animCount; ++i) if (anims[i].guid == g) return &anims[i];
+    return nullptr;
+  }
+  const PackFontRec* findFont(const Guid& g) const {
+    for (u32 i = 0; i < fontCount; ++i) if (fonts[i].guid == g) return &fonts[i];
+    return nullptr;
+  }
+  // Payload accessors (offsets are into BLOB).
+  const u8* texturePixels(const PackTexRec& t) const { return blob + t.pixelOffset; }
+  const u32* texturePalette(const PackTexRec& t) const {
+    return t.paletteCount ? reinterpret_cast<const u32*>(blob + t.paletteOffset) : nullptr;
+  }
+  const i16* audioSamples(const PackAudioRec& a) const { return reinterpret_cast<const i16*>(blob + a.dataOffset); }
+  const u16* tilemapTiles(const PackTilemapRec& m) const { return reinterpret_cast<const u16*>(blob + m.tilesOffset); }
+  const u8* tilemapSolid(const PackTilemapRec& m) const { return blob + m.solidOffset; }
+  const PackFrameRect* animFrames(const PackAnimRec& a) const {
+    return reinterpret_cast<const PackFrameRect*>(blob + a.framesOffset);
+  }
+};
+
 // Read-only view over a loaded pack. open() validates magic/version/bounds.
 struct PackView {
   const u8* base = nullptr;
@@ -138,7 +273,8 @@ struct PackView {
   const PackSection* sections = nullptr;
 
   // Returns false and logs ("pack: unsupported version N ...") on any problem.
-  bool open(const u8* data, size_t byteSize);
+  // `name` (the pack's file name) is added to every error line so a bad pack can be found.
+  bool open(const u8* data, size_t byteSize, const char* name = nullptr);
   const PackSection* find(u32 fourcc) const;
   template <class T>
   const T* records(u32 fourcc, u32* count = nullptr) const {
@@ -148,6 +284,9 @@ struct PackView {
   }
   const char* string(u32 byteOffset) const;  // from STRS, "" if out of range
   const char* stringByIndex(u32 index) const;  // n-th string of STRS (0 is ""), "" if out of range
+  // v2 asset tables (all empty for a v1 pack or a pack without assets).
+  PackAssets assets() const;
+  bool validateAssets(const char* name) const;
   const u8* section(u32 fourcc) const {
     const PackSection* s = find(fourcc);
     return s ? base + s->offset : nullptr;

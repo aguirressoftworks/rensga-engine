@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "rensga/cooker/plugin.h"
+#include "rensga/core/pack_format.h"
 
 namespace rensga {
 
@@ -20,6 +21,7 @@ struct ConsoleTargetData {
   std::string depth, media;
   uint32_t refreshHz = 60;  // optional "refreshHz" (60 NTSC, 50 PAL); the loop's fixed step is 1/refreshHz
   std::vector<std::string> allowedComponents;
+  bool sectorAligned = false;  // optional "packSectorAligned"; defaults to true for disc media (iso, disc, cd, dvd)
   int sphereSegments = 12, capsuleSegments = 12;
 };
 
@@ -81,10 +83,34 @@ struct CookResult {
 CookResult cookProject(const CookOptions& options, const CookSink& sink = nullptr);
 
 // ---- budget validator (MVP-22) -----------------------------------------------------------------
+// ---- asset cooking (F2.03) ---------------------------------------------------------------------
+struct AssetSource {
+  std::filesystem::path path;  // absolute
+  std::string rel;             // project-relative
+  std::string guid;
+  std::string importSettings;  // JSON text of the .meta "importSettings" object ("" = defaults)
+};
+struct CookedAssets {
+  std::vector<uint8_t> blob;
+  std::vector<PackTexRec> textures;
+  std::vector<PackAudioRec> audio;
+  std::vector<PackTilemapRec> tilemaps;
+  std::vector<PackAnimRec> anims;
+  std::vector<std::string> animNames;  // parallel to anims; the caller fills PackAnimRec::nameStr
+  std::vector<PackFontRec> fonts;
+  uint64_t textureBytes = 0;
+};
+// Cooks every asset with a known extension (.png, .wav, .tilemap.json, .anim.json, .font.json) plus the
+// default font, in project-path order. Reports errors (naming the asset and GUID) through `report`
+// and returns false if any failed.
+bool cookAssets(const std::vector<AssetSource>& sources, ICookerFormatPlugin& plugin, CookedAssets& out,
+                const std::function<void(CookMessage::Severity, const std::string& text, const std::string& rel, const std::string& guid)>& report);
+
 struct SceneBudgetInput {
   std::string sceneAsset;  // project-relative path
   std::string sceneGuid;
   uint64_t packBytes = 0;
+  uint64_t textureBytes = 0;
   uint64_t vertexBytes = 0;
   uint64_t triangles = 0;
   uint64_t objects = 0;

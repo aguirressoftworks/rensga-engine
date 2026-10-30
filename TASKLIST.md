@@ -253,8 +253,11 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga
 
 - [ ] **F2.01** Engine 1 · Core and platform layer — loop, memory, input, files, logging · `1.27%` 🔶
 - [ ] **F2.02** Engine 2 · 2D renderer — gsKit backend + GL/GLES backend · `1.69%`
+  - Stage 2 progress: GL desktop player + gsKit backend done (1000 sprites, allocs=0, PCSX2 boot ok). Open: font/tilemap draw paths (F4).
 - [ ] **F2.03** Engine 3 · Asset pipeline — c++ cooker, per-target formats, pack files · `1.27%` 🔶
+  - Stage 2 progress: pack v2 sections + importers (PNG/WAV/glTF/tilemap/anim/font) done. Open: per-asset cook cache, runtime hot-reload wiring.
 - [ ] **F2.04** Engine 4 · Audio — own software mixer on SDL audio · `0.84%`
+  - Stage 2 progress: mixer, SDL and audsrv backends, AudioSource done. Open: runtime mains do not yet create the mixer; untested on hardware.
 - [ ] **F2.05** Engine 5 · Gameplay framework — entities, collision, animation, saves, UI · `1.27%`
 - [ ] **F2.06** API 1 · Math and core types — vector3, Quaternion, Mathf, Random · `0.84%` 🔶
 - [ ] **F2.07** API 2 · Object model — gameObject, Component, Transform · `1.27%` 🔶

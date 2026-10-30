@@ -6,34 +6,35 @@
 
 namespace rensga {
 
-bool PackView::open(const u8* data, size_t byteSize) {
+bool PackView::open(const u8* data, size_t byteSize, const char* name) {
   *this = PackView();
+  const char* nm = name ? name : "<memory>";
   if (!data || byteSize < sizeof(PackHeader)) {
-    RLOG_ERROR("pack", "pack too small (%zu bytes)", byteSize);
+    RLOG_ERROR("pack", "%s: pack too small (%zu bytes)", nm, byteSize);
     return false;
   }
   if ((reinterpret_cast<uintptr_t>(data) & 15) != 0) {
-    RLOG_ERROR("pack", "pack memory is not 16-byte aligned");
+    RLOG_ERROR("pack", "%s: pack memory is not 16-byte aligned", nm);
     return false;
   }
   const PackHeader* h = reinterpret_cast<const PackHeader*>(data);
   if (memcmp(h->magic, "RPAK", 4) != 0) {
-    RLOG_ERROR("pack", "bad magic, not a Rensga pack");
+    RLOG_ERROR("pack", "%s: bad magic, not a Rensga pack", nm);
     return false;
   }
   if (h->version < kPackMinVersion || h->version > kPackVersion) {
-    RLOG_ERROR("pack", "unsupported pack version %u (this runtime reads versions %u to %u)", h->version, kPackMinVersion,
+    RLOG_ERROR("pack", "%s: unsupported pack version %u (this runtime reads versions %u to %u)", nm, h->version, kPackMinVersion,
                kPackVersion);
     return false;
   }
   if (h->totalSize > byteSize || sizeof(PackHeader) + static_cast<size_t>(h->sectionCount) * sizeof(PackSection) > h->totalSize) {
-    RLOG_ERROR("pack", "pack truncated: header says %u bytes, have %zu", h->totalSize, byteSize);
+    RLOG_ERROR("pack", "%s: pack truncated: header says %u bytes, have %zu", nm, h->totalSize, byteSize);
     return false;
   }
   const PackSection* secs = reinterpret_cast<const PackSection*>(data + sizeof(PackHeader));
   for (u32 i = 0; i < h->sectionCount; ++i) {
     if (secs[i].offset > h->totalSize || secs[i].size > h->totalSize - secs[i].offset || (secs[i].offset & 15)) {
-      RLOG_ERROR("pack", "section %u out of bounds or misaligned", i);
+      RLOG_ERROR("pack", "%s: section %u out of bounds or misaligned", nm, i);
       return false;
     }
   }
@@ -41,7 +42,69 @@ bool PackView::open(const u8* data, size_t byteSize) {
   size = h->totalSize;
   header = h;
   sections = secs;
+  if (h->version >= 2 && !validateAssets(nm)) {
+    *this = PackView();
+    return false;
+  }
   return true;
+}
+
+// v2: every record's payload range must lie inside BLOB, so readers can index without checks.
+bool PackView::validateAssets(const char* nm) const {
+  const PackAssets a = assets();
+  auto fits = [&](u64 off, u64 bytes) { return off + bytes <= a.blobSize; };
+  for (u32 i = 0; i < a.textureCount; ++i) {
+    const PackTexRec& t = a.textures[i];
+    u64 pal = t.paletteCount * 4ull;
+    if (t.format > 2 || !fits(t.pixelOffset, t.pixelBytes) || (t.paletteCount && !fits(t.paletteOffset, pal))) {
+      RLOG_ERROR("pack", "%s: texture %u has a bad format or payload range", nm, i);
+      return false;
+    }
+  }
+  for (u32 i = 0; i < a.audioCount; ++i) {
+    const PackAudioRec& r = a.audio[i];
+    if (r.channels < 1 || r.channels > 2 || !fits(r.dataOffset, r.frameCount * r.channels * 2ull)) {
+      RLOG_ERROR("pack", "%s: audio clip %u has a bad payload range", nm, i);
+      return false;
+    }
+  }
+  for (u32 i = 0; i < a.tilemapCount; ++i) {
+    const PackTilemapRec& m = a.tilemaps[i];
+    if (m.tilesetTexture >= a.textureCount || !fits(m.tilesOffset, m.width * m.height * 2ull) || !fits(m.solidOffset, m.solidCount)) {
+      RLOG_ERROR("pack", "%s: tilemap %u has a bad tileset or payload range", nm, i);
+      return false;
+    }
+  }
+  for (u32 i = 0; i < a.animCount; ++i) {
+    const PackAnimRec& n = a.anims[i];
+    if (n.texture >= a.textureCount || !fits(n.framesOffset, n.frameCount * sizeof(PackFrameRect))) {
+      RLOG_ERROR("pack", "%s: sprite clip %u has a bad texture or payload range", nm, i);
+      return false;
+    }
+  }
+  for (u32 i = 0; i < a.fontCount; ++i) {
+    if (a.fonts[i].texture >= a.textureCount || a.fonts[i].charCount > kPackFontMaxChars) {
+      RLOG_ERROR("pack", "%s: font %u has a bad texture or glyph count", nm, i);
+      return false;
+    }
+  }
+  return true;
+}
+
+PackAssets PackView::assets() const {
+  PackAssets a;
+  if (!header) return a;
+  const PackSection* b = find(pack_section::BLOB);
+  if (b) {
+    a.blob = base + b->offset;
+    a.blobSize = b->size;
+  }
+  a.textures = records<PackTexRec>(pack_section::TEXR, &a.textureCount);
+  a.audio = records<PackAudioRec>(pack_section::AUDI, &a.audioCount);
+  a.tilemaps = records<PackTilemapRec>(pack_section::TMAP, &a.tilemapCount);
+  a.anims = records<PackAnimRec>(pack_section::ANIM, &a.animCount);
+  a.fonts = records<PackFontRec>(pack_section::FONT, &a.fontCount);
+  return a;
 }
 
 const PackSection* PackView::find(u32 fourcc) const {
@@ -169,6 +232,7 @@ bool World::loadPack(const PackView& pack, LoadedPack* out) {
     out->inputCount = inputCount;
     out->hasTarget = ctgt != nullptr;
     if (ctgt) out->target = *ctgt;
+    out->assets = pack.assets();
     out->objectCount = objCount;
     out->componentCount = compCount;
   }

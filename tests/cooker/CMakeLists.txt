@@ -1,4 +1,4 @@
-rensga_reflect_scan(tests_cooker RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_cooker.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_primitives.cpp)
+rensga_reflect_scan(tests_cooker RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_cooker.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_primitives.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_assets.cpp)
 add_executable(rensga_cooker_tests ../test_main.cpp ${RENSGA_COOKER_TEST_SRCS})
 target_link_libraries(rensga_cooker_tests PRIVATE rensga_cooker_lib rensga_api)
 target_include_directories(rensga_cooker_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. )
@@ -15,3 +15,9 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/templates/psp/Assets/Scenes/Main.scene)
   add_test(NAME cooker_cli_template
            COMMAND rensga-cooker cook --project ${CMAKE_SOURCE_DIR}/templates/psp --force)
 endif()
+
+# F2.03: the 2D asset fixture cooks for a console profile and a platform target through the CLI.
+foreach(tgt ps2 linux)
+  add_test(NAME cooker_cli_assets2d_${tgt}
+           COMMAND rensga-cooker cook --project ${CMAKE_CURRENT_SOURCE_DIR}/../fixtures/assets2d --target ${tgt} --force)
+endforeach()

@@ -1,6 +1,6 @@
 add_library(rensga_core STATIC
   src/log.cpp src/memory.cpp src/math.cpp src/guid.cpp src/reflect.cpp src/world.cpp
-  src/components.cpp src/pack.cpp src/input.cpp src/debug.cpp src/application.cpp src/loop.cpp src/filesystem.cpp src/time.cpp
+  src/components.cpp src/pack.cpp src/input.cpp src/debug.cpp src/application.cpp src/loop.cpp src/filesystem.cpp src/time.cpp src/audio.cpp
   ${RENSGA_REFLECT_ENGINE_SRCS})
 target_include_directories(rensga_core PUBLIC include)
 rensga_runtime_target(rensga_core)

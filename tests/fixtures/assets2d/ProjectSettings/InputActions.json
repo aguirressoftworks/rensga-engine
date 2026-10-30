@@ -1,0 +1,10 @@
+{
+ "format": 1,
+ "actions": [
+  {
+   "name": "Jump",
+   "kind": "button",
+   "source": "south"
+  }
+ ]
+}

@@ -32,6 +32,7 @@ ConsoleTargetData loadConsoleTarget(const std::filesystem::path& file) {
     t.maxComponentsPerType = b.at("maxComponentsPerType").get<uint64_t>();
     t.depth = j.value("depth", "zbuffer");
     t.media = j.value("media", "");
+    t.sectorAligned = j.value("packSectorAligned", t.media == "iso" || t.media == "disc" || t.media == "cd" || t.media == "dvd");
     t.refreshHz = j.value("refreshHz", 60u);
     if (t.refreshHz < 24 || t.refreshHz > 120) throw std::runtime_error("refreshHz must be between 24 and 120");
     for (const json& c : j.at("allowedComponents")) t.allowedComponents.push_back(c.get<std::string>());

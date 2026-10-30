@@ -25,13 +25,16 @@ class PspCookerPlugin final : public ICookerFormatPlugin {
       Scalar nl = Vector3::Dot(mesh.normals[i], toLight);
       if (nl < 0) nl = 0;
       Scalar k = amb + (1.0f - amb) * nl;
-      auto ch = [&](uint8_t baseC, uint8_t lightC) {
-        Scalar v = static_cast<Scalar>(baseC) * (static_cast<Scalar>(lightC) / 255.0f) * k + 0.5f;
+      const bool vc = mesh.colors.size() == mesh.positions.size();
+      auto ch = [&](uint8_t baseC, uint8_t lightC, uint8_t vertC) {
+        Scalar v = static_cast<Scalar>(baseC) * (static_cast<Scalar>(vertC) / 255.0f) * (static_cast<Scalar>(lightC) / 255.0f) * k + 0.5f;
         return static_cast<uint32_t>(v > 255 ? 255 : v);
       };
       PackVertex v;
-      v.color = ch(base.r, light.color.r) | (ch(base.g, light.color.g) << 8) | (ch(base.b, light.color.b) << 16) |
-                (static_cast<uint32_t>(base.a) << 24);
+      const Color32 vcol = vc ? mesh.colors[i] : Color32(255, 255, 255, 255);
+      uint32_t alpha = (static_cast<uint32_t>(base.a) * vcol.a + 127) / 255;
+      v.color = ch(base.r, light.color.r, vcol.r) | (ch(base.g, light.color.g, vcol.g) << 8) |
+                (ch(base.b, light.color.b, vcol.b) << 16) | (alpha << 24);
       v.x = mesh.positions[i].x; v.y = mesh.positions[i].y; v.z = mesh.positions[i].z;
       memcpy(out.data() + first + i * sizeof(PackVertex), &v, sizeof(v));
     }

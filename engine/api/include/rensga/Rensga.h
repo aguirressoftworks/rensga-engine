@@ -24,3 +24,4 @@
 #include "rensga/Object.h"
 #include "rensga/Physics.h"
 #include "rensga/Hud.h"
+#include "rensga/Audio.h"

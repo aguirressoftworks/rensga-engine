@@ -17,6 +17,8 @@ bool validateBudgets(const ConsoleTargetData& t, const SceneBudgetInput& in, std
   };
   if (t.ramBytes && in.packBytes > t.ramBytes)
     add("cooked pack is " + std::to_string(in.packBytes) + " bytes, RAM budget is " + std::to_string(t.ramBytes));
+  if (t.vramBytes && in.textureBytes > t.vramBytes)
+    add("textures are " + std::to_string(in.textureBytes) + " bytes, VRAM budget is " + std::to_string(t.vramBytes));
   if (t.trianglesPerFrame && in.triangles > t.trianglesPerFrame) {
     std::string s = std::to_string(in.triangles) + " triangles, budget is " + std::to_string(t.trianglesPerFrame);
     if (!in.heaviestObjectGuid.empty())

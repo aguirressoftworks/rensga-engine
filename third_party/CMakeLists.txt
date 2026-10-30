@@ -27,3 +27,10 @@ if(RENSGA_BUILD_EDITOR)
     target_link_libraries(imgui PUBLIC OpenGL::GL)
   endif()
 endif()
+
+# F2.03 cooker importers (host tools only; never linked into the runtime).
+# stb_image.h: PNG decode (commit pinned in stb/VERSION). cgltf.h: glTF 2.0 parse (release tag in cgltf/VERSION).
+add_library(rensga_stb_image INTERFACE)
+target_include_directories(rensga_stb_image SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/stb)
+add_library(rensga_cgltf INTERFACE)
+target_include_directories(rensga_cgltf SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/cgltf)

@@ -23,7 +23,7 @@ using nlohmann::json;
 namespace rensga {
 namespace {
 
-constexpr const char* kCookerVersion = "rensga-cooker-1";
+constexpr const char* kCookerVersion = "rensga-cooker-2";
 
 struct Ctx {
   CookResult result;
@@ -75,6 +75,7 @@ struct Asset {
   fs::path path;       // absolute
   std::string rel;     // project-relative, '/' separators
   std::string guid;
+  std::string importSettings;  // JSON text of the .meta importSettings object
 };
 
 struct ObjectDef {
@@ -137,7 +138,11 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
     cx.error(e.what());
     return R;
   }
-  if (target.profile != opt.target) {
+  ICookerFormatPlugin* meshPlugin = plugin;
+  if (!plugin->isProfile()) {
+    // Platform target (linux, windows, android): meshes use the project's console profile.
+    meshPlugin = CookerPluginRegistry::instance().find(target.profile);
+  } else if (target.profile != opt.target) {
     cx.error("ConsoleTarget profile '" + target.profile + "' does not match requested target '" + opt.target + "'");
     return R;
   }
@@ -163,7 +168,8 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
       std::string txt;
       try {
         readText(p, txt);
-        std::string g = json::parse(txt).at("guid").get<std::string>();
+        json metaJson = json::parse(txt);
+        std::string g = metaJson.at("guid").get<std::string>();
         Guid parsed;
         if (!Guid::parse(g.c_str(), parsed)) throw std::runtime_error("bad guid '" + g + "'");
         Asset a;
@@ -171,6 +177,7 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
         a.path.replace_extension("");
         a.rel = relPath(proj, a.path);
         a.guid = g;
+        if (metaJson.contains("importSettings")) a.importSettings = metaJson["importSettings"].dump();
         if (assets.count(g)) {
           cx.error("duplicate asset GUID " + g + " in '" + a.rel + "' and '" + assets[g].rel + "'", a.rel, g);
         }
@@ -389,20 +396,33 @@ lightDone:
       auto pit = primCache.find(mg);
       if (pit == primCache.end()) {
         auto ait = assets.find(mg);
-        if (ait == assets.end() || ait->second.rel.find(".prim.json") == std::string::npos) {
+        const bool isPrim = ait != assets.end() && ait->second.rel.find(".prim.json") != std::string::npos;
+        const bool isGltf = ait != assets.end() && (ait->second.rel.size() > 5 && (ait->second.rel.compare(ait->second.rel.size() - 5, 5, ".gltf") == 0 ||
+                                                                                   ait->second.rel.compare(ait->second.rel.size() - 4, 4, ".glb") == 0));
+        if (!isPrim && !isGltf) {
           cx.error("MeshRenderer on '" + objs[i].name + "' (guid " + guidText(objs[i].guid) + ") references mesh GUID " + mg +
-                       ", which is not a primitive asset",
+                       ", which is not a primitive or glTF asset",
                    sceneAsset.rel, sceneAsset.guid);
           continue;
         }
-        std::string txt, perr;
-        readText(ait->second.path, txt);
-        PrimitiveParams pp;
-        if (!parsePrimitive(txt, pp, perr)) {
-          cx.error("primitive parse error: " + perr, ait->second.rel, mg);
-          continue;
+        if (isGltf) {
+          PrimitiveMesh gm;
+          std::string gerr;
+          if (!importGltf(ait->second.path, gm, gerr)) {
+            cx.error("glTF import failed: " + gerr, ait->second.rel, mg);
+            continue;
+          }
+          pit = primCache.emplace(mg, std::make_pair(PrimitiveParams(), std::move(gm))).first;
+        } else {
+          std::string txt, perr;
+          readText(ait->second.path, txt);
+          PrimitiveParams pp;
+          if (!parsePrimitive(txt, pp, perr)) {
+            cx.error("primitive parse error: " + perr, ait->second.rel, mg);
+            continue;
+          }
+          pit = primCache.emplace(mg, std::make_pair(pp, generatePrimitive(pp, target))).first;
         }
-        pit = primCache.emplace(mg, std::make_pair(pp, generatePrimitive(pp, target))).first;
       }
       PrimitiveMesh m = pit->second.second;
       Quaternion wr = rotOf(i, 0);
@@ -416,7 +436,8 @@ lightDone:
       uint32_t count = 0;
       std::string cerr;
       size_t firstByte = vertBytes.size();
-      if (!plugin->cookMesh(m, light, base, vertBytes, count, cerr)) {
+      if (!meshPlugin || !meshPlugin->cookMesh(m, light, base, vertBytes, count, cerr)) {
+        if (!meshPlugin) cerr = "no mesh format plugin for profile '" + target.profile + "'";
         cx.error("cookMesh failed for '" + objs[i].name + "': " + cerr, sceneAsset.rel, sceneAsset.guid);
         continue;
       }
@@ -436,6 +457,22 @@ lightDone:
         }
       }
     }
+  }
+  if (!R.errors.empty()) return R;
+
+  // ---- textures, audio, tilemaps, clips, fonts (pack v2)
+  CookedAssets cooked;
+  {
+    std::vector<AssetSource> srcs;
+    for (const auto& kv : assets) {
+      AssetSource a;
+      a.path = kv.second.path;
+      a.rel = kv.second.rel;
+      a.guid = kv.second.guid;
+      a.importSettings = kv.second.importSettings;
+      srcs.push_back(std::move(a));
+    }
+    cookAssets(srcs, *plugin, cooked, [&](CookMessage::Severity sv, const std::string& t, const std::string& rel, const std::string& g) { cx.msg(sv, t, rel, g); });
   }
   if (!R.errors.empty()) return R;
 
@@ -488,6 +525,9 @@ lightDone:
       ++perType[c.type->name];
     }
   }
+
+  std::vector<PackAnimRec> panims = cooked.anims;
+  for (size_t i = 0; i < panims.size(); ++i) panims[i].nameStr = addStr(cooked.animNames[i]);
 
   std::vector<PackInputAction> pinputs;
   {
@@ -542,8 +582,15 @@ lightDone:
   secs.push_back({pack_section::VERT, vertBytes, static_cast<u32>(vertBytes.size() / sizeof(PackVertex))});
   secs.push_back({pack_section::INPT, bytesOf(pinputs.data(), pinputs.size() * sizeof(PackInputAction)), static_cast<u32>(pinputs.size())});
   secs.push_back({pack_section::CTGT, bytesOf(&ct, sizeof ct), 1});
+  secs.push_back({pack_section::BLOB, cooked.blob, static_cast<u32>(cooked.blob.size())});
+  secs.push_back({pack_section::TEXR, bytesOf(cooked.textures.data(), cooked.textures.size() * sizeof(PackTexRec)), static_cast<u32>(cooked.textures.size())});
+  secs.push_back({pack_section::AUDI, bytesOf(cooked.audio.data(), cooked.audio.size() * sizeof(PackAudioRec)), static_cast<u32>(cooked.audio.size())});
+  secs.push_back({pack_section::TMAP, bytesOf(cooked.tilemaps.data(), cooked.tilemaps.size() * sizeof(PackTilemapRec)), static_cast<u32>(cooked.tilemaps.size())});
+  secs.push_back({pack_section::ANIM, bytesOf(panims.data(), panims.size() * sizeof(PackAnimRec)), static_cast<u32>(panims.size())});
+  secs.push_back({pack_section::FONT, bytesOf(cooked.fonts.data(), cooked.fonts.size() * sizeof(PackFontRec)), static_cast<u32>(cooked.fonts.size())});
 
-  auto align16 = [](size_t v) { return (v + 15) & ~size_t(15); };
+  const size_t packAlign = target.sectorAligned ? kPackSectorAlignment : kPackAlignment;
+  auto align16 = [packAlign](size_t v) { return (v + packAlign - 1) & ~(packAlign - 1); };
   size_t cursor = align16(sizeof(PackHeader) + secs.size() * sizeof(PackSection));
   std::vector<PackSection> table;
   for (const Sec& s : secs) {
@@ -556,9 +603,9 @@ lightDone:
   memcpy(hdr.magic, "RPAK", 4);
   hdr.version = kPackVersion;
   hdr.sectionCount = static_cast<u32>(secs.size());
-  hdr.alignment = kPackAlignment;
+  hdr.alignment = static_cast<u32>(packAlign);
   hdr.totalSize = static_cast<u32>(cursor);
-  hdr.flags = 0;
+  hdr.flags = target.sectorAligned ? kPackFlagSectorAligned : 0;
   memcpy(pack.data(), &hdr, sizeof hdr);
   memcpy(pack.data() + sizeof hdr, table.data(), table.size() * sizeof(PackSection));
   for (size_t i = 0; i < secs.size(); ++i)
@@ -567,6 +614,7 @@ lightDone:
   // ---- budgets
   budget.packBytes = pack.size();
   budget.vertexBytes = vertBytes.size();
+  budget.textureBytes = cooked.textureBytes;
   budget.objects = objs.size();
   R.usage.packBytes = pack.size();
   R.usage.vertexBytes = vertBytes.size();
@@ -612,7 +660,8 @@ lightDone:
     std::ofstream(manifestPath) << json(hashes).dump(1);
   }
   cx.info("cook: wrote " + R.packPath.string() + " (" + std::to_string(pack.size()) + " bytes, " +
-          std::to_string(objs.size()) + " objects, " + std::to_string(budget.triangles) + " triangles)");
+          std::to_string(objs.size()) + " objects, " + std::to_string(budget.triangles) + " triangles, " +
+          std::to_string(cooked.textures.size()) + " textures, " + std::to_string(cooked.audio.size()) + " audio clips)");
   R.ok = true;
   return R;
 }
