@@ -27,6 +27,10 @@ static void handleShortcuts(App& a) {
   if (io.WantTextInput) return;
   auto chord = [](ImGuiKeyChord c) { return ImGui::IsKeyChordPressed(c, ImGuiInputFlags_RouteGlobal); };
   if (chord(ImGuiMod_Ctrl | ImGuiKey_S)) a.saveScene();
+  // F3.04 Play in editor: Ctrl+P play / stop, Ctrl+Shift+P pause, Ctrl+Alt+P step (Unity's chords)
+  if (chord(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_P)) a.session.togglePause();
+  else if (chord(ImGuiMod_Ctrl | ImGuiMod_Alt | ImGuiKey_P)) a.session.requestStep();
+  else if (chord(ImGuiMod_Ctrl | ImGuiKey_P)) { if (a.session.active()) stopPlayInEditor(a); else doPlay(a); }
   if (chord(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z) || chord(ImGuiMod_Ctrl | ImGuiKey_Y)) a.doc.redo();
   else if (chord(ImGuiMod_Ctrl | ImGuiKey_Z)) a.doc.undo();
   if (chord(ImGuiMod_Ctrl | ImGuiKey_D)) duplicateSelected(a);
@@ -52,6 +56,10 @@ void drawMenuBar(App& a) {
     ImGui::Separator();
     if (ImGui::MenuItem("Duplicate", "Ctrl+D", false, hasSel)) duplicateSelected(a);
     if (ImGui::MenuItem("Delete", "Del", false, hasSel)) deleteSelected(a);
+    ImGui::Separator();
+    if (ImGui::MenuItem("Play", "Ctrl+P", a.session.active(), a.loaded && a.doc.loaded())) { if (a.session.active()) stopPlayInEditor(a); else doPlay(a); }
+    if (ImGui::MenuItem("Pause", "Ctrl+Shift+P", a.session.state() == PlayState::Paused, a.session.active())) a.session.togglePause();
+    if (ImGui::MenuItem("Step", "Ctrl+Alt+P", false, a.session.state() == PlayState::Paused)) a.session.requestStep();
     ImGui::EndMenu();
   }
   if (ImGui::BeginMenu("GameObject")) {

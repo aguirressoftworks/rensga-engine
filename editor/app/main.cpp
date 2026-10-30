@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "app.h"
+#include "panels/drawers/drawers.h"
 #include "panels/asset_ui.h"
 #include "rensga/editor/editor_log.h"
 #include "rensga/editor/game_module.h"
@@ -34,6 +35,7 @@ namespace fs = std::filesystem;
 
 bool App::openProject(const std::string& dir) {
   EditorLog& log = EditorLog::instance();
+  stopPlayInEditor(*this);  // a play session belongs to the project that is closing
   Project p;
   std::string err;
   if (!p.load(dir, err)) { log.error("project load failed: " + err); return false; }
@@ -210,7 +212,7 @@ int main(int argc, char** argv) {
     double t = static_cast<double>(SDL_GetPerformanceCounter() - start) / freq;
     if (autoPlay && !playTriggered && t > 0.3) {
       playTriggered = true;
-      doPlay(app);
+      doPlayConsole(app);  // --play is the emulator pipeline
       // Idle after doPlay: it could not start, unless Play is waiting for the script rebuild (it resumes when the build ends)
       if (app.play.status() == PlayStatus::Idle && !app.scripts.builder.busy()) { exitCode = 1; running = false; }
     }
@@ -240,6 +242,7 @@ int main(int argc, char** argv) {
     if (app.hub.goPicker && app.hub.mode == Mode::Editor) {
       saveLayout(app);
       app.saveCamera();
+      stopPlayInEditor(app);
       app.play.stop();
       app.play.pump();
       app.loaded = false;
@@ -266,9 +269,11 @@ int main(int argc, char** argv) {
       app.pendingLayout.clear();
     }
 
+    tickPlayInEditor(app, io.DeltaTime);  // F3.04: step the running World before the panels read it
+    applyPlayTint(app);
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame();
-    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx])) {
+    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx])) {
       const std::string& e = uiEvents[evIdx++];
       evNext = frame + 6;
       float x = 0, y = 0;
@@ -276,6 +281,9 @@ int main(int argc, char** argv) {
       const std::string act = e.substr(0, c), arg = c == std::string::npos ? std::string() : e.substr(c + 1);
       // test hooks that run the same code paths as the UI
       if (hubHook(app, act, arg)) {}
+      else if (playUiHook(app, act, arg)) {}                                   // F3.04: playedit, pause, step, stopedit, playset, ...
+      else if (inspectorHook(app, act, arg)) {}                                 // F3.01: multiselect, addcomp, setfield, undo, ...
+      else if (sceneUiHook(app, act, arg)) {}                                  // F3.01: new, selectmany, reparent, pickobj, ...
       else if (assetUiHook(app, act, arg)) {}                                  // F3.02: asset, assettab, assetset, vram, ...
       else if (act == "script") createScriptAction(app, arg);                       // Create > C++ Script
       else if (act == "component") createScriptAction(app, arg, ScriptKind::Component);  // Create > C++ Script > Empty Component
@@ -364,6 +372,7 @@ int main(int argc, char** argv) {
 
   saveLayout(app);
   app.saveCamera();
+  stopPlayInEditor(app);
   app.play.stop();
   app.play.pump();
   ImGui_ImplOpenGL3_Shutdown();

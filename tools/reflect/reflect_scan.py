@@ -92,16 +92,20 @@ def call_args(text, pos):
 TOKEN = re.compile(
     r"(?P<ns>\bnamespace\s*(?P<nsname>[A-Za-z_][\w:]*)?\s*\{)"
     r"|(?P<cls>(?<!enum\s)\b(?:struct|class)\s+(?P<clsname>[A-Za-z_]\w*)\b[^;{}()]*\{)"
-    r"|(?P<mac>\b(?P<macname>REFLECT|SERIALIZE_FIELD|RANGE|HEADER|TOOLTIP|REQUIRE_COMPONENT|METHOD)\s*\()"
+    r"|(?P<mac>\b(?P<macname>REFLECT|SERIALIZE_FIELD|RANGE|HEADER|TOOLTIP|REQUIRE_COMPONENT|METHOD|HIDE_IN_INSPECTOR|SPACE|EXECUTE_IN_EDIT_MODE|CONTEXT_MENU)\s*\()"
     r"|(?P<open>\{)|(?P<close>\})"
 )
+
+
+NO_PENDING = {"header": None, "tooltip": None, "range": None, "hide": False, "space": None}
+METHOD_DECL = re.compile(r"\s*;?\s*(?:virtual\s+)?void\s+([A-Za-z_]\w*)\s*\(\s*\)")
 
 
 def scan_text(raw, fname):
     text = mask(raw)
     types, stack, pending = [], [], None
     pos = 0
-    pending = {"header": None, "tooltip": None, "range": None}
+    pending = dict(NO_PENDING)
 
     def line(p):
         return text.count("\n", 0, p) + 1
@@ -142,7 +146,7 @@ def scan_text(raw, fname):
                 q = [n for k, n in stack if k in ("ns", "cls") and n]
                 if any(k == "blk" for k, _ in stack):
                     raise ScanError("%s: reflected types cannot be declared inside a function" % where(m.start()))
-                types.append({"name": args[0], "qual": "::" + "::".join(q), "fields": [], "requires": [], "methods": [],
+                types.append({"name": args[0], "qual": "::" + "::".join(q), "fields": [], "requires": [], "methods": [], "menus": [], "edit_mode": False,
                               "stackdepth": len(stack)})
             elif name == "SERIALIZE_FIELD":
                 t = cur_type(m.start(), name)
@@ -154,7 +158,30 @@ def scan_text(raw, fname):
                 if any(f["name"] == args[1] for f in t["fields"]):
                     raise ScanError("%s: duplicate field '%s'" % (where(m.start()), args[1]))
                 t["fields"].append({"name": args[1], "type": FIELD_TYPES[base], "ctype": args[0], **pending})
-                pending = {"header": None, "tooltip": None, "range": None}
+                pending = dict(NO_PENDING)
+            elif name == "HIDE_IN_INSPECTOR":
+                cur_type(m.start(), name)
+                if args != [""]:
+                    raise ScanError("%s: HIDE_IN_INSPECTOR() takes no arguments" % where(m.start()))
+                pending["hide"] = True
+            elif name == "SPACE":
+                cur_type(m.start(), name)
+                if len(args) > 1 or (args[0] and not re.match(r"^\d{1,3}$", args[0])) or (args[0] and int(args[0]) > 255):
+                    raise ScanError("%s: SPACE() or SPACE(pixels 0..255)" % where(m.start()))
+                pending["space"] = int(args[0]) if args[0] else 8
+            elif name == "EXECUTE_IN_EDIT_MODE":
+                t = cur_type(m.start(), name)
+                if args != [""]:
+                    raise ScanError("%s: EXECUTE_IN_EDIT_MODE() takes no arguments" % where(m.start()))
+                t["edit_mode"] = True
+            elif name == "CONTEXT_MENU":
+                t = cur_type(m.start(), name)
+                if len(args) != 1 or not args[0].startswith('"'):
+                    raise ScanError("%s: CONTEXT_MENU needs a string literal label" % where(m.start()))
+                md = METHOD_DECL.match(text, pos)
+                if not md:
+                    raise ScanError("%s: CONTEXT_MENU(\"Label\") must be followed by a void() method declaration" % where(m.start()))
+                t["menus"].append((args[0], md.group(1)))
             elif name == "RANGE":
                 cur_type(m.start(), name)
                 if len(args) != 2:
@@ -209,6 +236,10 @@ def emit(path, types):
                 meta.append("      f->header = %s;" % fd["header"])
             if fd["tooltip"]:
                 meta.append("      f->tooltip = %s;" % fd["tooltip"])
+            if fd["hide"]:
+                meta.append("      f->hideInInspector = true;")
+            if fd["space"] is not None:
+                meta.append("      f->space = %d;" % fd["space"])
             if fd["range"]:
                 meta.append("      f->hasRange = true;")
                 meta.append("      f->rangeMin = static_cast<::rensga::Scalar>(%s);" % fd["range"][0])
@@ -216,6 +247,15 @@ def emit(path, types):
             if meta:
                 o += ["#ifndef RENSGA_STRIP_EDITOR_METADATA"] + meta + ["#endif"]
         o += ['      ::rensga::reflect::addMethod<T, &T::%s>(ti, "%s");' % (mn, mn) for mn in t["methods"]]
+        if t["menus"] or t["edit_mode"]:
+            o.append("#ifndef RENSGA_STRIP_EDITOR_METADATA")
+            if t["edit_mode"]:
+                o.append("      ti->executeInEditMode = true;")
+            for label, mn in t["menus"]:
+                if mn not in t["methods"]:
+                    o.append('      ::rensga::reflect::addMethod<T, &T::%s>(ti, "%s");' % (mn, mn))
+                o.append('      ::rensga::reflect::addContextMenu(ti, %s, "%s");' % (label, mn))
+            o.append("#endif")
         if t["requires"]:
             o.append("#ifndef RENSGA_STRIP_EDITOR_METADATA")
             o += ['      ::rensga::reflect::requireComponent(ti, "%s");' % r for r in t["requires"]]

@@ -138,6 +138,13 @@ class Behaviour : public Component {
   virtual void LateUpdate() {}
   virtual void OnDisable() {}
   virtual void OnDestroy() {}
+  // Editor callbacks (API 11). OnValidate runs after an inspector edit, Reset on Add Component and the Reset menu, both on a
+  // detached editor-side instance (gameObject is null: touch only your own fields). The gizmo callbacks draw with the
+  // Gizmos API in the Scene view.
+  virtual void OnValidate() {}
+  virtual void Reset() {}
+  virtual void OnDrawGizmos() {}
+  virtual void OnDrawGizmosSelected() {}
   // Contacts (sent by the fixed step of the physics modules; `other` is the object touched).
   // 3D triggers send OnTriggerEnter / OnTriggerExit. 2D triggers (BoxCollider2D.isTrigger) send OnTriggerEnter /
   // OnTriggerExit and also the *2D names, so Unity-style 2D scripts work; override one pair, not both.

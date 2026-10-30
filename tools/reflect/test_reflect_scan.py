@@ -58,7 +58,7 @@ for f in files:
             depth += 1
         elif line.startswith("#endif"):
             depth -= 1
-        elif depth == 0 and any(k in line for k in ("->header", "->tooltip", "hasRange", "requireComponent")):
+        elif depth == 0 and any(k in line for k in ("->header", "->tooltip", "hasRange", "requireComponent", "hideInInspector", "->space", "executeInEditMode", "addContextMenu")):
             raise AssertionError("unguarded editor metadata in %s: %s" % (f, line.strip()))
     assert depth == 0
 
@@ -71,6 +71,10 @@ cases = {
     "dup.h": "struct Z { REFLECT(Z)\n SERIALIZE_FIELD(i32, a, 0)\n SERIALIZE_FIELD(i32, a, 1)\n };\n",
     "dupmethod.h": "struct M1 { REFLECT(M1)\n METHOD(Go)\n METHOD(Go)\n };\n",
     "badmethod.h": "struct M2 { REFLECT(M2)\n METHOD(a.b)\n };\n",
+    "badhide.h": "struct H1 { REFLECT(H1)\n HIDE_IN_INSPECTOR(1)\n SERIALIZE_FIELD(i32, a, 0)\n };\n",
+    "badspace.h": "struct H2 { REFLECT(H2)\n SPACE(abc)\n SERIALIZE_FIELD(i32, a, 0)\n };\n",
+    "badmenu.h": "struct H3 { REFLECT(H3)\n CONTEXT_MENU(\"Go\")\n int x;\n };\n",
+    "dangling_hide.h": "struct H4 { REFLECT(H4)\n HIDE_IN_INSPECTOR()\n };\n",
     "mismatch.h": "struct W { REFLECT(V)\n };\n",
 }
 for n, text in cases.items():
@@ -92,4 +96,14 @@ assert run(os.path.join(tmp, "o_me"), ("g", [me])).returncode == 0
 g = open(os.path.join(tmp, "o_me", "g", "me_h.reflect.gen.cpp")).read()
 assert "FieldType::UnityEvent" in g and "addMethod<T, &T::Open>(ti, \"Open\")" in g and "&T::SetSpeed" in g
 assert "Hidden" not in g and g.index("addField") < g.index("addMethod")
+# F3.07: editor attributes
+at = os.path.join(tmp, "at.h")
+open(at, "w").write("struct Gadget : Behaviour { REFLECT(Gadget)\n EXECUTE_IN_EDIT_MODE()\n REQUIRE_COMPONENT(Camera)\n"
+                    " SPACE()\n HIDE_IN_INSPECTOR()\n SERIALIZE_FIELD(i32, secret, 1)\n SPACE(20)\n TOOLTIP(\"t\")\n SERIALIZE_FIELD(Scalar, a, 1)\n"
+                    " CONTEXT_MENU(\"Fill It\")\n void Fill();\n METHOD(Fill)\n void OnValidate() override;\n};\n")
+assert run(os.path.join(tmp, "o_at"), ("g", [at])).returncode == 0
+g = open(os.path.join(tmp, "o_at", "g", "at_h.reflect.gen.cpp")).read()
+assert "f->hideInInspector = true;" in g and "f->space = 8;" in g and "f->space = 20;" in g
+assert "ti->executeInEditMode = true;" in g and 'addContextMenu(ti, "Fill It", "Fill")' in g
+assert g.count('addMethod<T, &T::Fill>') == 1, "CONTEXT_MENU method registered once"
 print("reflect_scan: ok")

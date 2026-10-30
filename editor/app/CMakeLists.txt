@@ -4,9 +4,10 @@ configure_file(brand_palette.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/brand_palette.cp
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RENSGA_PALETTE_FILE})
 
 add_executable(rensga-editor
-  main.cpp theme.cpp screenshot.cpp render/scene_renderer.cpp
+  main.cpp theme.cpp screenshot.cpp render/scene_renderer.cpp render/scene2d_gl.cpp
   panels/actions.cpp panels/layout.cpp panels/menus.cpp panels/toolbar.cpp panels/hierarchy.cpp panels/inspector.cpp
-  panels/scripts.cpp panels/hub.cpp panels/console.cpp panels/status_bar.cpp panels/project_panel.cpp panels/asset_ui.cpp panels/asset_inspector.cpp panels/vram_map.cpp panels/thumbnails.cpp panels/scene_view.cpp panels/game_view.cpp
+  panels/drawers/registry.cpp panels/drawers/basic.cpp panels/drawers/reference.cpp panels/drawers/unity_event.cpp panels/drawers/add_component.cpp
+  panels/scripts.cpp panels/hub.cpp panels/console.cpp panels/status_bar.cpp panels/project_panel.cpp panels/asset_ui.cpp panels/asset_inspector.cpp panels/vram_map.cpp panels/thumbnails.cpp panels/scene_view.cpp panels/game_view.cpp panels/play.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/brand_palette.cpp)
 target_include_directories(rensga-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(rensga-editor SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party/stb)
@@ -16,7 +17,7 @@ target_compile_definitions(rensga-editor PRIVATE RENSGA_FONT_DIR="${CMAKE_SOURCE
 target_compile_definitions(rensga-editor PRIVATE
   RENSGA_EDITOR_BUILD_DIR="${CMAKE_BINARY_DIR}" RENSGA_EDITOR_CMAKE="${CMAKE_COMMAND}"
   RENSGA_EDITOR_PROJECT_DIR="${RENSGA_PROJECT_DIR}")
-target_link_libraries(rensga-editor PRIVATE rensga_pipeline rensga_editor_core rensga_core imgui imguizmo)
+target_link_libraries(rensga-editor PRIVATE rensga_pipeline rensga_editor_core rensga_core rensga_render_gl rensga_platform_sdl imgui imguizmo)
 rensga_link_whole_archive(rensga-editor PRIVATE rensga_target_psp)
 # Project scripts are NOT linked into the editor (F3.03): they build into <project>/Library/ScriptAssemblies and
 # load at runtime (editor/core game_module). The module links no engine code, so the editor exports the whole

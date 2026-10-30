@@ -9,11 +9,13 @@
 #include "rensga/editor/editor_log.h"
 #include "rensga/editor/hub.h"
 #include "rensga/editor/play_controller.h"
+#include "rensga/editor/play_session.h"
 #include "rensga/editor/project.h"
 #include "rensga/editor/script_assets.h"
 #include "rensga/editor/script_build.h"
 #include "rensga/editor/scene_document.h"
 #include "rensga/editor/target_module.h"
+#include "render/scene2d_gl.h"
 #include "render/scene_renderer.h"
 #include "rensga/editor/viewport.h"
 #include "rensga/core/reflect.h"
@@ -45,6 +47,26 @@ struct SceneViewState {
   float ctxPoint[3] = {0, 0, 0};
   bool clickValid = false;
   ImVec2 clickPos{0, 0};
+  // F3.01: 2D mode, picking, box select, fly speed
+  bool mode2d = false;        // orthographic XY view (default on for scenes with 2D components and no meshes)
+  Editor2DCamera cam2;
+  std::string modeScene;      // scene file the mode was chosen for
+  bool needFrame2d = true;
+  float flySpeed = 8.0f;      // units/s, changed with the wheel while RMB is held
+  bool boxing = false;        // LMB drag in progress: rectangle selection
+  ImVec2 boxStart{0, 0};
+  bool boxAdd = false;        // shift/ctrl held when the drag started
+  // The last drawn frame, for the --ui-event pick verbs: view area (screen px) and matrices.
+  ImVec2 lastP0{0, 0}, lastSize{0, 0};
+  M4 lastView = {}, lastProj = {};
+  std::vector<std::string> lastIds;  // pick id - 1 -> object GUID
+  std::string lastPickName;          // object picked by the last click / pickobj verb
+  // --ui-event verbs (run inside the next Scene view draw, where the frame's data lives)
+  std::string testPickName;          // pickobj:<name>: pick at the object's centre through the ID buffer, print the result
+  bool testBox = false;              // boxsel:x0,y0,x1,y1 (window pixels)
+  float testRect[4] = {0, 0, 0, 0};
+  bool testBoxAdd = false;
+  bool testFrame = false;            // framesel: press F
 };
 
 // Scripts (F3.03): what is on disk, and the background build + hot reload that stands in for Unity's domain reload.
@@ -103,7 +125,11 @@ struct App {
   Project project;
   bool loaded = false;
   SceneDocument doc;
-  PlayController play;
+  PlayController play;                // Play on console (emulator pipeline)
+  PlaySession session;                // Play in editor (F3.04)
+  bool playInEditor = true;           // Play dropdown: true = Play in editor (default), false = Play on console
+  bool gameIntegerScale = false, gameStats = true, gameFocused = false;  // Game view options / focus
+  std::string playKeys;               // --ui-event playkeys: SDL key names held as the Game view input
   std::string target;
   Fonts fonts;
 
@@ -138,6 +164,7 @@ struct App {
   // Scene / Game views
   SceneRenderer renderer;
   MeshLibrary meshes;
+  Scene2DResources res2d;       // F3.01: textures and tilemaps of the 2D layer
   RenderTarget sceneRT, gameRT;
   SceneViewState sv;
   std::filesystem::path cameraFile() const { return project.root / "Library" / "Editor" / "scene_camera.json"; }
@@ -155,7 +182,17 @@ struct App {
   const TargetModule* targetModule() const;
 };
 
-void doPlay(App& a);
+void doPlay(App& a);          // the Play button: follows the dropdown (Play in editor by default)
+void doPlayConsole(App& a);   // dev build + emulator (--play)
+
+// Play in editor (panels/play.cpp)
+bool startPlayInEditor(App& a);
+void stopPlayInEditor(App& a);
+void tickPlayInEditor(App& a, double dt);          // once per frame before the panels: steps the World with the Game view input
+bool playUiHook(App& a, const std::string& act, const std::string& arg);   // --ui-event playedit|pause|resume|step[:N]|stopedit|playkeys:..|playset:..|playmove:..|playdump:..
+bool playUiHolds(App& a, const std::string& event);                        // --ui-event playwait:N holds the queue
+void applyPlayTint(App& a);                         // editor chrome tinted while a session runs (brand token primary)
+void gameViewRelease();                             // drop the Game view's GL objects bound to the play World
 
 // scripts (panels/scripts.cpp)
 nlohmann::json defaultFieldsFor(const TypeInfo& ti);               // reflected defaults of a component type
@@ -183,6 +220,9 @@ std::string createCameraObject(App& a, const std::string& parent, const float* a
 std::string createLightObject(App& a, const std::string& parent, const float* at = nullptr);
 void duplicateSelected(App& a);
 void deleteSelected(App& a);
+void copySelected(App& a);       // objects (with children) to the editor clipboard
+void pasteSelected(App& a);      // from the clipboard, under the root, one undo step
+void selectAllObjects(App& a);
 void beginRename(App& a, const std::string& guid);
 void drawCreateMenuItems(App& a, const std::string& parent, const float* at = nullptr);  // Create Empty, 3D Object >, Camera, Light
 
@@ -195,6 +235,7 @@ void drawConsole(App& a);
 void drawStatusBar(App& a);
 void drawProjectPanel(App& a);
 void drawSceneView(App& a);
+bool sceneUiHook(App& a, const std::string& act, const std::string& arg);  // --ui-event new, selectmany, reparent, pickobj, ...
 void drawGameView(App& a);
 void drawDialogs(App& a);
 

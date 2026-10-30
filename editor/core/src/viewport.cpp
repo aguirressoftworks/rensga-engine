@@ -247,6 +247,62 @@ std::shared_ptr<const MeshData> MeshLibrary::get(const std::string& guid) {
   return out;
 }
 
+// ---- 2D camera -----------------------------------------------------------------------------------
+M4 Editor2DCamera::view() const {
+  M4 r = m4Identity();
+  r[5] = -1;  // y flip
+  r[12] = -center[0];
+  r[13] = center[1];
+  return r;
+}
+
+M4 Editor2DCamera::proj(float w, float h) const {
+  M4 r{};
+  r[0] = 2.0f * ppu / std::max(w, 1.0f);
+  r[5] = 2.0f * ppu / std::max(h, 1.0f);
+  r[10] = 1.0f / kDepth;
+  r[15] = 1;
+  return r;
+}
+
+void Editor2DCamera::pan(float dx, float dy) {
+  center[0] -= dx / ppu;
+  center[1] -= dy / ppu;
+}
+
+void Editor2DCamera::screenToWorld(float px, float py, float w, float h, float out[2]) const {
+  out[0] = center[0] + (px - w * 0.5f) / ppu;
+  out[1] = center[1] + (py - h * 0.5f) / ppu;
+}
+
+void Editor2DCamera::zoomAt(float wheel, float mx, float my, float w, float h) {
+  float before[2];
+  screenToWorld(mx, my, w, h, before);
+  ppu = std::clamp(ppu * std::pow(1.15f, wheel), kMinPpu, kMaxPpu);
+  float after[2];
+  screenToWorld(mx, my, w, h, after);
+  center[0] += before[0] - after[0];
+  center[1] += before[1] - after[1];
+}
+
+void Editor2DCamera::frame(float x0, float y0, float x1, float y1, float w, float h) {
+  center[0] = (x0 + x1) * 0.5f;
+  center[1] = (y0 + y1) * 0.5f;
+  const float bw = std::max(x1 - x0, 8.0f), bh = std::max(y1 - y0, 8.0f);
+  ppu = std::clamp(std::min(w / bw, h / bh) * 0.85f, kMinPpu, kMaxPpu);
+}
+
+float Editor2DCamera::gridStep() const {
+  const float want = 12.0f / ppu;  // world units for 12 pixels
+  float decade = 0.001f;
+  for (int i = 0; i < 12; ++i, decade *= 10) {
+    const float m[3] = {1, 2, 5};
+    for (float k : m)
+      if (decade * k >= want) return decade * k;
+  }
+  return 1e6f;
+}
+
 // ---- scene ---------------------------------------------------------------------------------------
 SceneDraw gatherScene(const SceneDocument& doc, MeshLibrary& lib) {
   SceneDraw sd;

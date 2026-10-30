@@ -4,6 +4,7 @@
 #pragma once
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -73,6 +74,10 @@ struct CookOptions {
   std::string target = "psp";
   bool force = false;                     // ignore the content-hash cache
   std::filesystem::path genHeader;        // if set, console_target.gen.h is written here
+  // F3.04 (play in editor): cook the open scene document instead of the file on disk, into a private output folder.
+  std::map<std::string, std::string> sceneOverrides;  // project-relative asset path -> scene JSON text
+  std::filesystem::path outDir;           // empty = Library/Cooked/<target>
+  bool budgetsAreWarnings = false;        // over-budget scenes still write the pack; the findings become warnings
 };
 
 struct BudgetUsage {
@@ -83,6 +88,7 @@ struct BudgetUsage {
 struct CookResult {
   bool ok = false;
   bool upToDate = false;  // nothing changed since the last cook
+  bool overBudget = false;  // budgetsAreWarnings was set and a budget was exceeded
   uint32_t assetsCooked = 0, assetsCached = 0;  // PNG/WAV assets cooked / reused from Library/Cache/<target>
   std::filesystem::path packPath, reportPath;
   BudgetUsage usage;

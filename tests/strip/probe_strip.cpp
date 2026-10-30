@@ -17,7 +17,12 @@ struct StripProbe : Component {
   TOOLTIP("Units per second")
   RANGE(0, 20)
   SERIALIZE_FIELD(Scalar, speed, 5)
+  SPACE(12)
+  HIDE_IN_INSPECTOR()
   SERIALIZE_FIELD(i32, lives, 3)
+  EXECUTE_IN_EDIT_MODE()
+  CONTEXT_MENU("Heal")
+  void Heal() { lives = 3; }
 };
 
 TEST(strip_removes_editor_metadata_but_keeps_fields) {
@@ -29,6 +34,10 @@ TEST(strip_removes_editor_metadata_but_keeps_fields) {
   CHECK(t->fields[0].tooltip == nullptr);
   CHECK(!t->fields[0].hasRange);
   CHECK_EQ(t->requireCount, 0u);
+  CHECK(!t->fields[1].hideInInspector);
+  CHECK_EQ(t->fields[1].space, 0u);
+  CHECK(!t->executeInEditMode);
+  CHECK_EQ(t->contextMenuCount, 0u);
   alignas(16) unsigned char mem[sizeof(StripProbe)];
   t->construct(mem);
   CHECK_EQ(reinterpret_cast<StripProbe*>(mem)->speed, 5.0f);  // defaults and layout stay

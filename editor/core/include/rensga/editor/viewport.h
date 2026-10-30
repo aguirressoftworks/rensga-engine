@@ -51,6 +51,22 @@ struct EditorCamera {
   bool save(const std::filesystem::path& file) const;
 };
 
+// 2D mode of the Scene view: orthographic, looking down +Z with +Y pointing DOWN on screen (the 2D gameplay layer's
+// pixel space: the origin is the top-left, y grows downward). `ppu` is screen pixels per world unit.
+struct Editor2DCamera {
+  float center[2] = {0, 0};
+  float ppu = 1.0f;
+  static constexpr float kMinPpu = 0.02f, kMaxPpu = 256.0f, kDepth = 5000.0f;
+
+  M4 view() const;                          // flips y and moves `center` to the origin
+  M4 proj(float widthPx, float heightPx) const;
+  void pan(float dxPx, float dyPx);         // content follows the mouse
+  void zoomAt(float wheel, float mxPx, float myPx, float widthPx, float heightPx);  // keeps the point under the cursor fixed
+  void frame(float minX, float minY, float maxX, float maxY, float widthPx, float heightPx);
+  void screenToWorld(float pxX, float pxY, float widthPx, float heightPx, float out[2]) const;  // px from the view's top-left
+  float gridStep() const;                   // world units between minor grid lines (1, 2, 5 x 10^n; about 12+ px apart)
+};
+
 struct MeshData {
   std::vector<float> pos, nrm;  // xyz per vertex, 3 vertices per triangle (flat shaded)
   float bmin[3] = {0, 0, 0}, bmax[3] = {0, 0, 0};

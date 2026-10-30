@@ -5,7 +5,7 @@
 
 #include "app.h"
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
+// stb_image_write is implemented once, in engine/backends/render/gl (linked into the editor for the Game view).
 #include "stb_image_write.h"
 
 namespace rensga {

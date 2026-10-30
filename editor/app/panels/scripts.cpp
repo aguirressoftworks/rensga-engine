@@ -10,6 +10,7 @@
 #include <set>
 
 #include "app.h"
+#include "rensga/editor/inspector_model.h"
 #include "rensga/core/reflect_json.h"
 #include "rensga/editor/editor_log.h"
 #include "rensga/editor/editor_prefs.h"
@@ -66,8 +67,8 @@ bool addScriptToObject(App& a, const std::string& objectGuid, const std::string&
     return false;
   }
   allowComponentInProject(a.project.root, className);  // the cook only accepts components the ConsoleTarget lists
-  if (!a.doc.addComponent(objectGuid, className, defaultFieldsFor(*ti))) return false;
-  a.doc.select(objectGuid);
+  if (!addComponentTo(a.doc, objectGuid, className)) return false;  // required components first, Reset() applied (F3.07)
+  if (!a.doc.isSelected(objectGuid)) a.doc.select(objectGuid);
   log.info("added " + className + " to " + a.doc.find(objectGuid)->name);
   return true;
 }

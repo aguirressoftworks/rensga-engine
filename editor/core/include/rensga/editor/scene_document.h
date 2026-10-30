@@ -16,6 +16,16 @@ namespace editor {
 
 std::string generateGuid();  // random (v4) GUID, lowercase 8-4-4-4-12
 
+// F3.04: while a play session runs, edits to transforms, active flags and component fields go here (the running World)
+// instead of the document. Everything else is refused: the document is frozen until Stop.
+class PlayEditSink {
+ public:
+  virtual ~PlayEditSink() = default;
+  virtual bool transform(const std::string& guid, const float pos[3], const float rot[4], const float scale[3]) = 0;
+  virtual bool active(const std::string& guid, bool active) = 0;
+  virtual bool field(const std::string& guid, int component, const std::string& field, const nlohmann::json& value) = 0;
+};
+
 class SceneDocument {
  public:
   static constexpr size_t kMaxUndo = UndoStack::kDefaultLimit;
@@ -25,7 +35,7 @@ class SceneDocument {
   bool loaded() const { return loaded_; }
   const std::filesystem::path& path() const { return path_; }
   bool dirty() const { return forcedDirty_ || stack_.dirty(); }
-  const Scene& scene() const { return view_; }
+  const Scene& scene() const { return live(); }
   const nlohmann::ordered_json& document() const { return doc_; }
   // Replaces the document with `j` as if loaded from `file` (editor restart): undo history is dropped, dirty is kept.
   bool restore(const std::filesystem::path& file, nlohmann::ordered_json j, bool dirty);
@@ -35,8 +45,21 @@ class SceneDocument {
   bool isDescendant(const std::string& guid, const std::string& ancestor) const;
 
   // Selection (by GUID). Not part of undo; cleared when the object disappears.
+  // selected() is the primary object (the last one clicked); selection() is every selected object in click order.
   const std::string& selected() const { return selected_; }
-  void select(const std::string& guid);
+  void select(const std::string& guid);                  // only this object ("" clears)
+  // Replaces the selection; unknown GUIDs are dropped and the LAST one becomes the primary (selected()).
+  void setSelection(const std::vector<std::string>& guids);
+  void addToSelection(const std::string& guid);          // the object becomes the primary
+  // The selection without objects whose ancestor is also selected, in file order (what move/delete/duplicate act on).
+  std::vector<std::string> topLevel(const std::vector<std::string>& guids) const;
+  // Objects between `a` and `b` in hierarchy display order (depth first, file order), both included (shift+click).
+  std::vector<std::string> displayRange(const std::string& a, const std::string& b) const;
+  // Multi-selection (F3.01): selected() is the primary; extras are added with ctrl-click. select() clears them.
+  // selection() lists the primary first.
+  void toggleSelect(const std::string& guid);           // add to / remove from the selection (the primary stays valid)
+  std::vector<std::string> selection() const;           // primary first, then the others in click order
+  bool isSelected(const std::string& guid) const;
 
   // Edits. All return false (and change nothing) on bad input. Each pushes one undo step unless inside a gesture.
   bool setTransform(const std::string& guid, const float pos[3], const float rot[4], const float scale[3]);
@@ -48,12 +71,26 @@ class SceneDocument {
   bool setField(const std::string& guid, int component, const std::string& field, const nlohmann::json& value);
   bool addComponent(const std::string& guid, const std::string& type, const nlohmann::json& fields = nlohmann::json::object());
   bool removeComponent(const std::string& guid, int component);
+  bool moveComponent(const std::string& guid, int from, int to);          // reorders; to is the final index
+  bool setComponentFields(const std::string& guid, int component, const nlohmann::json& fields);  // replaces the whole fields object
   std::string createObject(const std::string& name, const std::string& parentGuid,
                            const std::vector<SceneComponent>& components = {});  // returns the new GUID or ""
   std::string duplicate(const std::string& guid);  // object + children, new GUIDs, inner refs remapped; returns new root GUID
   bool remove(const std::string& guid);            // object + children
   bool rename(const std::string& guid, const std::string& name);
   bool reparent(const std::string& guid, const std::string& newParent);  // keeps the world transform
+  // Batch edits: each is ONE undo step however many objects it touches. Descendants of selected objects follow their
+  // ancestor and are not handled twice.
+  // Moves the objects under `newParent` ("" = root), world transforms kept, placed before sibling `before` ("" = last).
+  // This is also the sibling reorder: file order is sibling order. Refuses cycles and a `before` that is being moved.
+  bool reparentMany(const std::vector<std::string>& guids, const std::string& newParent, const std::string& before = std::string());
+  // Duplicates sit right after their originals; names get " (1)"; returns the new roots and selects them.
+  std::vector<std::string> duplicateMany(const std::vector<std::string>& guids);
+  bool removeMany(const std::vector<std::string>& guids);
+  // Copy / paste of whole subtrees as JSON text (editor clipboard). Paste gives every object a new GUID, remaps inner
+  // references, parents the roots under `parentGuid` and selects them.
+  std::string copyObjects(const std::vector<std::string>& guids) const;
+  std::vector<std::string> pasteObjects(const std::string& text, const std::string& parentGuid);
 
   // A gesture (a drag) is one undo step however many edits it contains.
   void beginGesture();
@@ -65,6 +102,12 @@ class SceneDocument {
   UndoStack& undoStack() { return stack_; }  // for other editing paths that record their own commands
   bool undo();
   bool redo();
+
+  // F3.04 play mirror: while set, scene()/find()/childrenOf()/... read `mirror` (the live World's objects), edits go to
+  // `sink`, and undo/redo and structural edits are refused. The saved document, selection and undo stack are untouched.
+  void setPlayMirror(const Scene* mirror, PlayEditSink* sink) { mirror_ = mirror; sink_ = mirror ? sink : nullptr; }
+  bool playing() const { return mirror_ != nullptr; }
+  void selectRuntime(const std::string& guid) { selected_ = guid; extraSel_.clear(); }  // a runtime-only object
 
   // World transform helpers (column-major 4x4 of the object's TRS chain).
   void worldMatrix(const std::string& guid, double out[16]) const;
@@ -84,8 +127,12 @@ class SceneDocument {
   std::string beforeKey_;
   bool hasBefore_ = false;
   Scene view_;
+  const Scene& live() const { return mirror_ ? *mirror_ : view_; }
+  const Scene* mirror_ = nullptr;
+  PlayEditSink* sink_ = nullptr;
   std::filesystem::path path_;
   std::string selected_;
+  std::vector<std::string> extraSel_;
   bool loaded_ = false, forcedDirty_ = false;
 };
 

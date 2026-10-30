@@ -1,5 +1,6 @@
 // Scene editing actions (MVP-52). Every one is a single SceneDocument call (or a gesture), so one action = one undo step.
 #include <cctype>
+#include <cmath>
 
 #include "app.h"
 #include "rensga/editor/editor_log.h"
@@ -12,7 +13,8 @@ static void placeAt(App& a, const std::string& guid, const float* at) {
   float eye[3], fwd[3];
   a.sv.cam.eye(eye);
   a.sv.cam.forward(fwd);
-  const float p[3] = {at ? at[0] : eye[0] + fwd[0] * 5.0f, at ? at[1] : eye[1] + fwd[1] * 5.0f, at ? at[2] : eye[2] + fwd[2] * 5.0f};
+  float p[3] = {at ? at[0] : eye[0] + fwd[0] * 5.0f, at ? at[1] : eye[1] + fwd[1] * 5.0f, at ? at[2] : eye[2] + fwd[2] * 5.0f};
+  if (a.sv.mode2d && !at) { p[0] = std::round(a.sv.cam2.center[0]); p[1] = std::round(a.sv.cam2.center[1]); p[2] = 0; }  // 2D: view centre
   double w[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, p[0], p[1], p[2], 1};
   a.doc.setWorldMatrix(guid, w);
 }
@@ -94,14 +96,35 @@ std::string createPrimitiveObject(App& a, const std::string& shape, const std::s
   return g;
 }
 
+// Duplicate, delete, copy and paste act on the whole selection and are one undo step each.
 void duplicateSelected(App& a) {
-  if (a.doc.selected().empty()) return;
-  std::string g = a.doc.duplicate(a.doc.selected());
-  if (!g.empty()) a.doc.select(g);
+  if (!a.doc.selection().empty()) a.doc.duplicateMany(a.doc.selection());
 }
 
 void deleteSelected(App& a) {
-  if (!a.doc.selected().empty()) a.doc.remove(a.doc.selected());
+  if (!a.doc.selection().empty()) a.doc.removeMany(a.doc.selection());
+}
+
+static std::string g_objectClipboard;  // also kept in the system clipboard when there is one
+
+void copySelected(App& a) {
+  if (a.doc.selection().empty()) return;
+  g_objectClipboard = a.doc.copyObjects(a.doc.selection());
+  ImGui::SetClipboardText(g_objectClipboard.c_str());
+}
+
+void pasteSelected(App& a) {
+  std::string text = g_objectClipboard;
+  if (const char* sys = ImGui::GetClipboardText()) {
+    if (std::string(sys).find("rensga_clipboard") != std::string::npos) text = sys;
+  }
+  if (!text.empty()) a.doc.pasteObjects(text, "");
+}
+
+void selectAllObjects(App& a) {
+  std::vector<std::string> all;
+  for (const SceneObject& o : a.doc.scene().objects) all.push_back(o.guid);
+  a.doc.setSelection(all);
 }
 
 void beginRename(App& a, const std::string& guid) {

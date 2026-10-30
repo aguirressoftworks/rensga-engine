@@ -178,19 +178,19 @@ bool SceneDocument::save(std::string& err) {
 
 const SceneObject* SceneDocument::find(const std::string& guid) const {
   int i = indexOf(guid);
-  return i < 0 ? nullptr : &view_.objects[i];
+  return i < 0 ? nullptr : &live().objects[i];
 }
 
 int SceneDocument::indexOf(const std::string& guid) const {
   if (guid.empty()) return -1;
-  for (size_t i = 0; i < view_.objects.size(); ++i)
-    if (view_.objects[i].guid == guid) return static_cast<int>(i);
+  for (size_t i = 0; i < live().objects.size(); ++i)
+    if (live().objects[i].guid == guid) return static_cast<int>(i);
   return -1;
 }
 
 std::vector<std::string> SceneDocument::childrenOf(const std::string& parentGuid) const {
   std::vector<std::string> r;
-  for (const SceneObject& o : view_.objects) {
+  for (const SceneObject& o : live().objects) {
     bool root = o.parentGuid.empty() || indexOf(o.parentGuid) < 0;  // orphans show as roots
     if (parentGuid.empty() ? root : o.parentGuid == parentGuid) r.push_back(o.guid);
   }
@@ -199,7 +199,7 @@ std::vector<std::string> SceneDocument::childrenOf(const std::string& parentGuid
 
 bool SceneDocument::isDescendant(const std::string& guid, const std::string& ancestor) const {
   std::string cur = guid;
-  for (size_t guard = 0; guard <= view_.objects.size(); ++guard) {
+  for (size_t guard = 0; guard <= live().objects.size(); ++guard) {
     const SceneObject* o = find(cur);
     if (!o || o->parentGuid.empty()) return false;
     if (o->parentGuid == ancestor) return true;
@@ -208,7 +208,79 @@ bool SceneDocument::isDescendant(const std::string& guid, const std::string& anc
   return false;
 }
 
-void SceneDocument::select(const std::string& guid) { selected_ = indexOf(guid) >= 0 ? guid : std::string(); }
+void SceneDocument::select(const std::string& guid) {
+  selected_ = indexOf(guid) >= 0 ? guid : std::string();
+  extraSel_.clear();
+}
+
+void SceneDocument::toggleSelect(const std::string& guid) {
+  if (indexOf(guid) < 0) return;
+  if (selected_.empty()) { selected_ = guid; return; }
+  if (guid == selected_) {  // the next one becomes the primary
+    if (extraSel_.empty()) selected_.clear();
+    else { selected_ = extraSel_.front(); extraSel_.erase(extraSel_.begin()); }
+    return;
+  }
+  auto it = std::find(extraSel_.begin(), extraSel_.end(), guid);
+  if (it != extraSel_.end()) extraSel_.erase(it);
+  else extraSel_.push_back(guid);
+}
+
+std::vector<std::string> SceneDocument::selection() const {
+  std::vector<std::string> v;
+  if (!selected_.empty()) v.push_back(selected_);
+  v.insert(v.end(), extraSel_.begin(), extraSel_.end());
+  return v;
+}
+
+bool SceneDocument::isSelected(const std::string& guid) const {
+  return guid == selected_ || std::find(extraSel_.begin(), extraSel_.end(), guid) != extraSel_.end();
+}
+
+void SceneDocument::setSelection(const std::vector<std::string>& guids) {
+  std::vector<std::string> ok;
+  for (const std::string& g : guids)
+    if (indexOf(g) >= 0 && std::find(ok.begin(), ok.end(), g) == ok.end()) ok.push_back(g);
+  extraSel_.clear();
+  if (ok.empty()) { selected_.clear(); return; }
+  selected_ = ok.back();
+  ok.pop_back();
+  extraSel_ = ok;
+}
+
+void SceneDocument::addToSelection(const std::string& guid) {
+  if (indexOf(guid) < 0 || guid == selected_) return;
+  extraSel_.erase(std::remove(extraSel_.begin(), extraSel_.end(), guid), extraSel_.end());
+  if (!selected_.empty()) extraSel_.push_back(selected_);
+  selected_ = guid;
+}
+
+std::vector<std::string> SceneDocument::topLevel(const std::vector<std::string>& guids) const {
+  std::vector<std::string> out;
+  for (const SceneObject& o : scene().objects) {
+    if (std::find(guids.begin(), guids.end(), o.guid) == guids.end()) continue;
+    bool covered = false;
+    for (const std::string& g : guids)
+      if (g != o.guid && isDescendant(o.guid, g)) { covered = true; break; }
+    if (!covered) out.push_back(o.guid);
+  }
+  return out;
+}
+
+std::vector<std::string> SceneDocument::displayRange(const std::string& a, const std::string& b) const {
+  std::vector<std::string> order;
+  auto walk = [&](auto&& self, const std::string& parent) -> void {
+    for (const std::string& k : childrenOf(parent)) {
+      order.push_back(k);
+      self(self, k);
+    }
+  };
+  walk(walk, "");
+  auto ia = std::find(order.begin(), order.end(), a), ib = std::find(order.begin(), order.end(), b);
+  if (ia == order.end() || ib == order.end()) return {};
+  if (ia > ib) std::swap(ia, ib);
+  return std::vector<std::string>(ia, ib + 1);
+}
 
 size_t SceneDocument::jsonIndex(const std::string& guid) const {
   if (!doc_.contains("objects")) return static_cast<size_t>(-1);
@@ -225,7 +297,7 @@ ordered_json* SceneDocument::findJson(const std::string& guid) {
 
 void SceneDocument::collectSubtree(const std::string& guid, std::vector<std::string>& out) const {
   out.push_back(guid);
-  for (const SceneObject& o : view_.objects)
+  for (const SceneObject& o : live().objects)
     if (o.parentGuid == guid && std::find(out.begin(), out.end(), o.guid) == out.end()) collectSubtree(o.guid, out);
 }
 
@@ -266,19 +338,22 @@ void SceneDocument::changed() {
   view_ = parseScene(json::parse(doc_.dump()));
   view_.path = path_.string();
   if (!selected_.empty() && indexOf(selected_) < 0) selected_.clear();
+  extraSel_.erase(std::remove_if(extraSel_.begin(), extraSel_.end(), [&](const std::string& g) { return indexOf(g) < 0; }), extraSel_.end());
+  if (selected_.empty() && !extraSel_.empty()) { selected_ = extraSel_.front(); extraSel_.erase(extraSel_.begin()); }
   if (hasBefore_) {
     hasBefore_ = false;
     stack_.record(std::make_unique<SnapshotCommand>(this, std::move(before_), doc_, beforeKey_));
   }
 }
 
-void SceneDocument::beginGesture() { stack_.beginGroup("Edit scene"); }
-void SceneDocument::endGesture() { stack_.endGroup(); }
+void SceneDocument::beginGesture() { if (!mirror_) stack_.beginGroup("Edit scene"); }
+void SceneDocument::endGesture() { if (!mirror_) stack_.endGroup(); }
 
-bool SceneDocument::undo() { return stack_.undo(); }
-bool SceneDocument::redo() { return stack_.redo(); }
+bool SceneDocument::undo() { return !mirror_ && stack_.undo(); }
+bool SceneDocument::redo() { return !mirror_ && stack_.redo(); }
 
 bool SceneDocument::setTransform(const std::string& guid, const float pos[3], const float rot[4], const float scale[3]) {
+  if (mirror_) return sink_ && sink_->transform(guid, pos, rot, scale);  // F3.04: play mode edits the running World
   ordered_json* o = findJson(guid);
   if (!o) return false;
   ordered_json np = arrN(pos, 3);
@@ -299,6 +374,7 @@ bool SceneDocument::setTransform(const std::string& guid, const float pos[3], co
 }
 
 bool SceneDocument::setWorldMatrix(const std::string& guid, const double world[16]) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
   const SceneObject* o = find(guid);
   if (!o) return false;
   Mat w{}, parentWorld = identity();
@@ -317,6 +393,7 @@ bool SceneDocument::setWorldMatrix(const std::string& guid, const double world[1
 }
 
 bool SceneDocument::setActive(const std::string& guid, bool active) {
+  if (mirror_) return sink_ && sink_->active(guid, active);
   ordered_json* o = findJson(guid);
   if (!o) return false;
   if (o->value("active", true) == active) return true;
@@ -327,6 +404,7 @@ bool SceneDocument::setActive(const std::string& guid, bool active) {
 }
 
 bool SceneDocument::setTag(const std::string& guid, const std::string& tag) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
   ordered_json* o = findJson(guid);
   if (!o) return false;
   if (o->value("tag", "") == tag) return true;
@@ -337,6 +415,7 @@ bool SceneDocument::setTag(const std::string& guid, const std::string& tag) {
 }
 
 bool SceneDocument::setLayer(const std::string& guid, int layer) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
   ordered_json* o = findJson(guid);
   if (!o) return false;
   if (o->value("layer", 0) == layer) return true;
@@ -347,6 +426,7 @@ bool SceneDocument::setLayer(const std::string& guid, int layer) {
 }
 
 bool SceneDocument::setField(const std::string& guid, int component, const std::string& field, const json& value) {
+  if (mirror_) return sink_ && sink_->field(guid, component, field, value);
   ordered_json* o = findJson(guid);
   if (!o || !o->contains("components") || component < 0 || component >= static_cast<int>((*o)["components"].size()))
     return false;
@@ -361,6 +441,7 @@ bool SceneDocument::setField(const std::string& guid, int component, const std::
 }
 
 bool SceneDocument::addComponent(const std::string& guid, const std::string& type, const json& fields) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
   ordered_json* o = findJson(guid);
   if (!o || type.empty()) return false;
   pushUndo();
@@ -374,6 +455,7 @@ bool SceneDocument::addComponent(const std::string& guid, const std::string& typ
 }
 
 bool SceneDocument::removeComponent(const std::string& guid, int component) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
   ordered_json* o = findJson(guid);
   if (!o || !o->contains("components") || component < 0 || component >= static_cast<int>((*o)["components"].size()))
     return false;
@@ -383,8 +465,39 @@ bool SceneDocument::removeComponent(const std::string& guid, int component) {
   return true;
 }
 
+bool SceneDocument::moveComponent(const std::string& guid, int from, int to) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
+  ordered_json* o = findJson(guid);
+  if (!o || !o->contains("components")) return false;
+  const int n = static_cast<int>((*o)["components"].size());
+  if (from < 0 || from >= n || to < 0 || to >= n) return false;
+  if (from == to) return true;
+  pushUndo();
+  ordered_json& comps = (*o)["components"];
+  ordered_json c = std::move(comps[from]);
+  comps.erase(static_cast<size_t>(from));
+  comps.insert(comps.begin() + to, std::move(c));
+  changed();
+  return true;
+}
+
+bool SceneDocument::setComponentFields(const std::string& guid, int component, const json& fields) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
+  ordered_json* o = findJson(guid);
+  if (!o || !o->contains("components") || component < 0 || component >= static_cast<int>((*o)["components"].size()))
+    return false;
+  ordered_json nf = toOrdered(fields);
+  ordered_json& c = (*o)["components"][component];
+  if (c.contains("fields") && c["fields"] == nf) return true;
+  pushUndo();
+  c["fields"] = std::move(nf);
+  changed();
+  return true;
+}
+
 std::string SceneDocument::createObject(const std::string& name, const std::string& parentGuid,
                                         const std::vector<SceneComponent>& components) {
+  if (mirror_) return std::string();  // F3.04: the document is frozen while playing
   if (!loaded_) return "";
   if (!parentGuid.empty() && indexOf(parentGuid) < 0) return "";
   pushUndo();
@@ -416,6 +529,7 @@ std::string SceneDocument::createObject(const std::string& name, const std::stri
 }
 
 std::string SceneDocument::duplicate(const std::string& guid) {
+  if (mirror_) return std::string();  // F3.04: the document is frozen while playing
   if (indexOf(guid) < 0) return "";
   std::vector<std::string> sub;
   collectSubtree(guid, sub);
@@ -439,11 +553,12 @@ std::string SceneDocument::duplicate(const std::string& guid) {
   }
   for (ordered_json& c : clones) doc_["objects"].push_back(std::move(c));
   changed();
-  selected_ = remap[guid];
+  select(remap[guid]);
   return remap[guid];
 }
 
 bool SceneDocument::remove(const std::string& guid) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
   if (indexOf(guid) < 0) return false;
   std::vector<std::string> sub;
   collectSubtree(guid, sub);
@@ -457,6 +572,7 @@ bool SceneDocument::remove(const std::string& guid) {
 }
 
 bool SceneDocument::rename(const std::string& guid, const std::string& name) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
   ordered_json* o = findJson(guid);
   if (!o) return false;
   if (o->value("name", "") == name) return true;
@@ -469,7 +585,7 @@ bool SceneDocument::rename(const std::string& guid, const std::string& name) {
 void SceneDocument::worldMatrix(const std::string& guid, double out[16]) const {
   std::vector<const SceneObject*> chain;
   std::string cur = guid;
-  for (size_t guard = 0; guard <= view_.objects.size(); ++guard) {
+  for (size_t guard = 0; guard <= live().objects.size(); ++guard) {
     const SceneObject* o = find(cur);
     if (!o) break;
     chain.push_back(o);
@@ -482,6 +598,7 @@ void SceneDocument::worldMatrix(const std::string& guid, double out[16]) const {
 }
 
 bool SceneDocument::reparent(const std::string& guid, const std::string& newParent) {
+  if (mirror_) return false;  // F3.04: the document is frozen while playing
   const SceneObject* o = find(guid);
   if (!o) return false;
   if (!newParent.empty() && (indexOf(newParent) < 0 || newParent == guid || isDescendant(newParent, guid))) return false;
@@ -502,6 +619,154 @@ bool SceneDocument::reparent(const std::string& guid, const std::string& newPare
   tr["scale"] = arrN(s, 3);
   changed();
   return true;
+}
+
+bool SceneDocument::reparentMany(const std::vector<std::string>& guids, const std::string& newParent, const std::string& before) {
+  if (!loaded_ || mirror_) return false;
+  std::vector<std::string> top = topLevel(guids);
+  if (top.empty()) return false;
+  if (!newParent.empty() && indexOf(newParent) < 0) return false;
+  for (const std::string& g : top)
+    if (g == newParent || (!newParent.empty() && isDescendant(newParent, g))) return false;
+  if (!before.empty()) {
+    if (indexOf(before) < 0) return false;
+    for (const std::string& g : top) if (g == before || isDescendant(before, g)) return false;
+    const SceneObject* b = find(before);
+    if (b->parentGuid != newParent && !(newParent.empty() && indexOf(b->parentGuid) < 0)) return false;  // must be a sibling
+  }
+  // new local transforms first, from the current hierarchy (world kept) for the objects that change parent
+  struct Move { std::string guid; bool xform; float p[3], q[4], s[3]; };
+  std::vector<Move> moves;
+  Mat parentWorld = identity();
+  if (!newParent.empty()) worldMatrix(newParent, parentWorld.m);
+  const Mat invParent = invertAffine(parentWorld);
+  for (const std::string& g : top) {
+    const SceneObject* o = find(g);
+    Move m{g, false, {}, {}, {}};
+    if (o->parentGuid != newParent) {
+      Mat world{};
+      worldMatrix(g, world.m);
+      decompose(mul(invParent, world), m.p, m.q, m.s);
+      m.xform = true;
+    }
+    moves.push_back(m);
+  }
+  pushUndo();
+  ordered_json& objs = doc_["objects"];
+  std::vector<ordered_json> moved;
+  for (const Move& m : moves) {
+    size_t i = jsonIndex(m.guid);
+    ordered_json oj = std::move(objs[i]);
+    objs.erase(i);
+    oj["parent"] = newParent.empty() ? ordered_json(nullptr) : ordered_json(newParent);
+    if (m.xform) {
+      ordered_json& tr = oj["transform"];
+      if (!tr.is_object()) tr = ordered_json::object();
+      tr["position"] = arrN(m.p, 3);
+      tr["rotation"] = arrN(m.q, 4);
+      tr["scale"] = arrN(m.s, 3);
+    }
+    moved.push_back(std::move(oj));
+  }
+  size_t at = objs.size();
+  if (!before.empty()) at = jsonIndex(before);
+  for (size_t i = 0; i < moved.size(); ++i) objs.insert(objs.begin() + static_cast<long>(at + i), std::move(moved[i]));
+  if (doc_ == before_) { hasBefore_ = false; return true; }  // nothing changed (dropped where it already was)
+  changed();
+  return true;
+}
+
+std::vector<std::string> SceneDocument::duplicateMany(const std::vector<std::string>& guids) {
+  std::vector<std::string> roots = topLevel(guids), result;
+  if (roots.empty() || mirror_) return result;
+  pushUndo();
+  for (const std::string& root : roots) {
+    std::vector<std::string> sub;
+    collectSubtree(root, sub);
+    std::map<std::string, std::string> remap;
+    for (const std::string& g : sub) remap[g] = generateGuid();
+    std::vector<ordered_json> clones;
+    for (const ordered_json& oj : doc_["objects"]) {
+      std::string g = oj.value("guid", "");
+      if (!remap.count(g)) continue;
+      ordered_json c = oj;
+      c["guid"] = remap[g];
+      if (g == root) c["name"] = oj.value("name", "") + " (1)";
+      else if (c.contains("parent") && c["parent"].is_string()) {
+        auto it = remap.find(c["parent"].get<std::string>());
+        if (it != remap.end()) c["parent"] = it->second;
+      }
+      if (c.contains("components")) remapStrings(c["components"], remap);
+      clones.push_back(std::move(c));
+    }
+    ordered_json& objs = doc_["objects"];
+    size_t at = jsonIndex(root) + 1;  // right after the original: no sibling lies between them
+    for (size_t i = 0; i < clones.size(); ++i) objs.insert(objs.begin() + static_cast<long>(at + i), std::move(clones[i]));
+    result.push_back(remap[root]);
+  }
+  changed();
+  setSelection(result);
+  return result;
+}
+
+bool SceneDocument::removeMany(const std::vector<std::string>& guids) {
+  std::vector<std::string> roots = topLevel(guids);
+  if (roots.empty() || mirror_) return false;
+  std::vector<std::string> sub;
+  for (const std::string& r : roots) collectSubtree(r, sub);
+  pushUndo();
+  ordered_json kept = ordered_json::array();
+  for (ordered_json& oj : doc_["objects"])
+    if (std::find(sub.begin(), sub.end(), oj.value("guid", "")) == sub.end()) kept.push_back(std::move(oj));
+  doc_["objects"] = std::move(kept);
+  changed();
+  return true;
+}
+
+std::string SceneDocument::copyObjects(const std::vector<std::string>& guids) const {
+  std::vector<std::string> roots = topLevel(guids), sub;
+  for (const std::string& r : roots) collectSubtree(r, sub);
+  ordered_json out = ordered_json::object();
+  out["rensga_clipboard"] = 1;
+  out["roots"] = roots;
+  ordered_json arr = ordered_json::array();
+  if (doc_.contains("objects"))
+    for (const ordered_json& oj : doc_["objects"])
+      if (std::find(sub.begin(), sub.end(), oj.value("guid", "")) != sub.end()) arr.push_back(oj);
+  out["objects"] = std::move(arr);
+  return out.dump();
+}
+
+std::vector<std::string> SceneDocument::pasteObjects(const std::string& text, const std::string& parentGuid) {
+  std::vector<std::string> result;
+  if (!loaded_ || mirror_ || (!parentGuid.empty() && indexOf(parentGuid) < 0)) return result;
+  ordered_json clip = ordered_json::parse(text, nullptr, false);
+  if (clip.is_discarded() || !clip.is_object() || !clip.contains("objects") || !clip.contains("roots") ||
+      !clip["objects"].is_array() || !clip["roots"].is_array())
+    return result;
+  std::map<std::string, std::string> remap;
+  for (const ordered_json& oj : clip["objects"]) remap[oj.value("guid", "")] = generateGuid();
+  std::vector<std::string> rootsOld = clip["roots"].get<std::vector<std::string>>();
+  // roots keep their world transform only when pasted to the same parent; under another parent they keep the local one
+  pushUndo();
+  for (ordered_json c : clip["objects"]) {
+    const std::string g = c.value("guid", "");
+    c["guid"] = remap[g];
+    const bool isRoot = std::find(rootsOld.begin(), rootsOld.end(), g) != rootsOld.end();
+    if (isRoot) {
+      c["parent"] = parentGuid.empty() ? ordered_json(nullptr) : ordered_json(parentGuid);
+      c["name"] = c.value("name", "") + " (1)";
+      result.push_back(remap[g]);
+    } else if (c.contains("parent") && c["parent"].is_string()) {
+      auto it = remap.find(c["parent"].get<std::string>());
+      if (it != remap.end()) c["parent"] = it->second;
+    }
+    if (c.contains("components")) remapStrings(c["components"], remap);
+    doc_["objects"].push_back(std::move(c));
+  }
+  changed();
+  setSelection(result);
+  return result;
 }
 
 }  // namespace editor

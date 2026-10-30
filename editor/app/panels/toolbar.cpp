@@ -9,8 +9,14 @@ namespace editor {
 
 const TargetModule* App::targetModule() const { return TargetRegistry::find(target); }
 
-// The single entry point for Play: the toolbar button and --play both call it.
+// The Play button and the Edit > Play item: follows the Play dropdown (Play in editor by default).
 void doPlay(App& a) {
+  if (a.playInEditor) { startPlayInEditor(a); return; }
+  doPlayConsole(a);
+}
+
+// Dev build + emulator launch of the project's target; --play calls it directly.
+void doPlayConsole(App& a) {
   if (!a.loaded) { EditorLog::instance().error("play: no project loaded"); return; }
   if (a.target.empty()) { EditorLog::instance().error("play: the project's target (" + a.project.target + ") has no editor module; console run is not available"); return; }
   if (a.scripts.enabled) {  // changed scripts must be compiled in first; the restart that follows resumes the Play
@@ -74,34 +80,46 @@ void drawToolbar(App& a) {
       ImGui::TextDisabled("/  %s", a.project.name.c_str());
     }
 
-    // center: Play, Stop, play-mode menu
-    const float pw = 84, sw = 64, aw = 30, gap = 6, total = pw + sw + aw + gap * 2;
+    // center: Play, Pause, Step, Stop, play-mode menu
+    const float pw = 84, sw = 64, qw = 34, aw = 30, gap = 6, total = pw + qw + qw + sw + aw + gap * 4;
     ImGui::SetCursorPos(ImVec2((W - total) * 0.5f, top));
-    bool busy = a.play.busy();
+    const bool busy = a.play.busy();
+    const bool editing = a.session.active();
     const bool blocked = scriptsBlockPlay(a);
-    const bool noModule = a.target.empty();  // F3.02: the project's target has no TargetModule (console run/build greyed)
-    ImGui::BeginDisabled(busy || blocked || noModule);
+    const bool noModule = a.target.empty() && !a.playInEditor;  // F3.02: console run needs the project's TargetModule
+    ImGui::BeginDisabled(editing || (!a.playInEditor && busy) || blocked || noModule || (a.playInEditor && a.play.busy()));
     if (primaryButton("      Play", ImVec2(pw, bh))) doPlay(a);
     ImGui::EndDisabled();
     if (blocked && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Fix script compile errors first");
     else if (noModule && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-      ImGui::SetTooltip("The '%s' target has no editor module yet, so the editor cannot build or run it. Assets, scenes and cooking work.", a.project.target.c_str());
-    ImGui::SameLine(0, gap);
-    ImGui::BeginDisabled(!busy);
+      ImGui::SetTooltip("The '%s' target has no editor module yet, so the editor cannot build or run it on a console. Play in editor works.", a.project.target.c_str());
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8);
-    if (ImGui::Button("Stop", ImVec2(sw, bh))) a.play.stop();
-    ImGui::PopStyleVar();
+    ImGui::SameLine(0, gap);
+    ImGui::BeginDisabled(!editing);
+    const bool paused = a.session.state() == PlayState::Paused;
+    if (paused) ImGui::PushStyleColor(ImGuiCol_Button, brandToken("primary")), ImGui::PushStyleColor(ImGuiCol_Text, brandToken("on-primary"));
+    if (ImGui::Button("||##pause", ImVec2(qw, bh))) a.session.togglePause();
+    if (paused) ImGui::PopStyleColor(2);
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Pause (Ctrl+Shift+P)");
+    ImGui::SameLine(0, gap);
+    ImGui::BeginDisabled(!paused);
+    if (ImGui::Button("|>##step", ImVec2(qw, bh))) a.session.requestStep();
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Step one frame while paused (Ctrl+Alt+P)");
     ImGui::EndDisabled();
     ImGui::SameLine(0, gap);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8);
+    ImGui::BeginDisabled(!busy && !editing);
+    if (ImGui::Button("Stop", ImVec2(sw, bh))) { if (editing) stopPlayInEditor(a); else a.play.stop(); }
+    ImGui::EndDisabled();
+    ImGui::SameLine(0, gap);
     if (ImGui::ArrowButton("##playmenu", ImGuiDir_Down)) ImGui::OpenPopup("playmode");
     ImGui::PopStyleVar();
     if (ImGui::BeginPopup("playmode")) {
-      ImGui::MenuItem("Play on console", nullptr, true);
-      ImGui::BeginDisabled();
-      ImGui::MenuItem("Play in editor");
-      ImGui::EndDisabled();
-      if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("arrives in Editor 5");
+      if (ImGui::MenuItem("Play in editor", nullptr, a.playInEditor, !editing)) a.playInEditor = true;
+      const bool consoleOk = !a.target.empty();
+      if (ImGui::MenuItem("Play on console", nullptr, !a.playInEditor, consoleOk && !editing)) a.playInEditor = false;
+      if (!consoleOk && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip("The '%s' target has no editor module, so there is no emulator run.", a.project.target.c_str());
       ImGui::EndPopup();
     }
 
@@ -109,6 +127,7 @@ void drawToolbar(App& a) {
     char st[96];
     const bool compiling = a.scripts.builder.busy();
     if (compiling) snprintf(st, sizeof st, "Compiling scripts %d%%", a.scripts.builder.percent());
+    else if (editing) snprintf(st, sizeof st, "%s   frame %llu", paused ? "Paused" : "Playing", static_cast<unsigned long long>(a.session.frames()));
     else snprintf(st, sizeof st, "%s%s", playStatusName(a.play.status()), a.doc.dirty() ? "   * unsaved" : "");
     const float cw = 190, stw = ImGui::CalcTextSize(st).x;
     ImGui::SetCursorPos(ImVec2(W - 12 - stw - 14 - cw, top));

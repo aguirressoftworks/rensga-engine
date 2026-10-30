@@ -1,0 +1,6 @@
+{
+  "format": 1,
+  "name": "PSP Template",
+  "target": "psp",
+  "scenes": ["00000000-0000-4000-a000-000000000001"]
+}

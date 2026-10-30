@@ -8,7 +8,11 @@
 //   };
 //
 // Rules: REFLECT must be the first line in the class body and leaves the class in `public:`.
-// HEADER, TOOLTIP and RANGE apply to the NEXT SERIALIZE_FIELD; REQUIRE_COMPONENT(Type) applies to the class.
+// HEADER, TOOLTIP, RANGE, SPACE and HIDE_IN_INSPECTOR apply to the NEXT SERIALIZE_FIELD; REQUIRE_COMPONENT(Type) and
+// EXECUTE_IN_EDIT_MODE() apply to the class; CONTEXT_MENU("Label") applies to the void() method declared right after it.
+// Editor callbacks (Behaviour): OnValidate after an inspector edit, Reset on Add Component / the Reset menu,
+// OnDrawGizmos / OnDrawGizmosSelected for the Scene view. The editor runs OnValidate, Reset and CONTEXT_MENU methods on a
+// temporary detached instance (gameObject is null there), so they may touch only the component's own fields.
 // Every macro ends with its own ';', so a trailing ';' after it is harmless.
 //
 // F1.05: the macros only declare. tools/reflect/reflect_scan.py reads the source at build time and writes
@@ -45,7 +49,16 @@ struct FieldDesc {
   Scalar rangeMin = 0, rangeMax = 0;
   const char* header = nullptr;   // editor metadata: null when RENSGA_STRIP_EDITOR_METADATA
   const char* tooltip = nullptr;  // editor metadata
+  bool hideInInspector = false;   // editor metadata: HIDE_IN_INSPECTOR (still serialized and cooked)
+  u8 space = 0;                   // editor metadata: SPACE(n) pixels of gap above the field
 };
+
+// CONTEXT_MENU("Label") on a void() method: an entry in the component's header menu (editor metadata).
+struct ContextMenuDesc {
+  const char* label = nullptr;
+  const char* method = nullptr;  // registered in the method registry (reflect_method.h)
+};
+constexpr u32 kMaxContextMenus = 8;
 
 constexpr u32 kMaxFields = 32;
 
@@ -59,6 +72,9 @@ struct TypeInfo {
   u32 fieldCount = 0;
   const char* requireNames[4] = {};  // editor metadata: REQUIRE_COMPONENT type names
   u32 requireCount = 0;
+  bool executeInEditMode = false;  // editor metadata: EXECUTE_IN_EDIT_MODE (behaviour wired in Editor 5)
+  ContextMenuDesc contextMenus[kMaxContextMenus] = {};  // editor metadata: CONTEXT_MENU entries
+  u32 contextMenuCount = 0;
   void (*construct)(void* where) = nullptr;
   void (*destruct)(void* obj) = nullptr;
   Component* (*asComponent)(void* obj) = nullptr;  // null if not a Component
@@ -177,6 +193,7 @@ TypeInfo* beginType(const char* name) {
 // Adds a field to a type under construction. Returns the new descriptor (metadata is set by the generated table).
 FieldDesc* addFieldDesc(TypeInfo* info, const char* name, FieldType type, u32 offset, u32 size);
 void requireComponent(TypeInfo* info, const char* typeName);
+void addContextMenu(TypeInfo* info, const char* label, const char* method);
 
 template <class C, class T>
 FieldDesc* addField(TypeInfo* info, const char* name, FieldType type, T C::*member) {
@@ -199,6 +216,10 @@ FieldDesc* addField(TypeInfo* info, const char* name, FieldType type, T C::*memb
 #define HEADER(text) static_assert(true, "");
 #define TOOLTIP(text) static_assert(true, "");
 #define REQUIRE_COMPONENT(Type) static_assert(true, "");
+#define HIDE_IN_INSPECTOR() static_assert(true, "");
+#define SPACE(...) static_assert(true, "");  // SPACE() = 8 px, SPACE(n) = n px
+#define EXECUTE_IN_EDIT_MODE() static_assert(true, "");
+#define CONTEXT_MENU(label) static_assert(true, "");
 // Script execution order (default 0, lower runs first), read at compile time by the registry. Put it in the class
 // body, e.g. `EXECUTION_ORDER(-100)` for an input script that must update before the rest.
 #define EXECUTION_ORDER(n) static constexpr ::rensga::i32 kExecutionOrder = (n);

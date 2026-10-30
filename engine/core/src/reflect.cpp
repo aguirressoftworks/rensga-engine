@@ -123,6 +123,11 @@ void requireComponent(TypeInfo* info, const char* typeName) {
   info->requireNames[info->requireCount++] = typeName;
 }
 
+void addContextMenu(TypeInfo* info, const char* label, const char* method) {
+  if (!info || info->contextMenuCount >= kMaxContextMenus) return;
+  info->contextMenus[info->contextMenuCount++] = ContextMenuDesc{label, method};
+}
+
 }  // namespace reflect
 
 u32 blobSize(const TypeInfo& t) {

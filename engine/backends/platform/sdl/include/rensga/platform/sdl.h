@@ -12,6 +12,10 @@ class SdlPlatform : public IPlatform {
   bool init() override;
   void shutdown() override;
   void pollInput(VirtualGamepad& pad) override;  // keyboard + first game controller
+  // The default bindings as pure functions, so another host (the editor's Game view) maps input exactly like the player.
+  // `down[sc]` != 0: SDL scancode sc (< 512) is held. `controller` is an SDL_GameController* or null.
+  static void applyKeyboard(const unsigned char* down, VirtualGamepad& pad);
+  static void applyController(void* controller, VirtualGamepad& pad);
   double timeSeconds() override;
   bool shouldQuit() override { return quit_; }
   // Size of the renderer's virtual image: touch zones are laid out and hit-tested in it (default 480x272).

@@ -196,7 +196,7 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
   std::sort(hashed.begin(), hashed.end());
 
   // ---- content-hash cache: skip when no input (or reflected layout) changed
-  const fs::path outDir = proj / "Library" / "Cooked" / opt.target;
+  const fs::path outDir = opt.outDir.empty() ? proj / "Library" / "Cooked" / opt.target : fs::absolute(opt.outDir);
   R.packPath = outDir / "game.rpak";
   R.reportPath = outDir / "budget-report.txt";
   // Streamed audio (F2.04): files in <project>/Streaming/ are not packed. They are copied next to the pack and read
@@ -219,7 +219,9 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
   }
   for (const fs::path& p : hashed) {
     std::string txt;
-    readText(p, txt);
+    auto ov = opt.sceneOverrides.find(relPath(proj, p));
+    if (ov != opt.sceneOverrides.end()) txt = ov->second;
+    else readText(p, txt);
     hashes[relPath(proj, p)] = hex64(fnv64(txt));
   }
   const fs::path manifestPath = outDir / "cook.manifest.json";
@@ -267,7 +269,9 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
     const Asset& sa = sit->second;
     json one;
     std::string txt;
-    readText(sa.path, txt);
+    auto ov = opt.sceneOverrides.find(sa.rel);
+    if (ov != opt.sceneOverrides.end()) txt = ov->second;
+    else readText(sa.path, txt);
     try {
       one = json::parse(txt);
       if (one.value("format", 0) != 1) throw std::runtime_error("unsupported scene format version");
@@ -710,6 +714,12 @@ lightDone:
   }
   std::vector<CookMessage> budgetErrors;
   bool fits = validateBudgets(target, budget, budgetErrors);
+  if (!fits && opt.budgetsAreWarnings) {  // play in editor: run it anyway, the editor shows the overrun
+    for (const auto& e : budgetErrors) cx.msg(CookMessage::Warning, e.text, e.asset, e.assetGuid);
+    budgetErrors.clear();
+    R.overBudget = true;
+    fits = true;
+  }
 
   fs::create_directories(outDir);
   {

@@ -460,6 +460,10 @@ void GlRenderer::flush2d() {
 
 void GlRenderer::endFrame() {
   flush2d();
+  if (offscreen_) {
+    gl.BindFramebuffer(GL_FRAMEBUFFER, 0);
+    return;
+  }
   // Present: scale the virtual image into the window.
   SDL_Window* win = SDL_GL_GetCurrentWindow();
   if (!win) return;

@@ -139,7 +139,16 @@ void SdlPlatform::pollInput(VirtualGamepad& pad) {
   pad = VirtualGamepad();
   const Uint8* ks = SDL_GetKeyboardState(nullptr);
   // A key is down if SDL's keyboard state or the event stream says so (the stream also carries injected events).
-  auto key = [ks, this](int sc) { return ks[sc] != 0 || evKeys_[sc] != 0; };
+  unsigned char down[512];
+  for (int sc = 0; sc < 512; ++sc) down[sc] = (ks[sc] != 0 || evKeys_[sc] != 0) ? 1 : 0;
+  applyKeyboard(down, pad);
+  touch_.apply(pad);  // on-screen controls act like the keyboard / pad: same actions
+  applyController(pad_, pad);
+}
+
+// The key part of pollInput. `down[sc]` != 0 means SDL scancode sc is held. The editor's Game view calls it too.
+void SdlPlatform::applyKeyboard(const unsigned char* down, VirtualGamepad& pad) {
+  auto key = [down](int sc) { return down[sc] != 0; };
   for (int sc = 0; sc < 512; ++sc) {
     if (!key(sc)) continue;
     const KeyCode kc = keyFromScancode(sc);
@@ -166,10 +175,13 @@ void SdlPlatform::pollInput(VirtualGamepad& pad) {
   }
   pad.leftX = x;
   pad.leftY = y;
-  touch_.apply(pad);  // on-screen controls act like the keyboard / pad: same actions
+}
 
-  if (pad_) {
-    SDL_GameController* c = static_cast<SDL_GameController*>(pad_);
+// The controller part of pollInput: `controller` is an SDL_GameController* (null = none).
+void SdlPlatform::applyController(void* controller, VirtualGamepad& pad) {
+  VirtualGamepad::Buttons& h = pad.held;
+  if (controller) {
+    SDL_GameController* c = static_cast<SDL_GameController*>(controller);
     auto b = [c](SDL_GameControllerButton id) { return SDL_GameControllerGetButton(c, id) != 0; };
     // South/east/west/north are physical positions (A/B/X/Y on an Xbox layout), not labels.
     h.south = h.south || b(SDL_CONTROLLER_BUTTON_A);
@@ -200,6 +212,7 @@ void SdlPlatform::pollInput(VirtualGamepad& pad) {
     h.r2 = pad.r2Value >= 0.5f;
   }
 }
+
 
 void SdlPlatform::setVibration(Scalar low, Scalar high, Scalar seconds) {
   if (!pad_) return;

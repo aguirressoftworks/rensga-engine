@@ -39,6 +39,10 @@ class GlRenderer : public IRenderer {
   // uploads its textures again under the same handles. Not for use inside a frame.
   void releaseUserTextures();
 
+  // Embedded use (the editor's Game view): endFrame() draws the frame into the virtual-resolution target and
+  // returns without presenting or swapping; colorTexture() is that image (GL texture name, bottom row first).
+  void setOffscreen(bool on) { offscreen_ = on; }
+  u32 colorTexture() const { return colorTex_; }
   // Writes the last presented virtual-resolution image (RGBA, upright) as a PNG. Call after endFrame().
   bool screenshot(const char* pngPath);
   // Stats of the last frame, for logs.
@@ -74,6 +78,7 @@ class GlRenderer : public IRenderer {
   u32 lastSprites_ = 0, lastDraws_ = 0;
   u32 winW_ = 0, winH_ = 0;
   bool warnedFull_ = false;
+  bool offscreen_ = false;
 };
 
 }  // namespace rensga
