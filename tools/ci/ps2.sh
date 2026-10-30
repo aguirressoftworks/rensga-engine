@@ -11,7 +11,9 @@ set -eu
 cd "$REPO"; B="${RENSGA_PS2_BUILD:-$CI_OUT/ps2}"
 PROJ="${RENSGA_PS2_PROJECT:-templates/psp}"; PROJ="$(cd "$PROJ" && pwd)"
 reflect_prescan "$B/reflect" "$PROJ"
-tools/docker/ps2.sh sh -c "cmake --preset ps2 -B '$B' -DRENSGA_REFLECT_DIR='$B/reflect' -DRENSGA_PROJECT_DIR='$PROJ' ${RENSGA_PS2_CMAKE_ARGS:-} >/dev/null && cmake --build '$B' -j$JOBS --target rensga_hello rensga_ps2"
+# Reset the test-only cache entries every run so an earlier stress/autostart build in this dir cannot leak into this one.
+PS2_DEFAULTS="-DRENSGA_PS2_CHECK_FRAMES=300 -DRENSGA_PS2_AUTOSTART= -DRENSGA_PS2_VRAM_STRESS=OFF -DRENSGA_PS2_SAVE_SELFTEST=OFF -DRENSGA_PS2_FORMAT_BLANK_CARD=OFF -DRENSGA_PS2_AUDIO_STRESS=0 -DRENSGA_PS2_SHOT_FRAME=0"
+tools/docker/ps2.sh sh -c "cmake --preset ps2 -B '$B' -DRENSGA_REFLECT_DIR='$B/reflect' -DRENSGA_PROJECT_DIR='$PROJ' $PS2_DEFAULTS ${RENSGA_PS2_CMAKE_ARGS:-} >/dev/null && cmake --build '$B' -j$JOBS --target rensga_hello rensga_ps2"
 PACK="${RENSGA_PS2_PACK:-templates/psp/Library/Cooked/psp/game.rpak}"
 [ -f "$PACK" ] || PACK=""
 # Streamed audio (Streaming/*.wav, copied next to the pack by the cooker) goes on the disc root too.

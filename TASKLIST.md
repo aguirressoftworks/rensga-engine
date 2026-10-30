@@ -23,7 +23,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | --- | --- | --- | --- |
 | **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..57) done after the review, 13/13 tests |
 | F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 4.8% — closed (all tasks and gates) |
-| F2 · Shared core | 9.3% | 14.1% | 2.95% — API 1-3 done and accepted; Engine 1-5 implemented with the open items listed under each task; gates: G2 met, G1 met except Android (built, not run) |
+| F2 · Shared core | 9.3% | 14.1% | 5.06% — API 1-3, Engine 3 and Engine 4 done and accepted; Engine 1, 2 and 5 are built and tested on the host and PS2 and wait only for the Android phone run (`tools/ci/android_device.sh`); gates: G2 met, G1 met except Android (built, not run) |
 | F3 · Editor core | 9.3% | 23.4% | 0% |
 | F4 · 2D slice everywhere + PSP base | 8.0% | 31.4% | 0% |
 | F5 · PSP track | 16.4% | 47.8% | 0% |
@@ -32,7 +32,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | F8 · PS2 track | 7.4% | 73.7% | 0% |
 | F9 · PSX track | 24.2% | 97.9% | 0% |
 | F10 · Ship 1.0 | 2.1% | 100.0% | 0% |
-| **Step 2 total** | **100%** | | **7.75%** |
+| **Step 2 total** | **100%** | | **9.86%** |
 
 ---
 
@@ -170,18 +170,20 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 
 | Hook / endpoint | Lives in | MVP state | Finished by |
 | --- | --- | --- | --- |
-| `IPlatform`, `IFileSystem` | `engine/core`, `backends/platform/{sdl,psp,ps2}` | `data:/` and `save:/` paths, stream slots, `writeFile`; SDL (PC, Android assets), PSP (host0/ms0), PS2 (cdrom0/host/mass/mc0); no Android touch yet | **F2.01**&nbsp;Engine 1, **F4.03**&nbsp;PSP Engine 1 |
-| `IRenderer` with sort keys | `engine/core`, `backends/render/gu` | GU 3D + overlay quads, null; additive 2D calls (`uploadTexture`, `drawSprite`, `drawRect`, `drawText`) in GL and gsKit, no-op in GU/null (PSP 2D is F4) | **F2.02**&nbsp;Engine 2, **F5.01**&nbsp;PSP Engine 6, **F9.04**&nbsp;PSX Engine 3 |
-| `IAudioBackend` | `engine/core`, `backends/audio` | software mixer (16 voices, streamed music), SDL and audsrv backends; no runtime main creates it yet | **F2.04**&nbsp;Engine 4, **F9.06**&nbsp;PSX Engine 5 |
+| `IPlatform`, `IFileSystem` | `engine/core`, `backends/platform/{sdl,psp,ps2}` | `data:/` and `save:/` paths, stream slots, `writeFile`; SDL (PC, Android assets), PSP (host0/ms0), PS2 (cdrom0/host/mass/mc0); Android multi-touch virtual gamepad and the Android player APK built (phone run pending, F2.01) | **F2.01**&nbsp;Engine 1, **F4.03**&nbsp;PSP Engine 1 |
+| `IRenderer` with sort keys | `engine/core`, `backends/render/gu` | GU 3D + overlay quads, null; additive 2D calls (`uploadTexture`, `drawSprite`, `drawRect`, `drawText`) in GL and gsKit (explicit PS2 VRAM manager with LRU eviction), no-op in GU/null (PSP 2D is F4) | **F2.02**&nbsp;Engine 2, **F5.01**&nbsp;PSP Engine 6, **F9.04**&nbsp;PSX Engine 3 |
+| `IAudioBackend` | `engine/core`, `backends/audio` | software mixer (16 voices, streamed music), SDL and audsrv backends, created by the desktop, Android and PS2 mains (done in F2.04); the PSX backend is open | **F9.06**&nbsp;PSX Engine 5 |
 | `Scalar` | `engine/core/math` | `float` | **F9.02**&nbsp;PSX Engine 1 (20.12 fixed-point) |
 | Reflection macros | `engine/core/reflect` | build-time codegen tables (`tools/reflect`), thin static registrar | done in F1.05 |
 | `Ref<T>`, object model | `engine/core` | done in F2.07 (tags, layers, Instantiate/Destroy, hierarchy API) | done in F2.07 |
 | Lifecycle | `engine/api` | done in F2.08 (all eight callbacks, execution order, `Time` getters) | done in F2.08 |
 | Input actions | `InputActions.json`, `engine/api` | Move, Jump, Camera | **F3.06**&nbsp;API 5, **F6.04**&nbsp;Editor 10 |
+| 2D gameplay | `engine/core/gameplay`, `engine/api` | tile flags (solid, one-way, slopes), BoxCollider2D, Physics2D layers, Camera2D, DontDestroyOnLoad; no editor gizmos for 2D components; no PSP or PSX 2D | **F3.01**&nbsp;Editor 2 (gizmos), **F4**&nbsp;2D slice (PSP), **F9**&nbsp;PSX Engine 3 |
+| Real-PS2 timing and memory card | `backends/platform/ps2`, `runtime_audio` | measured only in PCSX2 (emulated timing); no `icon.sys` on the card; no real-pad play-through | **F4.01**&nbsp;2D vertical slice |
 | Physics | `engine/api` | CharacterController, box colliders, sphere triggers | **F6.08**&nbsp;API 6 |
 | ConsoleTarget + profile defines | `ProjectSettings/`, generated header | PSP profile | **F1.02**&nbsp;API 0, **F5.12**&nbsp;PSP API 0 |
 | Project layout, `.meta`, `Library/` | templates, cooker | layout and GUIDs; no asset database | **F3.02**&nbsp;Editor 3 |
-| Pack format | `tools/cooker`, runtime loader | v2 (TEXR, AUDI, TMAP, ANIM, FONT, SCNE; readers accept v1 and v2) | **F2.03**&nbsp;Engine 3 (cook cache, hot reload) |
+| Pack format | `tools/cooker`, runtime loader | v2 (TEXR, AUDI, TMAP, ANIM, FONT, SCNE, PH2D, CTGT audio fields; readers accept v1 and v2); per-asset cook cache (PNG, WAV) and desktop pack hot reload done in F2.03; the editor's asset database is F3.02 | **F3.02**&nbsp;Editor 3 |
 | `ICookerFormatPlugin` | `tools/cooker` | PSP meshes only | **F4.05**&nbsp;PSP Engine 3, **F9.05**&nbsp;PSX Engine 4 |
 | Primitive generator | shared lib | 5 shapes | **F7.01**&nbsp;PSP Template 0 |
 | Budget validator | `tools/pipeline` | RAM, triangles, capacity | **F6.05**&nbsp;Editor 11 |
@@ -207,7 +209,8 @@ Recorded deviations:
 
 - **F2: VU0 acceleration is out of scope.** The API 1 roadmap lists it as a topic; `Mathf` and the vector types are portable C++ with no libm and `-ffp-contract=off`, which the Linux/PSP hash match depends on. A VU0 path would need its own determinism check (F8).
 - **F2: PS2 runs are local only.** PCSX2 needs the user's own BIOS, referenced in place through `~/.config/rensga/emulators.json`; the `ps2_check` job exits 77 (skipped) in public CI. The sandbox has no controller, so PS2 samples use AUTOSTART/SELFTEST cmake options.
-- **F2: Android device check is built, not run.** No phone was attached, and the APK still ships `hello`, not the player (F7). F2.G1 stays open for Android.
+- **F2: Android device check is built, not run.** No phone was attached. The APK now ships the player (`libmain.so`, package `com.rensga.player`, sample pack and `music.wav` as assets); `tools/ci/android_device.sh` prints "built, not run" without a device. F2.01, F2.02, F2.05 and F2.G1 wait for the phone run.
+- **F2: PS2 audio and VRAM numbers come from PCSX2.** Timing is emulated; real-PS2 numbers are F4.01. The PS2 audio backend patches the BIOS module loader (`sbv_patch_enable_lmb`) to load audsrv on the 1.60 BIOS.
 - **F2: `IFileSystem` fixed slot table.** 8 stream slots, no heap; PS2 memory card saves use flat names under `mc0:/RENSGA` and write no `icon.sys`.
 - **F2: Windows alloc-check ran under wine.** CI installs wine and skips if missing; a native Windows run is not done.
 
@@ -258,19 +261,18 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/ren
 Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
 - [ ] **F2.01** Engine 1 · Core and platform layer — loop, memory, input, files, logging · `1.27%` 🔶
-  - Acceptance note: fixed-timestep loop, arena/pool/frame allocators with budgets, `data:/` and `save:/` file systems (PC, Android assets via `SDL_RWFromFile`, PS2 cdrom0/host/mass, PSP ms0:/host0:), logging and the alloc-check are done and pass on Linux, Windows (wine), PSP and PS2. Missing: Android touch controls on the virtual gamepad, and an Android runtime that runs the engine loop (the APK still ships `hello`; F7). Not ticked until those exist.
+  - Acceptance 2: done and tested: fixed-timestep loop, arena/pool/frame allocators with budgets, `data:/` and `save:/` file systems (PC, Android assets, PS2 cdrom0/host/mass/mc0, PSP ms0:/host0:), logging, alloc-check, multi-touch virtual gamepad (`engine/backends/platform/sdl/touch.cpp`, tests `touch_pad_logic`, `touch_sdl_events`), and the Android player APK (`libmain.so` is the engine player, `game.rpak` and `music.wav` in the assets, `build/ci/android/rensga-player.apk`). Waiting for the phone run (`tools/ci/android_device.sh`): touch zones and the player on a real device.
 - [ ] **F2.02** Engine 2 · 2D renderer — gsKit backend + GL/GLES backend · `1.69%`
-  - Stage 2 progress: GL desktop player + gsKit backend done (1000 sprites, allocs=0, PCSX2 boot ok). Open: font/tilemap draw paths (F4).
-  - Acceptance note: Android GLES path not run on a device; no PS2 VRAM manager beyond the generation-tagged texture cache in `gs_renderer.cpp`. Not ticked.
-- [ ] **F2.03** Engine 3 · Asset pipeline — c++ cooker, per-target formats, pack files · `1.27%` 🔶
-  - Stage 2 progress: pack v2 sections + importers (PNG/WAV/glTF/tilemap/anim/font) done. Open: per-asset cook cache, runtime hot-reload wiring.
-  - Acceptance note: `pack_watcher.h` exists but no runtime main uses it; no CLUT-ordering (CSM1) review. Not ticked.
-- [ ] **F2.04** Engine 4 · Audio — own software mixer on SDL audio · `0.84%`
-  - Stage 2 progress: mixer, SDL and audsrv backends, AudioSource done. Open: runtime mains do not yet create the mixer; untested on hardware.
-  - Acceptance note: no runtime main creates the mixer or plays sound, so the 16-voice exercise never ran on a target; `platformer2d` is silent. Not ticked.
+  - Acceptance 2: GL desktop renderer and gsKit renderer done. The PS2 VRAM manager is done (32 KB CLUT area, 8 KB-page first-fit texture area with LRU eviction, queue kick before eviction), verified in PCSX2 with `RENSGA_PS2_VRAM_STRESS`. The only gap left is the Android GLES run on a device; waiting for the phone run (`tools/ci/android_device.sh`). Font and tilemap draw paths are used by the sample on both backends.
+  - Evidence: PCSX2 `rensga: vram fb=2240KB tex=1608KB used/1824KB area clut=2KB free=216KB evictions=8633 uploads=8641`, `alloc-check frames=300 allocs=0`, screenshot of 24 correct textured cells; desktop 1000 sprites `alloc-check frames=299 allocs=0`.
+- [x] **F2.03** Engine 3 · Asset pipeline — c++ cooker, per-target formats, pack files · `1.27%` 🔶
+  - Evidence: cooker with per-target plugins (PS2 CLUT4/CLUT8 or RGBA, PC/Android RGBA), pack v2 (TEXR, AUDI, TMAP, ANIM, FONT, SCNE, PH2D, CTGT), whole-project skip plus a per-asset cache in `Library/Cache/<target>/` (PNG and WAV; JSON assets always re-cook). Touching one WAV in the sample: `cook: cooked 1, cached 8`; unchanged project: `cooked 0, cached 0 (whole project up to date)`; test `assets_cook_cache_reuses_unchanged_assets`. Desktop hot reload: `rensga_desktop` reloads the pack between frames and logs `rensga: hot-reload <pack> (scene TestLevel, objects=21)` (test `hot_reload_desktop`); the PS2 build has no watcher. CSM1 CLUT8 swizzle is in `gs_renderer.cpp` and the PS2 screenshots show correct palette colors. Exercise (cook a tileset and sprite sheet for PS2 and PC, load, draw): `samples/platformer2d` room on PS2 (PCSX2) and desktop.
+- [x] **F2.04** Engine 4 · Audio — own software mixer on SDL audio · `0.84%`
+  - Evidence: one mixer (16 voices, volume/pan, loop, streamed music with 4096-frame double buffering) wired into the desktop, Android and PS2 mains (`runtime_audio.cpp`; sample rate and voice cap from the ConsoleTarget, voice count is compile-time `RENSGA_AUDIO_MAX_VOICES`); SDL backend on PC and Android, audsrv on PS2 (needs `sbv_patch_enable_lmb` on the 1.60 BIOS); music is `Streaming/music.wav`, copied next to the pack and put on the disc as `MUSIC.WAV`. Exercise (looping music plus 16 overlapping effects, CPU cost): PCSX2 `audio-stress voices=16 mix_us=3119/4310 ... cpu_permille=92 music=1 underruns=0`, `alloc-check frames=200 allocs=0` (emulated timing, about 9% of a core); desktop `audio-stress voices=16 mix_us=177/221 ... cpu_permille=3 underruns=0` with a non-silent device output (test `audio_stress_desktop`). SPU2 comparison is a design topic; software mixing stays (real-PS2 timing is F4.01).
 - [ ] **F2.05** Engine 5 · Gameplay framework — entities, collision, animation, saves, UI · `1.27%`
-  - Stage 3 progress: SpriteRenderer, SpriteAnimator, Tilemap, TilemapCollider, BoxCollider2D (per-axis tile sweep, ground check, trigger events), UIText/UIImage/UIButton (focus + south press, `OnUIClick`), SceneManager (multi-scene packs via the SCNE section, deferred load), Save store (checksummed files; PS2 memory card mc0:/RENSGA via libmc, tested in PCSX2), `samples/platformer2d` (Title + Room, bot test, desktop + PS2 runs). Open: 2D camera/scroll, DontDestroyOnLoad, Collider2D layers, editor gizmos for the 2D components, PSP/PSX 2D (F4/F9), real-pad PS2 play-through (PCSX2 sandbox has no controller).
-  - Acceptance note: ran green (ctest 27/27, desktop screenshot, PCSX2 boot with save readback). Not ticked because the slopes and one-way platforms in the roadmap note and the open items above are not built.
+  - Acceptance 2: done: SpriteRenderer, SpriteAnimator, Tilemap with solid / one-way / slope tile flags, BoxCollider2D sweep (slopes, one-way, DropThrough, Down+South auto-drop), Physics2D layer matrix (`Physics2D.json`, PH2D section), Camera2D (dead zone, bounds, pixel snap), DontDestroyOnLoad, UI (text, image, button), SceneManager, Save store (files; PS2 memory card `mc0:/RENSGA`). Exercise on `samples/platformer2d`: 40x14 room, slope run, one-way planks, 7 coins, Walker and Hopper enemies (stomp or lose 1 HP), save point; bot `RoomBot` clears it on host (`tests/sample`, 20 tests), desktop and PS2.
+  - Evidence: desktop `room cleared coins=7 score=1836`, `alloc-check frames=8999 allocs=0`; PCSX2 `room cleared coins=7 score=1832`, `saved best=700 coins=5`, `save readback best=1832 coins=7`, `alloc-check frames=1100 allocs=0`.
+  - Not ticked: the exercise says "all four targets" and Android has not run the room (waiting for the phone run, `tools/ci/android_device.sh`; the player starts on Title, tap the South zone). Also open: no `icon.sys` is written on the PS2 card (saves work but show no icon in the BIOS browser; real-card check is F4.01), no real-pad PS2 play-through (PCSX2 sandbox has no controller), 2D editor gizmos (F3.01), PSP and PSX 2D (F4, F9).
 - [x] **F2.06** API 1 · Math and core types — vector3, Quaternion, Mathf, Random · `0.84%` 🔶
 - [x] **F2.07** API 2 · Object model — gameObject, Component, Transform · `1.27%` 🔶
 - [x] **F2.08** API 3 · Lifecycle, Time, Debug, Application — execution order and global services · `0.84%` 🔶
@@ -278,7 +280,7 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga
 **Gates**
 
 - [ ] **F2.G1** The no-per-frame-allocation check passes on every target.
-  - Evidence (`alloc-check ... allocs=0`): Linux headless 400 frames, Linux desktop 299, Windows (wine + Xvfb) 199, PSP (PPSSPPHeadless) 239, PS2 (PCSX2, local) 300. Android: built, not run (no device); ticks after the user's phone run (`tools/ci/android_device.sh`).
+  - Evidence (`alloc-check ... allocs=0`): Linux headless 400 frames, Linux desktop 299 (sprite stress) and 8999 (sample room), Windows (wine + Xvfb) 199, PSP (PPSSPPHeadless) 239, PS2 (PCSX2, local) 300 (stress), 1100 (sample room), 300 (VRAM stress), 200 (audio stress). Android: built, not run (no device); waiting for the phone run (`tools/ci/android_device.sh`).
 - [x] **F2.G2** Determinism test: the same scene and inputs give the same state hash on Linux and PSP.
   - Evidence: `tests/determinism/walk.json`, 400 frames, Linux hash == PSP hash `05d7d1bf`, all 400 per-frame trace hashes equal (`tools/ci/determinism.sh`).
 
