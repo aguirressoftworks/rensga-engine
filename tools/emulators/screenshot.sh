@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland desktop
 # MVP-43: capture a screenshot of the game running in PPSSPP, without a display grab (X grabs of PPSSPP's GL window are black).
 # Builds a screenshot ELF (RENSGA_EXIT_AFTER_FRAMES, which dumps the displayed frame to host0:/rensga_shot.bmp on exit),
 # runs it in PPSSPPHeadless (software renderer, separate process) and converts the BMP to PNG.

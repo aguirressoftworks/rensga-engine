@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland desktop
 # CI job editor_tour (F3 exercises on the console side): cook samples/editor_tour, `rensga play --target psp` boots the dev build in
 # PPSSPP (heartbeats, alloc-check allocs=0), `rensga build --target psp` writes an EBOOT.PBP. Needs the PSP Build Support module (or the Docker fallback) and PPSSPP, like psp.sh.
 # Exit 77 = skipped (no PSP module / no PPSSPP).

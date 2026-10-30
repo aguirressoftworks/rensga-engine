@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland desktop
 # CI job linux-host: configure + build everything, ctest, editor-core console-name check, then the Engine 0 hello under xvfb.
 set -eu
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"

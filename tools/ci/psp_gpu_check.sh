@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland desktop
 # PSP GPU-renderer check (the MVP black-screen bug class): run the PSP ELF in PPSSPPHeadless --graphics=gles under xvfb
 # and fail on any "Unknown syscall" in the full emulator log. Builds the ELF via tools/ci/psp.sh when missing.
 # Exit 77 (ctest SKIP_RETURN_CODE) when the PSP Build Support module (or Docker fallback) or PPSSPPHeadless / xvfb-run are unavailable.

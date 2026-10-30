@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland desktop
 # CI job psp: cook templates/psp with the host CLI (builds it if needed), build the PSP ELF with the PSP Build Support module (native; Docker only as contributor fallback)
 # (exits after 240 frames), boot it in PPSSPPHeadless (software renderer) and require the boot log line.
 set -eu

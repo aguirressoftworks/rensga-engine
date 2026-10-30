@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland desktop
 # F2.G2: Linux rensga_headless vs the PSP simulation ELF (rensga_sim) in PPSSPPHeadless: same cooked pack, same input script
 # (tests/determinism/walk.json), same frame count; the "rensga: hash <hex>" lines must match. Also checks the PSP alloc-check.
 # Env: DET_FRAMES (default 400), DET_TRACE=1 (per-frame hashes; also on a mismatch the script reruns with objects), DET_OBJ_FRAME=N.
