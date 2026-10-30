@@ -38,6 +38,8 @@ constexpr u32 ANIM = makeFourCC('A', 'N', 'I', 'M');  // PackAnimRec[count] (one
 constexpr u32 FONT = makeFourCC('F', 'O', 'N', 'T');  // PackFontRec[count]
 // F2.05: scene list. OBJS/XFRM/COMP hold the objects of every scene, one contiguous block per scene.
 constexpr u32 SCNE = makeFourCC('S', 'C', 'N', 'E');  // PackSceneRec[count], in build-settings order
+// F2.05: 2D layer collision matrix (ProjectSettings/Physics2D.json). Absent = every layer collides with every layer.
+constexpr u32 PH2D = makeFourCC('P', 'H', '2', 'D');  // PackPhysics2D (one record)
 }  // namespace pack_section
 
 struct PackHeader {
@@ -135,7 +137,9 @@ struct PackConsoleTarget {
   u32 trianglesPerFrame;
   u32 maxObjects;
   u32 maxComponentsPerType;
-  u32 reserved[3];
+  u32 audioSampleRate;  // mixer rate (22050 or 44100); 0 in packs cooked before F2.04 (use 22050)
+  u32 audioVoices;      // voice budget of the target; 0 = default 16
+  u32 reserved;
 };
 static_assert(sizeof(PackConsoleTarget) == 48, "PackConsoleTarget is 48 bytes");
 
@@ -174,8 +178,9 @@ struct PackAudioRec {
 static_assert(sizeof(PackAudioRec) == 48, "PackAudioRec is 48 bytes");
 
 // TMAP: tiles are u16 tileset indices, row-major, width*height entries at tilesOffset. Tile i of the
-// tileset (row-major in the tileset texture) is solid when solid[i] != 0 (u8 array at solidOffset,
-// solidCount entries; indices past solidCount are not solid).
+// tileset (row-major in the tileset texture) has the flag byte solid[i] (u8 array at solidOffset,
+// solidCount entries; indices past solidCount have no flags). A byte of 1 is a full solid block, so packs
+// written before the slope flags existed read the same way. Bits are in PackTileFlag below.
 struct PackTilemapRec {
   Guid guid;
   u32 width, height;   // in tiles
@@ -187,6 +192,31 @@ struct PackTilemapRec {
   u32 reserved;
 };
 static_assert(sizeof(PackTilemapRec) == 48, "PackTilemapRec is 48 bytes");
+
+// Tile flag byte (one per tileset tile). Bit 0 alone = full solid block (the original meaning).
+namespace PackTileFlag {
+constexpr u8 kSolid = 1u << 0;    // blocks from every side
+constexpr u8 kOneWay = 1u << 1;   // blocks only a box falling onto its top edge
+constexpr u8 kSlopeShift = 2;     // bits 2..4: slope shape (PackSlope), 0 = none
+constexpr u8 kSlopeMask = 7u << kSlopeShift;
+}  // namespace PackTileFlag
+// Slope shapes. The surface is a straight line across the tile; heights are in sixteenths of the tile height,
+// measured up from the tile's bottom edge. L = the high side is on the left (\), R = high side on the right (/).
+//   45L: 16 -> 0     45R: 0 -> 16
+//   22L_hi: 16 -> 8  22L_lo: 8 -> 0     (a 22.5 degree slope spans two tiles, high tile on the left)
+//   22R_lo: 0 -> 8   22R_hi: 8 -> 16    (high tile on the right)
+enum PackSlope : u8 { kSlopeNone = 0, kSlope45L, kSlope45R, kSlope22L_lo, kSlope22L_hi, kSlope22R_lo, kSlope22R_hi };
+inline void packSlopeHeights(u32 slope, i32* left, i32* right) {
+  static const i8 h[8][2] = {{0, 0}, {16, 0}, {0, 16}, {8, 0}, {16, 8}, {0, 8}, {8, 16}, {0, 0}};
+  *left = h[slope & 7][0];
+  *right = h[slope & 7][1];
+}
+
+// PH2D: layer collision matrix. masks[a] bit b set = layer a collides with layer b (kept symmetric by the cooker).
+struct PackPhysics2D {
+  u32 masks[32];
+};
+static_assert(sizeof(PackPhysics2D) == 128, "PackPhysics2D is 128 bytes");
 
 struct PackFrameRect {
   u16 x, y, w, h;  // pixels in the texture

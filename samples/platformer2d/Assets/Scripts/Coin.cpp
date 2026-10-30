@@ -10,6 +10,7 @@ struct Coin : Behaviour {
   void OnTriggerEnter(GameObject* other) override {
     if (!other || !other->CompareTag("Player")) return;
     ++GameState::coins;
+    GameState::Sfx(GameState::kSfxCoin);
     Destroy(gameObject());
   }
 };

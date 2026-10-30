@@ -71,8 +71,14 @@ static Scalar axisValue(Sint16 v) {
 // Default bindings (match the PSP template): WASD = left stick, Space/Z = south, X = east, C = west,
 // V = north, arrows = d-pad, Home/End = L/R (camera), Enter = start, Backspace = select, Esc = quit.
 void SdlPlatform::pollInput(VirtualGamepad& pad) {
+  int dw = 0, dh = 0;
+  if (window_) SDL_GL_GetDrawableSize(static_cast<SDL_Window*>(window_), &dw, &dh);
+  touch_.setView(touchView_[0], touchView_[1], static_cast<u32>(dw), static_cast<u32>(dh));
   SDL_Event e;
   while (SDL_PollEvent(&e)) {
+    if (e.type == SDL_FINGERDOWN) touch_.fingerDown(e.tfinger.fingerId, e.tfinger.x, e.tfinger.y);
+    if (e.type == SDL_FINGERMOTION) touch_.fingerMove(e.tfinger.fingerId, e.tfinger.x, e.tfinger.y);
+    if (e.type == SDL_FINGERUP) touch_.fingerUp(e.tfinger.fingerId);
     if (e.type == SDL_QUIT) quit_ = true;
     if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) quit_ = true;
     if (e.type == SDL_CONTROLLERDEVICEADDED) openFirstController();
@@ -106,6 +112,7 @@ void SdlPlatform::pollInput(VirtualGamepad& pad) {
   }
   pad.leftX = x;
   pad.leftY = y;
+  touch_.apply(pad);  // on-screen controls act like the keyboard / pad: same actions
 
   if (pad_) {
     SDL_GameController* c = static_cast<SDL_GameController*>(pad_);
@@ -130,6 +137,14 @@ void SdlPlatform::pollInput(VirtualGamepad& pad) {
       pad.leftY = sy;
     }
   }
+}
+
+bool SdlPlatform::touchOverlayVisible() const {
+#if defined(__ANDROID__)
+  return true;
+#else
+  return touch_.used();
+#endif
 }
 
 double SdlPlatform::timeSeconds() { return static_cast<double>(SDL_GetPerformanceCounter()) / static_cast<double>(SDL_GetPerformanceFrequency()); }

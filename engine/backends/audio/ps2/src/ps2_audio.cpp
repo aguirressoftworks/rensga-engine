@@ -1,7 +1,9 @@
 #include "rensga/audio/ps2_audio.h"
 
 #include <audsrv.h>
+#include <iopheap.h>
 #include <loadfile.h>
+#include <sbv_patches.h>
 #include <sifrpc.h>
 #include <string.h>
 
@@ -21,6 +23,11 @@ bool Ps2Audio::init(u32 sampleRate, AudioMixer* mixer) {
     RLOG_ERROR("audio", "rom0:LIBSD failed (%d)", id);
     return false;
   }
+  // The BIOS LOADFILE of older consoles cannot load a module from an EE buffer: patch it (libpatches) first.
+  SifInitIopHeap();
+  SifLoadFileInit();
+  const int lmb = sbv_patch_enable_lmb();
+  if (lmb != 0) RLOG_WARN("audio", "sbv_patch_enable_lmb returned %d", lmb);
   int ret = 0;
   id = SifExecModuleBuffer(audsrv_irx, size_audsrv_irx, 0, nullptr, &ret);
   if (id < 0 || ret == 1) {  // ret 1 = the module asked to be unloaded (init failed)

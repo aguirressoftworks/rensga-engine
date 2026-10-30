@@ -21,6 +21,10 @@
  "depth": "zbuffer",
  "media": "iso",
  "refreshHz": 60,
+ "audio": {
+  "sampleRate": 22050,
+  "voices": 16
+ },
  "allowedComponents": [
   "SpriteRenderer",
   "SpriteAnimator",

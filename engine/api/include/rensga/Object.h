@@ -35,6 +35,11 @@ T* Instantiate(const T* original, const Vector3& position, const Quaternion& rot
   return go ? go->template GetComponent<T>() : nullptr;
 }
 
+// The object (moved to the scene root first) and its children survive SceneManager::LoadScene.
+inline void DontDestroyOnLoad(GameObject* go) {
+  if (go && go->world) go->world->dontDestroyOnLoad(go);
+}
+
 inline void Destroy(GameObject* go, Scalar delay = 0) {
   if (go) go->world->destroy(go, delay);
 }

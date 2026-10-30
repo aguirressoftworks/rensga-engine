@@ -35,6 +35,9 @@ class GlRenderer : public IRenderer {
   void drawText(u32 fontTex, const PackFontRec& font, i32 x, i32 y, const char* text, Color32 color,
                 u32 sortKey) override;
   void setVirtualResolution(u32 w, u32 h) override;
+  // Hot reload (F2.03): deletes every texture uploaded after the renderer's own 1x1 white one, so a reloaded pack
+  // uploads its textures again under the same handles. Not for use inside a frame.
+  void releaseUserTextures();
 
   // Writes the last presented virtual-resolution image (RGBA, upright) as a PNG. Call after endFrame().
   bool screenshot(const char* pngPath);

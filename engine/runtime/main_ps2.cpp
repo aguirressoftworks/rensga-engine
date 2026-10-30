@@ -4,9 +4,11 @@
 // Stress test (the F2.02 PS2 exercise): RENSGA_PS2_STRESS_SPRITES sprites (default 1000) bounce around the screen with
 // per-sprite tint and sort key; a CLUT4 digit font shows the frame counter and the sprite count. Build-time defines:
 //   RENSGA_PS2_STRESS_SPRITES=N       sprites per frame (0 = none)
+//   RENSGA_PS2_VRAM_STRESS=1          24 textures (3.8 MB) drawn every frame against the ~1.8 MB texture area (VRAM manager test)
 //   RENSGA_PS2_CHECK_FRAMES=N         log "rensga: alloc-check frames=N allocs=K" once at frame N (contract 7), default 300
 //   RENSGA_PS2_SHOT_FRAME=N           at frame N dump both frame buffers to host:rensga_fb0.raw / fb1.raw (PCSX2 capture)
 //   RENSGA_EXIT_AFTER_FRAMES=N        leave the main loop after N frames (CI)
+//   RENSGA_PS2_AUDIO_STRESS=N         audio stress: streamed music + 16 looping effects for N frames, logs "rensga: audio-stress ..." (Engine 4)
 //   RENSGA_PS2_SAVE_SELFTEST=1        game mode: at frame 20 write save:/selftest, read it back and log "rensga: save selftest"
 //   RENSGA_PS2_AUTOSTART=<scene>      game mode: at frame 30 load this scene (the PCSX2 sandbox has no controller input)
 // Game mode (F2.05): a pack with tilemaps or sprite clips is played as a 2D game: every TEXR is uploaded, the GameLoop
@@ -28,6 +30,10 @@
 #include "rensga/core/world.h"
 #include "rensga/platform/ps2.h"
 #include "rensga/render/gs.h"
+#include "runtime_audio.h"
+#ifdef RENSGA_PS2_VRAM_STRESS
+#include "ps2_vram_stress.h"
+#endif
 
 #ifndef RENSGA_PS2_STRESS_SPRITES
 #define RENSGA_PS2_STRESS_SPRITES 1000
@@ -103,6 +109,9 @@ struct Sprite {
 };
 Sprite g_sprites[kMaxStress];
 
+Ps2Platform* g_platformForClock = nullptr;
+u64 audioClockUs() { return g_platformForClock ? static_cast<u64>(g_platformForClock->timeSeconds() * 1000000.0) : 0; }
+
 }  // namespace
 
 int main() {
@@ -111,6 +120,7 @@ int main() {
 
   static Ps2Platform platform;
   if (!platform.init()) return 2;
+  g_platformForClock = &platform;
   static GsRenderer renderer;
   GsVideo video;
   video.pal = platform.info().pal;
@@ -142,11 +152,13 @@ int main() {
   u32 sprite = 0, fontTex = 0;
   static u32 packTex[GfxAssets::kMaxTextures] = {};
   bool gameMode = false;
+  const PackConsoleTarget* ct = nullptr;
   Rect spriteSrc(0, 0, 32, 32);
   Span<const u8> bytes = fs.readFile(packPath, arena);
   if (bytes && view.open(bytes.data, bytes.size, packPath) && world.loadPack(view, &loaded)) {
     RLOG_INFO("game", "rensga: pack %s objects=%u textures=%u fonts=%u", packPath, world.objectCount(), loaded.assets.textureCount,
               loaded.assets.fontCount);
+    ct = view.records<PackConsoleTarget>(pack_section::CTGT);
     gameMode = loaded.assets.tilemapCount > 0 || loaded.assets.animCount > 0;
     if (gameMode) {
       const PackAssets& as = loaded.assets;
@@ -185,7 +197,20 @@ int main() {
     d.width = 88; d.height = 8; d.format = tex_format::CLUT4; d.pixels = g_fontPixels; d.palette = g_fontPal;
     fontTex = renderer.uploadTexture(d);
   }
+#ifdef RENSGA_PS2_VRAM_STRESS
+  if (!vramstress::init(renderer)) RLOG_ERROR("game", "vram stress texture upload failed");
+#endif
   if (!sprite || !fontTex) RLOG_ERROR("game", "texture upload failed sprite=%u font=%u", sprite, fontTex);
+
+  // Audio (Engine 4): mixer + audsrv. Music streams from the disc root (MUSIC.WAV); clips come from the pack.
+  static RuntimeAudio audio;
+  audio.init(&fs, ct, audioClockUs);
+  if (bytes) audio.registerPackClips(loaded.assets);
+#ifdef RENSGA_PS2_AUDIO_STRESS
+  audio.beginStress(bytes ? &loaded.assets : nullptr);
+#else
+  audio.startMusic();
+#endif
 
   static FileSystemSaveStore saves(fs);
   Save::use(&saves);
@@ -218,6 +243,7 @@ int main() {
     platform.pollInput(pad);
     loop.frame(static_cast<Scalar>(now - last), pad);
     last = now;
+    audio.update();
 
     if (gameMode) {
       renderWorld(world, renderer, Color32(28, 26, 22, 255));
@@ -231,6 +257,9 @@ int main() {
       Color32 tint(static_cast<u8>(s.tint), static_cast<u8>(s.tint >> 8), static_cast<u8>(s.tint >> 16), 255);
       renderer.drawSprite(sprite, spriteSrc, Rect(s.x, s.y, s.size, s.size), tint, s.key);
     }
+#ifdef RENSGA_PS2_VRAM_STRESS
+    vramstress::draw(renderer, frame, fontTex, g_font);
+#endif
     renderer.drawRect(Rect(0, 0, 220, 12), Color32(0, 0, 0, 160), 100);
     char hud[48];
     snprintf(hud, sizeof(hud), "%u:%u", frame, stress);
@@ -243,8 +272,8 @@ int main() {
       const GsStats& st = renderer.stats();
       const double dt = platform.timeSeconds() - windowStart;
       windowStart += dt;
-      RLOG_INFO("game", "rensga: frame %u ms=%.2f cpu_ms=%.2f sprites=%u glyphs=%u dropped=%u uploads=%u wraps=%u vram=%uKB", frame,
-                dt * 1000.0 / 60.0, st.cpuMicros / 1000.0, st.sprites, st.glyphs, st.dropped, st.uploads, st.ringWraps, st.vramUsed / 1024);
+      RLOG_INFO("game", "rensga: frame %u ms=%.2f cpu_ms=%.2f sprites=%u glyphs=%u dropped=%u uploads=%u kicks=%u evictions=%u vram=%uKB", frame,
+                dt * 1000.0 / 60.0, st.cpuMicros / 1000.0, st.sprites, st.glyphs, st.dropped, st.uploads, st.kicks, st.evictions, st.vramUsed / 1024);
     }
 #ifdef RENSGA_PS2_SAVE_SELFTEST
     if (gameMode && frame == 20) {
@@ -261,13 +290,23 @@ int main() {
 #ifdef RENSGA_PS2_SHOT_FRAME
     if (frame == RENSGA_PS2_SHOT_FRAME) renderer.dumpFrameBuffers("host:rensga_fb");
 #endif
+#ifdef RENSGA_PS2_AUDIO_STRESS
+    if (frame == RENSGA_PS2_AUDIO_STRESS) {
+      audio.logStress(frame);
+      heap::logAllocCheck();
+      break;
+    }
+#endif
 #ifdef RENSGA_EXIT_AFTER_FRAMES
     if (frame >= RENSGA_EXIT_AFTER_FRAMES) break;
 #endif
   }
+#ifndef RENSGA_PS2_AUDIO_STRESS
   if (frame < RENSGA_PS2_CHECK_FRAMES) heap::logAllocCheck();
+#endif
   RLOG_INFO("game", "rensga: quit after %u frames", frame);
   log::flushAll();
+  audio.shutdown();
   world.shutdown();
   platform.shutdown();
   return 0;

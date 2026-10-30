@@ -18,6 +18,7 @@ void SceneManager::bind(const PackView* pack, u32 loadedSceneIndex) {
   g_pack = pack;
   g_active = static_cast<i32>(loadedSceneIndex);
   g_pending = -1;
+  Physics2D::loadFromPack(pack);
 }
 void SceneManager::unbind() { bind(nullptr, 0); }
 
@@ -69,8 +70,9 @@ bool SceneManager::processPending(World& world) {
   if (g_pending < 0 || !g_pack) return false;
   const u32 index = static_cast<u32>(g_pending);
   g_pending = -1;
-  world.destroyAllImmediate();
+  world.destroyAllImmediate(true);
   Gameplay2D::resetTriggerMemory();
+  Physics2D::loadFromPack(g_pack);
   UI::resetFocus();
   LoadedPack lp;
   if (!world.loadPack(*g_pack, &lp, index)) {

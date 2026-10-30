@@ -152,6 +152,7 @@ struct GameObject {
   char name[kMaxNameLength] = {};
   char tag[kMaxTagLength] = {'U', 'n', 't', 'a', 'g', 'g', 'e', 'd', 0};
   u16 layer = 0;
+  bool dontDestroyOnLoad = false;  // runtime: survives SceneManager loads (World::dontDestroyOnLoad)
   bool selfActive_ = true;
   bool alive = false;
   bool dying = false;

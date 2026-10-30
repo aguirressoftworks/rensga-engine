@@ -305,3 +305,27 @@ TEST(audio_source_component_plays_through_the_system_mixer) {
   AudioSystem::setMixer(nullptr);
   AudioSystem::clearClips();
 }
+
+namespace {
+u64 g_fakeClock = 0;
+u64 fakeClock() { return g_fakeClock += 7; }
+}  // namespace
+
+TEST(audio_mix_stats_use_the_injected_clock_and_do_not_change_the_output) {
+  static i16 s[300];
+  for (u32 i = 0; i < 300; ++i) s[i] = static_cast<i16>((i % 20) * 300);
+  const AudioClip c = makeClip(s, 300);
+  i16 a[512], b[512];
+  AudioMixer& m = freshMixer();
+  m.play(&c, 1.0f, 0.0f, true);
+  m.mix(a, 256);
+  AudioMixer& m2 = freshMixer();
+  m2.setClock(fakeClock);
+  m2.play(&c, 1.0f, 0.0f, true);
+  m2.mix(b, 256);
+  CHECK_EQ(memcmp(a, b, sizeof(a)), 0);
+  CHECK_EQ(m2.mixStats().blocks, 1u);
+  CHECK_EQ(m2.mixStats().frames, 256u);
+  CHECK_EQ(m2.mixStats().maxUs, 7u);
+  m2.setClock(nullptr);
+}

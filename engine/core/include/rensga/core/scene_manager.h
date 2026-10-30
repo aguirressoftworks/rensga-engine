@@ -1,7 +1,7 @@
 // F2.05: SceneManager. Scenes are the pack's SCNE list (build-settings order); a pack without SCNE has one scene.
 // LoadScene only records the request. GameLoop::frame performs it at the END of the frame (after the destroy flush),
 // so scripts can call it from Update or a trigger without invalidating what the rest of the frame touches.
-// Loading destroys every object of the old scene (there is no DontDestroyOnLoad yet; static script state survives),
+// Loading destroys every object of the old scene except roots marked with DontDestroyOnLoad (rensga/Object.h),
 // creates the new scene's objects, and wakes them (Awake/OnEnable now, Start before their first Update).
 #pragma once
 #include "rensga/core/pack_format.h"

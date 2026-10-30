@@ -34,6 +34,7 @@ struct HudController : Behaviour {
       if (GameState::score > GameState::best) {
         GameState::best = GameState::score;
         Save::SaveInt("best", GameState::best);
+        GameState::Sfx(GameState::kSfxSave);
       }
       Debug::Log("rensga: platformer won score=%d best=%d", static_cast<int>(GameState::score), static_cast<int>(GameState::best));
     }

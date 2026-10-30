@@ -8,11 +8,16 @@
 // setVideo() before init(). Interlace is selectable (see GsVideo). Every frame ends with gsKit_sync_flip, which waits
 // for vsync, so the frame rate is locked to 60 (NTSC) or 50 (PAL) fields per second.
 //
-// VRAM (4 MB): two 32-bit frame buffers (640x448x4 = 1.1 MB each) are allocated first by gsKit, no z buffer
-// (2D only; enableZBuffer(true) before init adds a 16-bit one for the later 3D path). Everything after that is the
-// texture area: a bump ring. A texture is uploaded the first time a frame draws it. When the area is full, the draw
-// queue is flushed, the ring restarts from the beginning and every texture is marked non-resident; the ones still
-// used are uploaded again on demand (a whole-ring LRU: coarse, but it costs no per-texture bookkeeping in VRAM).
+// VRAM (4 MB), explicit layout (see GsVramLayout, logged at init):
+//   [ frame buffer 0 | frame buffer 1 | z buffer (only with enableZBuffer, 16-bit; off today: 2D needs none) |
+//     CLUT area (kClutSlots x 1 KB) | texture area (8 KB GS pages, to the end of VRAM) ]
+// The frame buffers are 640x448 (NTSC) or 640x512 (PAL) 32-bit, allocated by gsKit_init_screen. Everything behind them
+// is managed here, not by gsKit's bump pointer. A texture is uploaded the first time a frame draws it and gets a run of
+// whole pages (first fit) plus a CLUT slot if it is CLUT4/CLUT8. When no run is free, the least recently used resident
+// texture is evicted. A texture already drawn since the last kick still has queued draws that read its VRAM, so it is
+// never overwritten before those draws run: the queue is kicked first (gsKit_queue_exec), then it may be evicted.
+// All tables are fixed-size; there is no heap use after init. Every kLogEveryFrames frames the renderer logs
+// "rensga: vram fb=<KB> tex=<KB used>/<KB area> clut=<KB used> free=<KB> evictions=<n> uploads=<n>" (totals).
 // Palettes are copied (RGBA8 alpha 0..255 -> GS alpha 0..128, CLUT8 entries swizzled for the GS CSM1 layout).
 // RGBA8 textures need their alpha converted too, so they pass through a 256 KB staging buffer (max 256x256).
 //
@@ -38,15 +43,19 @@ struct GsStats {
   u32 sprites = 0, rects = 0, glyphs = 0;  // drawn in the last frame
   u32 dropped = 0;                         // draws lost to the command cap in the last frame
   u32 uploads = 0;                         // texture uploads in the last frame
-  u32 ringWraps = 0;                       // VRAM ring restarts in the last frame
+  u32 kicks = 0;                           // mid-frame queue kicks forced by VRAM pressure in the last frame
+  u32 evictions = 0;                       // textures evicted from VRAM in the last frame
   u32 cpuMicros = 0;                       // EE time from beginFrame to the end of queueing (before the vsync wait)
-  u32 vramUsed = 0;                        // VRAM bytes in use (frame buffers + textures) at the end of the last frame
+  u32 vramUsed = 0;                        // VRAM bytes in use (frame buffers + CLUT area + resident textures)
 };
 
 class GsRenderer : public IRenderer {
  public:
   static constexpr u32 kMaxTextures = 128;
   static constexpr u32 kMaxCommands = 8192;
+  static constexpr u32 kClutSlots = 32;       // 1 KB each (a CLUT8 palette); CLUT4 uses a slot too
+  static constexpr u32 kMaxPages = 512;       // 8 KB GS pages tracked (4 MB / 8 KB)
+  static constexpr u32 kLogEveryFrames = 120;
 
   // Call before init(). Without it the console's detected signal and field mode are used.
   void setVideo(const GsVideo& video) { video_ = video; videoSet_ = true; }
@@ -73,6 +82,9 @@ class GsRenderer : public IRenderer {
   void dumpFrameBuffers(const char* base);
   const GsStats& stats() const { return stats_; }
   const GsVideo& video() const { return video_; }
+  // Cumulative counters and layout, for tests and the periodic log line.
+  struct VramInfo { u32 fbBytes, areaBytes, usedBytes, clutBytes, freeBytes, evictions, uploads; };
+  VramInfo vramInfo() const;
 
  // Implementation types (public only so gs_renderer.cpp can keep its fixed tables at file scope).
   struct Command {  // 48 bytes
@@ -87,14 +99,19 @@ class GsRenderer : public IRenderer {
  private:
   bool push(const Command& c);
   bool ensureResident(Tex& t);
-  void flushRing();
+  void kick();
+  bool allocPages(Tex& t, u32 pages, u32 index);
+  void evict(u32 index);
+  void logVram() const;
 
   u32 w_ = 0, h_ = 0, vw_ = 0, vh_ = 0;
   GsVideo video_;
   bool videoSet_ = false, zbuffer_ = false;
   void* gs_ = nullptr;
   u32 texCount_ = 0, cmdCount_ = 0;
-  u32 generation_ = 1;
+  u32 useClock_ = 0, kickEpoch_ = 1;                      // LRU clock; bumps when the queue is kicked
+  u32 fbBytes_ = 0, pageBase_ = 0, pageCount_ = 0, clutBase_ = 0;  // layout (bytes / pages)
+  u32 evictionsTotal_ = 0, uploadsTotal_ = 0, frameNo_ = 0;
   GsStats stats_;
   GsStats frame_;
   u32 frameStartTicks_ = 0;

@@ -39,9 +39,29 @@ Version 2 adds the `tag` field to `OBJS` and the asset sections below. A v1 pack
 | `BLOB` | bytes | v2 payloads: pixels, palettes, PCM, tiles, frame rects. Every payload starts on a 16-byte boundary inside it. Records below hold byte offsets from the start of `BLOB`. |
 | `TEXR` | `PackTexRec` 48 B | `Guid`, `width`, `height`, `format` (0 RGBA8, 1 CLUT4, 2 CLUT8), `pixelOffset`, `pixelBytes`, `paletteOffset`, `paletteCount` (0, 16 or 256). |
 | `AUDI` | `PackAudioRec` 48 B | `Guid`, `sampleRate`, `channels` (1 or 2), `frameCount`, `loopStart`, `loopEnd` (frames), `dataOffset`, `loops`. Interleaved signed 16-bit PCM. |
-| `TMAP` | `PackTilemapRec` 48 B | `Guid`, `width`, `height` (tiles), `tileSize` (px), `tilesetTexture` (TEXR index), `tilesOffset` (u16 per tile, row-major; 65535 = empty), `solidOffset`, `solidCount` (u8 per tileset tile). |
+| `TMAP` | `PackTilemapRec` 48 B | `Guid`, `width`, `height` (tiles), `tileSize` (px), `tilesetTexture` (TEXR index), `tilesOffset` (u16 per tile, row-major; 65535 = empty), `solidOffset`, `solidCount` (one flag byte per tileset tile, see "Tile flags"). |
 | `ANIM` | `PackAnimRec` 48 B | `Guid`, `nameStr`, `texture` (TEXR index), `frameCount`, `framesOffset` (`PackFrameRect` {u16 x, y, w, h}), `fps` (integer), `loop`. One record per clip. |
 | `FONT` | `PackFontRec` 160 B | `Guid`, `texture` (TEXR index), `glyphW`, `glyphH`, `firstChar`, `charCount` (at most 128), `columns`, `lineHeight`, `advance[128]`. Self-contained, so `IRenderer::drawText` takes it by reference. Font 0 of every pack is the cooker's built-in 8x8 ASCII font (`00000000-0000-4000-8000-00000000f0f1`, texture `...f0f0`, 95 glyphs from char 32). |
+
+### Tile flags (TMAP)
+
+Each tileset tile has one flag byte. The pack version does not change: a byte of 1 is a full solid block, which is how every earlier pack reads, and a reader that only tests "not zero" still treats every flagged tile as solid.
+
+| Bits | Name | Meaning |
+| --- | --- | --- |
+| 0 | `kSolid` | Full block. Blocks from every side. |
+| 1 | `kOneWay` | Blocks only a box that falls onto its top edge (previous bottom edge at or above the top). Moving up, sideways or standing inside it does not block. `BoxCollider2D::DropThrough` (or Down + South in `Move`) ignores it until the box has fallen past. |
+| 2..4 | slope | Shape 0..6: none, `45L`, `45R`, `22L_lo`, `22L_hi`, `22R_lo`, `22R_hi`. |
+
+Slope heights are in sixteenths of the tile, up from the tile's bottom edge, left edge to right edge. `L` is high on the left (`\`), `R` is high on the right (`/`): `45L` 16 to 0, `45R` 0 to 16, `22L_hi` 16 to 8, `22L_lo` 8 to 0, `22R_lo` 0 to 8, `22R_hi` 8 to 16. A 22.5 degree slope uses two tiles side by side (the `hi` tile on the high side). A slope supports from above only: the foot point (middle of the box's bottom edge) follows its surface while the box is grounded, and a box can run from a slope onto the level tile at its top.
+
+Source JSON (`*.tilemap.json`): `"solid": [ids]` (unchanged), `"oneWay": [ids]`, `"slopes": {"<id>": "45R", ...}`. A tile id may have only one of the three; the cooker reports the asset otherwise. A map with only `"solid"` cooks to the same bytes as before.
+
+### Layer collision matrix (PH2D)
+
+One `PackPhysics2D` record (128 B): `masks[32]`, where bit `b` of `masks[a]` set means layer `a` collides with layer `b`. The section is absent when the project has no `ProjectSettings/Physics2D.json`, and then every layer collides with every other. A `GameObject`'s layer is the low 5 bits of `PackObject::layer`. `Physics2D::loadFromPack` reads it when the pack is bound; `Physics2D::IgnoreLayerCollision` changes it at run time. `BoxCollider2D::Move` skips tilemaps whose object layer does not collide with the mover's, and trigger events check the pair.
+
+`Physics2D.json`: `{"format": 1, "layers": ["Default", "Player", "Enemy"], "ignore": [["Player", "Enemy"], [3, 4]]}`. Pairs use indices (0..31) or names from `layers`. Optional `"matrix"`: 32 bitmasks, applied before `ignore`. Pairs are made symmetric.
 
 ### Pixel and palette layout
 
@@ -63,8 +83,9 @@ Each component's blob holds its type's reflected fields in declaration order, ra
 
 ### Cooker output order
 
-STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, INPT, CTGT, BLOB, TEXR, AUDI, TMAP, ANIM, FONT. Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
+STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, INPT, CTGT, SCNE, BLOB, TEXR, AUDI, TMAP, ANIM, FONT, PH2D (only when `ProjectSettings/Physics2D.json` exists). Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
 | `SCNE` | `PackSceneRec` 32 B | F2.05 scene list in build-settings order: `Guid`, `nameStr` (file name without extension), `firstObject`, `objectCount`, reserved. OBJS, XFRM and COMP hold the objects of every scene, one contiguous block per scene; `objectIndex` and `parentIndex` stay global. A pack without SCNE is one scene. |
+| `PH2D` | `PackPhysics2D` 128 B | F2.05 2D layer collision matrix, one record, only when `ProjectSettings/Physics2D.json` exists (see "Layer collision matrix"). |
 
 ## Loading
 

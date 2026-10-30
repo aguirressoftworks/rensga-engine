@@ -40,7 +40,7 @@ jobs:
       # F2.G1: no phone on a runner, so this prints "android: built, not run (no device)". Run it locally with a phone attached.
       - run: tools/ci/android_device.sh
       - uses: actions/upload-artifact@v4
-        with: { name: rensga-hello-apk, path: build/ci/android/rensga-hello.apk }
+        with: { name: rensga-player-apk, path: build/ci/android/rensga-player.apk }
   ps2:
     runs-on: ubuntu-24.04
     steps:

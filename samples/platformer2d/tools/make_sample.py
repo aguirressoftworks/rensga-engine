@@ -205,6 +205,7 @@ write_json(os.path.join(root, "ProjectSettings/ConsoleTarget.json"), {
     "format": 1, "profile": "ps2", "scalar": "float", "resolution": [640, 448],
     "budgets": {"ramBytes": 33554432, "vramBytes": 4194304, "trianglesPerFrame": 100000, "maxObjects": 256, "maxComponentsPerType": 256},
     "textureFormats": ["clut4", "clut8", "rgba8"], "depth": "zbuffer", "media": "iso", "refreshHz": 60,
+    "audio": {"sampleRate": 22050, "voices": 16},
     "allowedComponents": ["SpriteRenderer", "SpriteAnimator", "Tilemap", "TilemapCollider", "BoxCollider2D", "UIText", "UIImage", "UIButton",
                           "PlayerController2D", "Coin", "HudController", "TitleMenu", "TitleScreen"]})
 write_json(os.path.join(root, "ProjectSettings/InputActions.json"), {"format": 1, "actions": [

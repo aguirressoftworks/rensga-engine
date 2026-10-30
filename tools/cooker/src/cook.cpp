@@ -196,6 +196,19 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
   const fs::path outDir = proj / "Library" / "Cooked" / opt.target;
   R.packPath = outDir / "game.rpak";
   R.reportPath = outDir / "budget-report.txt";
+  // Streamed audio (F2.04): files in <project>/Streaming/ are not packed. They are copied next to the pack and read
+  // through IFileSystem in chunks at run time (data:/music.wav). Done before the cache check so the copy is never skipped.
+  if (fs::is_directory(proj / "Streaming")) {
+    std::error_code ec;
+    fs::create_directories(outDir, ec);
+    for (const auto& e : fs::directory_iterator(proj / "Streaming")) {
+      if (!e.is_regular_file()) continue;
+      const fs::path dst = outDir / e.path().filename();
+      if (!fs::exists(dst, ec) || fs::file_size(dst, ec) != e.file_size() || fs::last_write_time(dst, ec) < e.last_write_time())
+        fs::copy_file(e.path(), dst, fs::copy_options::overwrite_existing, ec);
+      if (ec) cx.error("cannot copy streamed file " + e.path().filename().string() + ": " + ec.message(), "Streaming/" + e.path().filename().string());
+    }
+  }
   std::map<std::string, std::string> hashes;
   hashes["<cooker>"] = kCookerVersion;
   {
@@ -227,6 +240,7 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
   }
   if (!opt.force && fs::exists(R.packPath) && previous == hashes) {
     cx.info("cook: up to date (no input changed)");
+    cx.info("cook: cooked 0, cached 0 (whole project up to date)");
     R.ok = true;
     R.upToDate = true;
     return R;
@@ -491,7 +505,17 @@ lightDone:
       a.importSettings = kv.second.importSettings;
       srcs.push_back(std::move(a));
     }
-    cookAssets(srcs, *plugin, cooked, [&](CookMessage::Severity sv, const std::string& t, const std::string& rel, const std::string& g) { cx.msg(sv, t, rel, g); });
+    // Per-asset cache: Library/Cache/<target>/. The salt covers everything besides the asset itself that changes cooked bytes.
+    AssetCache cache;
+    cache.dir = proj / "Library" / "Cache" / opt.target;
+    cache.reuse = !opt.force;
+    const std::string consoleKey = "ProjectSettings/ConsoleTarget.json";
+    cache.salt = std::string(kCookerVersion) + "|" + opt.target + "|" + hashes[consoleKey] + "|" + hashes["<reflection>"];
+    cookAssets(srcs, *plugin, cooked, [&](CookMessage::Severity sv, const std::string& t, const std::string& rel, const std::string& g) { cx.msg(sv, t, rel, g); },
+               &cache);
+    R.assetsCooked = cache.cooked;
+    R.assetsCached = cache.cached;
+    cx.info("cook: cooked " + std::to_string(cache.cooked) + ", cached " + std::to_string(cache.cached));
   }
   if (!R.errors.empty()) return R;
 
@@ -590,6 +614,8 @@ lightDone:
     ct.trianglesPerFrame = static_cast<u32>(target.trianglesPerFrame);
     ct.maxObjects = static_cast<u32>(target.maxObjects);
     ct.maxComponentsPerType = static_cast<u32>(target.maxComponentsPerType);
+    ct.audioSampleRate = target.audioSampleRate;
+    ct.audioVoices = target.audioVoices;
   }
 
   std::vector<PackSceneRec> pscenes;
@@ -617,6 +643,16 @@ lightDone:
   secs.push_back({pack_section::TMAP, bytesOf(cooked.tilemaps.data(), cooked.tilemaps.size() * sizeof(PackTilemapRec)), static_cast<u32>(cooked.tilemaps.size())});
   secs.push_back({pack_section::ANIM, bytesOf(panims.data(), panims.size() * sizeof(PackAnimRec)), static_cast<u32>(panims.size())});
   secs.push_back({pack_section::FONT, bytesOf(cooked.fonts.data(), cooked.fonts.size() * sizeof(PackFontRec)), static_cast<u32>(cooked.fonts.size())});
+  {
+    // F2.05: layer collision matrix; no section when the project has no Physics2D.json (everything collides).
+    std::string phText;
+    if (readText(settings / "Physics2D.json", phText)) {
+      PackPhysics2D ph = {};
+      std::string phErr;
+      if (!cookPhysics2D(phText, ph, phErr)) cx.error("ProjectSettings/Physics2D.json: " + phErr, "ProjectSettings/Physics2D.json");
+      else secs.push_back({pack_section::PH2D, bytesOf(&ph, sizeof ph), 1});
+    }
+  }
 
   const size_t packAlign = target.sectorAligned ? kPackSectorAlignment : kPackAlignment;
   auto align16 = [packAlign](size_t v) { return (v + packAlign - 1) & ~(packAlign - 1); };

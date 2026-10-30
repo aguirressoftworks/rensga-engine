@@ -354,6 +354,12 @@ void GlRenderer::drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 color) {
            0xFFFFFF00u);  // overlays sit on top of sprites
 }
 
+void GlRenderer::releaseUserTextures() {
+  if (!ready_) return;
+  for (u32 i = whiteTex_; i < texCount_; ++i) gl.DeleteTextures(1, &tex_[i].id);  // handle = index + 1
+  if (texCount_ > whiteTex_) texCount_ = whiteTex_;
+}
+
 u32 GlRenderer::uploadTexture(const TextureDesc& d) {
   if (!ready_ && !gl.GenTextures) return 0;
   if (!d.width || !d.height || !d.pixels || texCount_ >= kMaxTextures) return 0;

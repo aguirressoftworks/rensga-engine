@@ -75,6 +75,16 @@ class AudioMixer {
 
   u32 sampleRate() const { return rate_; }
 
+  // ---- optional CPU measurement (Engine 4 exercise). A runtime main passes a microsecond clock; with none set mix()
+  // measures nothing and stays pure. The numbers never feed back into the mixed samples.
+  typedef u64 (*ClockUsFn)();
+  struct MixStats {
+    u64 blocks = 0, frames = 0, totalUs = 0, maxUs = 0;
+  };
+  void setClock(ClockUsFn fn) { clock_ = fn; }
+  const MixStats& mixStats() const { return stats_; }
+  void resetMixStats() { stats_ = MixStats(); }
+
  private:
   struct Voice {
     const AudioClip* clip = nullptr;
@@ -112,6 +122,8 @@ class AudioMixer {
   void mixVoice(Voice& v, i32* acc, u32 frames);
   void mixMusic(i32* acc, u32 frames);
 
+  ClockUsFn clock_ = nullptr;
+  MixStats stats_;
   u32 rate_ = 0;
   u32 serial_ = 0;
   u32 stolen_ = 0;

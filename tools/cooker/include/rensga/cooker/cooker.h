@@ -19,6 +19,7 @@ struct ConsoleTargetData {
   uint32_t width = 0, height = 0;
   uint64_t ramBytes = 0, vramBytes = 0, trianglesPerFrame = 0, maxObjects = 0, maxComponentsPerType = 0;
   std::string depth, media;
+  uint32_t audioSampleRate = 22050, audioVoices = 16;  // optional "audio": {"sampleRate", "voices"}
   uint32_t refreshHz = 60;  // optional "refreshHz" (60 NTSC, 50 PAL); the loop's fixed step is 1/refreshHz
   std::vector<std::string> allowedComponents;
   bool sectorAligned = false;  // optional "packSectorAligned"; defaults to true for disc media (iso, disc, cd, dvd)
@@ -75,6 +76,7 @@ struct BudgetUsage {
 struct CookResult {
   bool ok = false;
   bool upToDate = false;  // nothing changed since the last cook
+  uint32_t assetsCooked = 0, assetsCached = 0;  // PNG/WAV assets cooked / reused from Library/Cache/<target>
   std::filesystem::path packPath, reportPath;
   BudgetUsage usage;
   std::vector<CookMessage> errors;
@@ -100,11 +102,27 @@ struct CookedAssets {
   std::vector<PackFontRec> fonts;
   uint64_t textureBytes = 0;
 };
+// Per-asset cook cache (F2.03). Entries are keyed by hash(source bytes + importSettings + salt), where the salt covers the
+// cooker version, target, ConsoleTarget and reflected layout, so any of them changing misses the cache. An entry is the
+// target plugin's output for one PNG or WAV (the expensive importers); the pack is assembled from it exactly as from a fresh
+// cook, so pack bytes do not depend on the cache.
+struct AssetCache {
+  std::filesystem::path dir;  // Library/Cache/<target>; empty = cache off
+  std::string salt;
+  bool reuse = true;          // false (--force): never read entries, still write them
+  uint32_t cooked = 0, cached = 0;  // out: PNG/WAV assets cooked this run / taken from the cache
+};
 // Cooks every asset with a known extension (.png, .wav, .tilemap.json, .anim.json, .font.json) plus the
 // default font, in project-path order. Reports errors (naming the asset and GUID) through `report`
 // and returns false if any failed.
 bool cookAssets(const std::vector<AssetSource>& sources, ICookerFormatPlugin& plugin, CookedAssets& out,
-                const std::function<void(CookMessage::Severity, const std::string& text, const std::string& rel, const std::string& guid)>& report);
+                const std::function<void(CookMessage::Severity, const std::string& text, const std::string& rel, const std::string& guid)>& report,
+                AssetCache* cache = nullptr);
+
+// F2.05: reads ProjectSettings/Physics2D.json into the PH2D matrix. Returns false and fills `error` on a bad file.
+// Format: {"format":1, "layers":["Default","Player",...], "ignore":[[a,b],...]}. a and b are layer indices or
+// names from "layers". Every pair not listed collides. Optional "matrix": 32 bitmasks, applied first.
+bool cookPhysics2D(const std::string& jsonText, PackPhysics2D& out, std::string& error);
 
 struct SceneBudgetInput {
   std::string sceneAsset;  // project-relative path

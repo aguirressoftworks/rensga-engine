@@ -106,6 +106,9 @@ struct Tilemap : Component {
   u32 tileSize() const;  // pixels
   // 0xFFFF for empty or out of range.
   u16 TileAt(i32 tx, i32 ty) const;
+  // Flag byte of a tileset tile (PackTileFlag bits, see pack_format.h); 0 for empty or unknown tiles.
+  u8 TileFlags(u16 tile) const;
+  // Full solid block (flag bit 0). Slopes and one-way tiles are not "solid" here.
   bool IsSolidTile(u16 tile) const;
   // Out-of-range cells report `outside`.
   bool IsSolidCell(i32 tx, i32 ty, bool outside) const;
@@ -119,6 +122,18 @@ struct TilemapCollider : Component {
   TOOLTIP("Cells outside the map count as solid walls.")
   SERIALIZE_FIELD(bool, solidOutside, true)
 };
+
+// Layer collision matrix (32 x 32), from ProjectSettings/Physics2D.json (pack section PH2D); the default is that
+// every layer collides with every other. The layer of an object is GameObject::layer (low 5 bits). Tilemap
+// collision and trigger events check it.
+namespace Physics2D {
+constexpr u32 kLayerCount = 32;
+void IgnoreLayerCollision(u32 layerA, u32 layerB, bool ignore = true);
+bool GetIgnoreLayerCollision(u32 layerA, u32 layerB);
+void resetMatrix();                              // all layers collide
+void loadFromPack(const PackView* pack);         // PH2D if present, else resetMatrix
+bool layersCollide(const GameObject* a, const GameObject* b);
+}  // namespace Physics2D
 
 // Result of BoxCollider2D::Move.
 struct Move2DResult {
@@ -138,12 +153,62 @@ struct BoxCollider2D : Component {
   Rect bounds() const;
   bool Overlaps(const BoxCollider2D& other) const { return bounds().Overlaps(other.bounds()); }
   // Moves the object by (dx, dy) in virtual pixels, X first and then Y, stopping at solid tiles.
-  // Sets `grounded` when the box rests on a solid tile (also when it did not move this call).
+  // Slopes: while grounded the box follows the slope surface up and down (the foot point is the middle of the
+  // box's bottom edge). One-way tiles block only a box that falls onto their top edge. Slopes and one-way tiles
+  // support from above only. Tilemaps on layers that do not collide with this object's layer are skipped.
+  // Sets `grounded` when the box rests on a tile (also when it did not move this call).
   Move2DResult Move(Scalar dx, Scalar dy);
-  // True when a solid tile lies directly under the box.
+  // True when a solid tile, one-way tile or slope lies directly under the box.
   bool CheckGround() const;
+  // Ignores the one-way tile the box stands on until the box has fallen past it. False if it stands on none.
+  bool DropThrough();
 
   bool grounded = false;  // runtime: result of the last Move / CheckGround
+  // Runtime: Down held + South pressed while standing on a one-way tile calls DropThrough inside Move.
+  bool autoDropThrough = true;
+  bool dropping = false;
+  Scalar dropY = 0;  // bottom edge where the drop started
+};
+
+// Follows `target` (a GameObject GUID) with a dead zone and clamps the view to the bounds. renderGameplay2D scrolls
+// tilemaps and sprites by the first enabled Camera2D (UI stays in screen space). The view is the rectangle
+// (viewX, viewY, viewWidth, viewHeight) in virtual pixels; it is updated in LateUpdate, or call UpdateView().
+struct Camera2D : Behaviour {
+  REFLECT(Camera2D)
+  HEADER("Follow")
+  SERIALIZE_FIELD(Guid, target, Guid())
+  TOOLTIP("Pixels added to the target's Transform position to get the point that is kept in view (for example half the sprite size).")
+  SERIALIZE_FIELD(Scalar, targetOffsetX, 0.0f)
+  SERIALIZE_FIELD(Scalar, targetOffsetY, 0.0f)
+  TOOLTIP("The target moves freely inside this box at the middle of the view; the camera moves only when it leaves it.")
+  SERIALIZE_FIELD(Scalar, deadZoneW, 32.0f)
+  SERIALIZE_FIELD(Scalar, deadZoneH, 24.0f)
+  HEADER("Bounds")
+  TOOLTIP("Clamp the view to a rectangle.")
+  SERIALIZE_FIELD(bool, useBounds, false)
+  TOOLTIP("Object with a Tilemap whose area is the bounds. Null uses the rectangle below.")
+  SERIALIZE_FIELD(Guid, boundsTilemap, Guid())
+  SERIALIZE_FIELD(Scalar, boundsX, 0.0f)
+  SERIALIZE_FIELD(Scalar, boundsY, 0.0f)
+  SERIALIZE_FIELD(Scalar, boundsW, 320.0f)
+  SERIALIZE_FIELD(Scalar, boundsH, 240.0f)
+  HEADER("View")
+  TOOLTIP("Round the view position to whole pixels.")
+  SERIALIZE_FIELD(bool, pixelSnap, true)
+  TOOLTIP("0 uses the renderer's virtual resolution.")
+  SERIALIZE_FIELD(Scalar, viewWidth, 0.0f)
+  SERIALIZE_FIELD(Scalar, viewHeight, 0.0f)
+
+  Scalar viewX = 0, viewY = 0;  // runtime: top-left of the view in world pixels
+
+  void LateUpdate() override { UpdateView(); }
+  void UpdateView();
+  Scalar effectiveViewWidth() const;
+  Scalar effectiveViewHeight() const;
+  // The first enabled, active Camera2D of the active World (null if none).
+  static Camera2D* main();
+  // Set by renderGameplay2D from the renderer; used when viewWidth/viewHeight are 0 (initially 320 x 240).
+  static void setDefaultViewSize(Scalar w, Scalar h);
 };
 
 // ---- UI (virtual pixels, screen space; the Transform is ignored) -----------------------------------------------

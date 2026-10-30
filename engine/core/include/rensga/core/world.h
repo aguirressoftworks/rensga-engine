@@ -146,8 +146,11 @@ class World {
   // `sceneIndex` picks one scene of a multi-scene pack (SCNE section); a pack without SCNE has one scene.
   // After the world started, the loaded objects wake up (Awake/OnEnable) before this returns.
   bool loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex = 0);
-  // Destroys every object now (scene change). Pools keep their capacity.
-  void destroyAllImmediate();
+  // Destroys every object now (scene change). Pools keep their capacity. With keepDontDestroy, root objects
+  // marked by dontDestroyOnLoad (and their children) survive.
+  void destroyAllImmediate(bool keepDontDestroy = false);
+  // Unity's DontDestroyOnLoad: a child is first moved to the scene root (world position kept).
+  void dontDestroyOnLoad(GameObject* go);
 
   Arena& arena() { return *arena_; }
 

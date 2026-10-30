@@ -33,7 +33,10 @@ struct PlayerController2D : Behaviour {
     const Scalar dt = Time::fixedDeltaTime();
     if (!GameState::won) ++GameState::fixedTicks;
     const bool canMove = !GameState::won;
-    if (jumpQueued && box->grounded && canMove) vy = -jumpSpeed;
+    if (jumpQueued && box->grounded && canMove) {
+      vy = -jumpSpeed;
+      GameState::Sfx(GameState::kSfxJump);
+    }
     jumpQueued = false;
     vy += gravity * dt;
     const Scalar vx = canMove ? axis * moveSpeed : 0.0f;

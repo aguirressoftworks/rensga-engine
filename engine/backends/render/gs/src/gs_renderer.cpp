@@ -26,13 +26,21 @@ struct GsRenderer::Tex {
   u8 format = 0;
   const void* pixels = nullptr;
   GSTEXTURE gs;
-  u32 generation = 0;  // == generation_ while resident in VRAM
+  u32 lastUse = 0;     // LRU clock value of the last draw
+  u32 epoch = 0;       // kickEpoch_ at the last draw: equal means queued draws still read this texture's VRAM
+  u16 firstPage = 0;
+  u16 pages = 0;       // 0 = not resident
+  u8 clutSlot = 0xFF;  // CLUT area slot while resident (CLUT4/CLUT8 only)
 };
 
 namespace {
 constexpr u32 kVramBytes = 4u * 1024 * 1024;
 alignas(64) ::u32 g_clut[GsRenderer::kMaxTextures][256];
 alignas(64) ::u32 g_staging[256 * 256];  // RGBA8 upload copy (alpha 0..255 -> 0..128)
+constexpr u32 kPageBytes = 8192;           // one GS page
+constexpr u32 kClutSlotBytes = 1024;       // 16x16 CT32 = 4 blocks
+u16 g_pageOwner[GsRenderer::kMaxPages];    // texture index + 1 per page, 0 = free
+u16 g_clutOwner[GsRenderer::kClutSlots];   // texture index + 1 per CLUT slot, 0 = free
 }  // namespace
 
 static GsRenderer::Tex* g_texStore = nullptr;
@@ -83,13 +91,21 @@ bool GsRenderer::init(u32, u32) {
   gsKit_init_screen(g);
   gsKit_mode_switch(g, GS_ONESHOT);
   gs_ = g;
+  // VRAM layout: gsKit placed the frame buffers (and the z buffer if on); the rest is ours.
+  fbBytes_ = static_cast<u32>(g->CurrentPointer);
+  clutBase_ = (fbBytes_ + kPageBytes - 1) / kPageBytes * kPageBytes;
+  pageBase_ = clutBase_ + kClutSlots * kClutSlotBytes;
+  pageCount_ = (kVramBytes - pageBase_) / kPageBytes;
+  if (pageCount_ > kMaxPages) pageCount_ = kMaxPages;
+  memset(g_pageOwner, 0, sizeof(g_pageOwner));
+  memset(g_clutOwner, 0, sizeof(g_clutOwner));
   w_ = static_cast<u32>(g->Width);
   h_ = static_cast<u32>(g->Height);
   vw_ = w_;
   vh_ = h_;
-  RLOG_INFO("gs", "renderer ready %ux%u %s %s, texture area %u KB", w_, h_, video_.pal ? "PAL" : "NTSC",
+  RLOG_INFO("gs", "renderer ready %ux%u %s %s, vram fb+z=%u KB clut=%u KB texture area=%u KB", w_, h_, video_.pal ? "PAL" : "NTSC",
             video_.interlace == GsInterlace::Field ? "interlaced-field" : (video_.interlace == GsInterlace::Frame ? "interlaced-frame" : "progressive"),
-            static_cast<unsigned>((kVramBytes - g->CurrentPointer) / 1024));
+            fbBytes_ / 1024, kClutSlots * kClutSlotBytes / 1024, pageCount_ * kPageBytes / 1024);
   return true;
 }
 
@@ -199,27 +215,83 @@ u32 GsRenderer::uploadTexture(const TextureDesc& d) {
   return texCount_;
 }
 
-void GsRenderer::flushRing() {
-  GSGLOBAL* g = static_cast<GSGLOBAL*>(gs_);
-  gsKit_queue_exec(g);  // draws queued so far still need their textures
-  gsKit_vram_clear(g);
-  ++generation_;
-  ++frame_.ringWraps;
+void GsRenderer::kick() {
+  gsKit_queue_exec(static_cast<GSGLOBAL*>(gs_));  // queued draws run now, so nothing reads old VRAM contents afterwards
+  ++kickEpoch_;
+  ++frame_.kicks;
+}
+
+void GsRenderer::evict(u32 index) {
+  Tex& v = g_texStore[index];
+  for (u32 p = 0; p < v.pages; ++p) g_pageOwner[v.firstPage + p] = 0;
+  if (v.clutSlot != 0xFF) g_clutOwner[v.clutSlot] = 0;
+  v.pages = 0;
+  v.clutSlot = 0xFF;
+  ++frame_.evictions;
+  ++evictionsTotal_;
+}
+
+// Picks the least recently used resident texture (with a CLUT slot if needClut) and evicts it. A victim whose draws are
+// still queued forces a kick first. Returns false when nothing can be evicted.
+static u32 lruVictim(const GsRenderer::Tex* store, u32 count, bool needClut) {
+  u32 best = 0xFFFFFFFFu;
+  for (u32 i = 0; i < count; ++i) {
+    const GsRenderer::Tex& t = store[i];
+    if (!t.pages || (needClut && t.clutSlot == 0xFF)) continue;
+    if (best == 0xFFFFFFFFu || t.lastUse < store[best].lastUse) best = i;
+  }
+  return best;
+}
+
+bool GsRenderer::allocPages(Tex& t, u32 pages, u32 index) {
+  (void)index;
+  // CLUT slot first (CLUT textures only), evicting LRU CLUT holders when all slots are taken.
+  if (t.format != tex_format::RGBA8) {
+    for (;;) {
+      u32 slot = kClutSlots;
+      for (u32 i = 0; i < kClutSlots; ++i)
+        if (!g_clutOwner[i]) { slot = i; break; }
+      if (slot < kClutSlots) { t.clutSlot = static_cast<u8>(slot); g_clutOwner[slot] = static_cast<u16>(index + 1); break; }
+      const u32 v = lruVictim(g_texStore, texCount_, true);
+      if (v == 0xFFFFFFFFu) return false;
+      if (g_texStore[v].epoch == kickEpoch_) kick();
+      evict(v);
+    }
+  }
+  for (;;) {
+    u32 run = 0, first = 0;
+    for (u32 p = 0; p < pageCount_; ++p) {
+      if (g_pageOwner[p]) { run = 0; continue; }
+      if (run == 0) first = p;
+      if (++run == pages) {
+        for (u32 q = 0; q < pages; ++q) g_pageOwner[first + q] = static_cast<u16>(index + 1);
+        t.firstPage = static_cast<u16>(first);
+        t.pages = static_cast<u16>(pages);
+        return true;
+      }
+    }
+    const u32 v = lruVictim(g_texStore, texCount_, false);
+    if (v == 0xFFFFFFFFu) break;
+    if (g_texStore[v].epoch == kickEpoch_) kick();
+    evict(v);
+  }
+  if (t.clutSlot != 0xFF) { g_clutOwner[t.clutSlot] = 0; t.clutSlot = 0xFF; }
+  return false;
 }
 
 bool GsRenderer::ensureResident(Tex& t) {
-  if (t.generation == generation_) return true;
+  t.lastUse = ++useClock_;
+  t.epoch = kickEpoch_;
+  if (t.pages) return true;
   GSGLOBAL* g = static_cast<GSGLOBAL*>(gs_);
   GSTEXTURE& gt = t.gs;
+  const u32 index = static_cast<u32>(&t - g_texStore);
   const u32 texBytes = gsKit_texture_size(static_cast<int>(t.width), static_cast<int>(t.height), gt.PSM);
-  const u32 clutBytes = t.format == tex_format::RGBA8 ? 0 : 2048;
-  if (g->CurrentPointer + texBytes + clutBytes + 4096 > kVramBytes) flushRing();
-  if (g->CurrentPointer + texBytes + clutBytes + 4096 > kVramBytes) return false;  // larger than the whole area
-  gt.Vram = gsKit_vram_alloc(g, texBytes, GSKIT_ALLOC_USERBUFFER);
-  if (!gt.Vram) return false;
+  const u32 pages = (texBytes + kPageBytes - 1) / kPageBytes;
+  if (pages > pageCount_ || !allocPages(t, pages, index)) return false;  // larger than the whole texture area
+  gt.Vram = pageBase_ + t.firstPage * kPageBytes;
   if (t.format != tex_format::RGBA8) {
-    gt.VramClut = gsKit_vram_alloc(g, gsKit_texture_size(t.format == tex_format::CLUT8 ? 16 : 8, t.format == tex_format::CLUT8 ? 16 : 2, GS_PSM_CT32), GSKIT_ALLOC_USERBUFFER);
-    if (!gt.VramClut) return false;
+    gt.VramClut = clutBase_ + t.clutSlot * kClutSlotBytes;
   } else {
     const u32* src = static_cast<const u32*>(t.pixels);
     const u32 n = t.width * t.height;
@@ -228,9 +300,23 @@ bool GsRenderer::ensureResident(Tex& t) {
   }
   FlushCache(0);  // the DMA reads EE memory directly: write back what the CPU just wrote (palettes, staging, pack data)
   gsKit_texture_upload(g, &gt);
-  t.generation = generation_;
   ++frame_.uploads;
+  ++uploadsTotal_;
+  t.epoch = kickEpoch_;  // a kick during allocation moved the epoch on; the draw about to be queued belongs to the new one
   return true;
+}
+
+GsRenderer::VramInfo GsRenderer::vramInfo() const {
+  u32 used = 0, clut = 0;
+  for (u32 p = 0; p < pageCount_; ++p) used += g_pageOwner[p] ? kPageBytes : 0;
+  for (u32 i = 0; i < kClutSlots; ++i) clut += g_clutOwner[i] ? kClutSlotBytes : 0;
+  return VramInfo{fbBytes_, pageCount_ * kPageBytes, used, clut, pageCount_ * kPageBytes - used, evictionsTotal_, uploadsTotal_};
+}
+
+void GsRenderer::logVram() const {
+  const VramInfo v = vramInfo();
+  RLOG_INFO("gs", "rensga: vram fb=%uKB tex=%uKB used/%uKB area clut=%uKB free=%uKB evictions=%u uploads=%u", v.fbBytes / 1024,
+            v.usedBytes / 1024, v.areaBytes / 1024, v.clutBytes / 1024, v.freeBytes / 1024, v.evictions, v.uploads);
 }
 
 void GsRenderer::endFrame() {
@@ -256,8 +342,10 @@ void GsRenderer::endFrame() {
   gsKit_queue_exec(g);
   frame_.cpuMicros = static_cast<u32>((eeTicks() - frameStartTicks_) / 295u);
   gsKit_sync_flip(g);
-  frame_.vramUsed = g->CurrentPointer;
+  const VramInfo vi = vramInfo();
+  frame_.vramUsed = clutBase_ + kClutSlots * kClutSlotBytes + vi.usedBytes;
   stats_ = frame_;
+  if (++frameNo_ % kLogEveryFrames == 0) logVram();
 }
 
 void GsRenderer::dumpFrameBuffers(const char* base) {

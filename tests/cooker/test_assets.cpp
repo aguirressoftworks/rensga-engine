@@ -313,3 +313,76 @@ TEST(assets_pack_watcher_sees_rewrite) {
   CHECK(w.check());
   fs::remove(f);
 }
+
+// F2.03 per-asset cache: a temp copy of the project is cooked repeatedly; counts come from CookResult.
+TEST(assets_cook_cache_reuses_unchanged_assets) {
+  const fs::path tmp = fs::temp_directory_path() / "rensga_cache_test";
+  fs::remove_all(tmp);
+  fs::create_directories(tmp);
+  for (const auto& e : fs::recursive_directory_iterator(fixture())) {
+    const fs::path rel = fs::relative(e.path(), fixture());
+    if (*rel.begin() == "Library") continue;
+    if (e.is_directory()) fs::create_directories(tmp / rel);
+    else fs::copy_file(e.path(), tmp / rel, fs::copy_options::overwrite_existing);
+  }
+  auto cook = [&](const char* target, bool force) {
+    CookOptions o;
+    o.project = tmp;
+    o.target = target;
+    o.force = force;
+    return cookProject(o);
+  };
+  for (const char* target : {"ps2", "linux"}) {
+    CookResult first = cook(target, false);
+    CHECK(first.ok && !first.upToDate);
+    CHECK_EQ(first.assetsCooked, 3u);  // noisy.png, tileset.png, sfx.wav
+    CHECK_EQ(first.assetsCached, 0u);
+    // Nothing changed: the whole-project skip applies, so no asset is cooked.
+    CookResult second = cook(target, false);
+    CHECK(second.ok && second.upToDate);
+    CHECK_EQ(second.assetsCooked, 0u);
+    // A project file changes but no asset does: the pack is rebuilt, every asset comes from the cache.
+    {
+      std::ofstream(tmp / "ProjectSettings" / "InputActions.json", std::ios::binary | std::ios::app) << "\n";
+    }
+    CookResult third = cook(target, false);
+    CHECK(third.ok && !third.upToDate);
+    CHECK_EQ(third.assetsCooked, 0u);
+    CHECK_EQ(third.assetsCached, 3u);
+    const std::vector<uint8_t> cachedPack = readAll(third.packPath);
+    // One PNG changes (bytes appended after IEND, which the decoder ignores): exactly that one is cooked again.
+    {
+      std::ofstream(tmp / "Assets" / "Tiles" / "noisy.png", std::ios::binary | std::ios::app) << "touched";
+    }
+    CookResult fourth = cook(target, false);
+    CHECK(fourth.ok);
+    CHECK_EQ(fourth.assetsCooked, 1u);
+    CHECK_EQ(fourth.assetsCached, 2u);
+    const std::vector<uint8_t> partlyCached = readAll(fourth.packPath);
+    CHECK(partlyCached == cachedPack);  // same pixels, so the same pack
+    // --force ignores the cache and must produce the same bytes.
+    CookResult forced = cook(target, true);
+    CHECK(forced.ok);
+    CHECK_EQ(forced.assetsCooked, 3u);
+    CHECK_EQ(forced.assetsCached, 0u);
+    CHECK(readAll(forced.packPath) == partlyCached);
+    // An import setting change misses only that asset's entry.
+    const fs::path meta = tmp / "Assets" / "Tiles" / "tileset.png.meta";
+    std::string m;
+    { std::ifstream in(meta, std::ios::binary); m.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()); }
+    const std::string fmt = target;  // any change to importSettings misses the entry; unknown keys are ignored by the importer
+    const size_t at = m.find("\"importSettings\"");
+    CHECK(at != std::string::npos);
+    const size_t open = m.find(static_cast<char>(0x7b), at), close = m.find(static_cast<char>(0x7d), open);
+    m.replace(open, close - open + 1, "\x7b\"note\":\"" + fmt + "\"\x7d");
+    std::ofstream(meta, std::ios::binary | std::ios::trunc) << m;
+    CookResult fifth = cook(target, false);
+    CHECK(fifth.ok);
+    CHECK_EQ(fifth.assetsCooked, 1u);
+    CookResult sixth = cook(target, true);
+    CHECK(sixth.ok);
+    CHECK(readAll(sixth.packPath) == readAll(fifth.packPath));
+    fs::remove_all(tmp / "Library");
+  }
+  fs::remove_all(tmp);
+}

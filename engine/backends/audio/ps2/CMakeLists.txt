@@ -9,5 +9,5 @@ add_library(rensga_audio_ps2 STATIC src/ps2_audio.cpp src/audsrv_blob.cpp ${RENS
 set_source_files_properties(${RENSGA_AUDSRV_C} PROPERTIES HEADER_FILE_ONLY TRUE)
 target_include_directories(rensga_audio_ps2 PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 target_include_directories(rensga_audio_ps2 PUBLIC include)
-target_link_libraries(rensga_audio_ps2 PUBLIC rensga_core audsrv)
+target_link_libraries(rensga_audio_ps2 PUBLIC rensga_core audsrv patches)
 rensga_runtime_target(rensga_audio_ps2)

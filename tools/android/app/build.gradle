@@ -1,16 +1,19 @@
-// Engine 0 APK: SDLActivity (SDL2 2.30.8 java sources from $SDL2_ROOT) + libmain.so built by the repo's CMake
-// (RENSGA_TARGET=android -> engine/runtime/main_hello.cpp, platform/sdl, render/gl).
+// F2.01 APK: SDLActivity (SDL2 2.30.8 java sources from $SDL2_ROOT) + libmain.so = the engine player built by the repo's CMake
+// (RENSGA_TARGET=android -> engine/runtime/main_desktop.cpp, platform/sdl with touch controls, render/gl). The cooked pack of
+// the sample project is an APK asset (assets/game.rpak, copied by tools/ci/android.sh into tools/android/build/assets) and is
+// read through data:/ -> SDL_RWFromFile. The project's scripts are compiled into the player (RENSGA_PROJECT_DIR).
 plugins { id 'com.android.application' }
 
 def sdlRoot = System.getenv('SDL2_ROOT') ?: '/opt/SDL2-2.30.8'
+def projectDir = System.getenv('RENSGA_PROJECT_DIR') ?: "${rootProject.projectDir}/../../samples/platformer2d"
 
 android {
-    namespace 'com.rensga.hello'
+    namespace 'com.rensga.player'
     compileSdk 34
     buildToolsVersion '34.0.0'
     ndkVersion '26.1.10909125'
     defaultConfig {
-        applicationId 'com.rensga.hello'
+        applicationId 'com.rensga.player'
         minSdk 24
         targetSdk 34
         versionCode 1
@@ -19,11 +22,12 @@ android {
         externalNativeBuild {
             cmake {
                 arguments '-DRENSGA_TARGET=android', '-DRENSGA_BUILD_TESTS=OFF', '-DRENSGA_BUILD_TOOLS=OFF',
-                          '-DRENSGA_BUILD_EDITOR=OFF', "-DSDL2_ROOT=${sdlRoot}",
+                          '-DRENSGA_BUILD_EDITOR=OFF', "-DSDL2_ROOT=${sdlRoot}", "-DRENSGA_PROJECT_DIR=${projectDir}",
                           "-DRENSGA_REFLECT_DIR=${rootProject.projectDir}/build/reflect"  // host prescan (tools/android/build.sh)
             }
         }
     }
+    sourceSets.main.assets.srcDirs += "${rootProject.projectDir}/build/assets"  // game.rpak (+ music.wav), see tools/ci/android.sh
     sourceSets.main.java.srcDirs += "${sdlRoot}/android-project/app/src/main/java"
     externalNativeBuild {
         cmake { path file('../../../CMakeLists.txt') }  // CMake 3.28.6 via cmake.dir in local.properties (tools/android/build.sh)

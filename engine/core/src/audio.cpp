@@ -38,6 +38,7 @@ bool AudioMixer::init(u32 sampleRate, IFileSystem* fs) {
   music_.handle = -1;
   serial_ = 0;
   stolen_ = 0;
+  stats_ = MixStats();
   master_ = kUnity;
   return true;
 }
@@ -315,6 +316,7 @@ void AudioMixer::mixMusic(i32* acc, u32 frames) {
 }
 
 void AudioMixer::mix(i16* out, u32 frames) {
+  const u64 t0 = clock_ ? clock_() : 0;
   i32 acc[kMixChunk * 2];
   u32 done = 0;
   while (done < frames) {
@@ -330,6 +332,13 @@ void AudioMixer::mix(i16* out, u32 frames) {
       out[(done * 2) + i] = static_cast<i16>(s);
     }
     done += n;
+  }
+  if (clock_) {
+    const u64 us = clock_() - t0;
+    ++stats_.blocks;
+    stats_.frames += frames;
+    stats_.totalUs += us;
+    if (us > stats_.maxUs) stats_.maxUs = us;
   }
 }
 

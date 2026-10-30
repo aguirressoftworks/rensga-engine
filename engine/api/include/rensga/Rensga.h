@@ -6,7 +6,8 @@
 //   GetButtonDown by action name, Debug::Log, Ref<T>, and the REFLECT / SERIALIZE_FIELD / RANGE /
 //   HEADER macros. Game code uses Scalar, never float.
 //   F2.05 gameplay: SpriteRenderer, SpriteAnimator, Tilemap, TilemapCollider, BoxCollider2D (Move), UIText,
-//   UIImage, UIButton (OnUIClick), SceneManager::LoadScene, Save::SaveFile / LoadFile / SaveInt / LoadInt.
+//   UIImage, UIButton (OnUIClick), Camera2D, Physics2D::IgnoreLayerCollision, DontDestroyOnLoad (Object.h),
+//   SceneManager::LoadScene, Save::SaveFile / LoadFile / SaveInt / LoadInt.
 #pragma once
 #include "rensga/core/application.h"
 #include "rensga/core/components.h"

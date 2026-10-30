@@ -33,6 +33,7 @@ void GfxAssets::bind(const PackView* pack, const PackAssets* assets, const u32* 
   for (u32 i = 0; i < g_handleCount; ++i) g_handles[i] = handles ? handles[i] : 0;
   g_bound = assets != nullptr;
   g_focusSlot = kInvalidIndex;
+  Physics2D::loadFromPack(pack);
 }
 void GfxAssets::unbind() { bind(nullptr, nullptr, nullptr, 0); }
 bool GfxAssets::bound() { return g_bound; }
@@ -136,16 +137,56 @@ u16 Tilemap::TileAt(i32 tx, i32 ty) const {
   if (!r || tx < 0 || ty < 0 || static_cast<u32>(tx) >= r->width || static_cast<u32>(ty) >= r->height) return 0xFFFF;
   return GfxAssets::assets().tilemapTiles(*r)[static_cast<u32>(ty) * r->width + static_cast<u32>(tx)];
 }
-bool Tilemap::IsSolidTile(u16 tile) const {
+u8 Tilemap::TileFlags(u16 tile) const {
   const PackTilemapRec* r = record();
-  if (!r || tile == 0xFFFF || tile >= r->solidCount) return false;
-  return GfxAssets::assets().tilemapSolid(*r)[tile] != 0;
+  if (!r || tile == 0xFFFF || tile >= r->solidCount) return 0;
+  return GfxAssets::assets().tilemapSolid(*r)[tile];
 }
+bool Tilemap::IsSolidTile(u16 tile) const { return (TileFlags(tile) & PackTileFlag::kSolid) != 0; }
 bool Tilemap::IsSolidCell(i32 tx, i32 ty, bool outside) const {
   const PackTilemapRec* r = record();
   if (!r) return false;
   if (tx < 0 || ty < 0 || static_cast<u32>(tx) >= r->width || static_cast<u32>(ty) >= r->height) return outside;
   return IsSolidTile(TileAt(tx, ty));
+}
+
+// ---- Physics2D layer matrix ---------------------------------------------------------------------------------------
+namespace {
+u32 g_layerMasks[Physics2D::kLayerCount];
+bool g_layerInit = false;
+void initMatrix() {
+  if (g_layerInit) return;
+  for (u32& m : g_layerMasks) m = 0xFFFFFFFFu;
+  g_layerInit = true;
+}
+}  // namespace
+
+void Physics2D::resetMatrix() {
+  g_layerInit = false;
+  initMatrix();
+}
+void Physics2D::IgnoreLayerCollision(u32 a, u32 b, bool ignore) {
+  if (a >= kLayerCount || b >= kLayerCount) return;
+  initMatrix();
+  if (ignore) { g_layerMasks[a] &= ~(1u << b); g_layerMasks[b] &= ~(1u << a); }
+  else { g_layerMasks[a] |= 1u << b; g_layerMasks[b] |= 1u << a; }
+}
+bool Physics2D::GetIgnoreLayerCollision(u32 a, u32 b) {
+  if (a >= kLayerCount || b >= kLayerCount) return false;
+  initMatrix();
+  return (g_layerMasks[a] & (1u << b)) == 0;
+}
+void Physics2D::loadFromPack(const PackView* pack) {
+  resetMatrix();
+  if (!pack) return;
+  const PackPhysics2D* ph = pack->records<PackPhysics2D>(pack_section::PH2D);
+  if (!ph) return;
+  for (u32 i = 0; i < kLayerCount; ++i) g_layerMasks[i] = ph->masks[i];
+}
+bool Physics2D::layersCollide(const GameObject* a, const GameObject* b) {
+  if (!a || !b) return true;
+  initMatrix();
+  return (g_layerMasks[a->layer & 31u] & (1u << (b->layer & 31u))) != 0;
 }
 
 // ---- BoxCollider2D ----------------------------------------------------------------------------------------------
@@ -158,24 +199,66 @@ Rect BoxCollider2D::bounds() const {
 
 namespace {
 
-// Tile range of `box` inside `tm`: true if any solid cell overlaps. Fills the min/max solid cell hit.
+constexpr Scalar kLandTol = 0.5f;  // a box this far inside a surface still counts as having been above it
+constexpr Scalar kMaxPush = 32.0f;  // deepest overlap with a slope that is pushed out (the box is not tunnelling further)
+
+// Cell flags with the "outside" rule. Cells outside the map are solid walls when `outside` is set.
+u8 cellFlags(const Tilemap& tm, i32 tx, i32 ty, bool outside) {
+  const PackTilemapRec* r = tm.record();
+  if (!r) return 0;
+  if (tx < 0 || ty < 0 || static_cast<u32>(tx) >= r->width || static_cast<u32>(ty) >= r->height) return outside ? PackTileFlag::kSolid : 0;
+  return tm.TileFlags(tm.TileAt(tx, ty));
+}
+u32 slopeOf(u8 f) { return (f & PackTileFlag::kSlopeMask) >> PackTileFlag::kSlopeShift; }
+bool isFull(u8 f) { return (f & PackTileFlag::kSolid) != 0; }
+bool isOneWay(u8 f) { return (f & PackTileFlag::kSolid) == 0 && (f & PackTileFlag::kOneWay) != 0 && slopeOf(f) == 0; }
+
+// Tilemap geometry in world pixels.
+struct Geo {
+  const Tilemap* tm = nullptr;
+  Vector2 o;
+  Scalar tw = 0, th = 0;
+  bool outside = true;
+  i32 cellX(Scalar x) const { return static_cast<i32>(Mathf::Floor((x - o.x) / tw)); }
+  i32 cellY(Scalar y) const { return static_cast<i32>(Mathf::Floor((y - o.y) / th)); }
+};
+
+// Calls fn(Geo&) for every enabled TilemapCollider whose layer collides with `mover`'s. fn returns true to stop.
+template <class F>
+void eachMap(World& world, const GameObject* mover, F fn) {
+  bool done = false;
+  world.forEach<TilemapCollider>([&](TilemapCollider& tc) {
+    if (done || !tc.enabled()) return;
+    GameObject* go = tc.gameObject();
+    if (!go || !go->activeInHierarchy()) return;
+    if (mover && !Physics2D::layersCollide(mover, go)) return;
+    Tilemap* tm = go->GetComponent<Tilemap>();
+    const PackTilemapRec* r = tm ? tm->record() : nullptr;
+    if (!r || r->tileSize == 0) return;
+    Geo g;
+    g.tm = tm;
+    g.o = tm->origin();
+    const Vector3 sc = tm->transform()->lossyScale();
+    const Scalar ts = static_cast<Scalar>(r->tileSize);
+    g.tw = ts * absS(sc.x);
+    g.th = ts * absS(sc.y);
+    g.outside = tc.solidOutside;
+    done = fn(g);
+  });
+}
+
+// Tile range of `box` inside `g`: true if any full solid cell overlaps. Fills the min/max solid cell hit.
 struct SolidHit { i32 minX = 0, maxX = 0, minY = 0, maxY = 0; };
 
-bool solidOverlap(const Tilemap& tm, bool outside, const Rect& box, SolidHit* hit) {
-  const PackTilemapRec* r = tm.record();
-  if (!r || r->tileSize == 0) return false;
-  const Vector2 o = tm.origin();
-  const Vector3 sc = tm.transform()->lossyScale();
-  const Scalar ts = static_cast<Scalar>(r->tileSize);
-  const Scalar tw = ts * absS(sc.x), th = ts * absS(sc.y);
-  const i32 x0 = static_cast<i32>(Mathf::Floor((box.x - o.x) / tw));
-  const i32 x1 = static_cast<i32>(Mathf::Floor((box.x + box.width - kEps - o.x) / tw));
-  const i32 y0 = static_cast<i32>(Mathf::Floor((box.y - o.y) / th));
-  const i32 y1 = static_cast<i32>(Mathf::Floor((box.y + box.height - kEps - o.y) / th));
+bool solidOverlap(const Geo& g, const Rect& box, SolidHit* hit) {
+  const i32 x0 = g.cellX(box.x);
+  const i32 x1 = g.cellX(box.x + box.width - kEps);
+  const i32 y0 = g.cellY(box.y);
+  const i32 y1 = g.cellY(box.y + box.height - kEps);
   bool any = false;
   for (i32 y = y0; y <= y1; ++y)
     for (i32 x = x0; x <= x1; ++x) {
-      if (!tm.IsSolidCell(x, y, outside)) continue;
+      if (!isFull(cellFlags(*g.tm, x, y, g.outside))) continue;
       if (!any) { if (hit) { hit->minX = hit->maxX = x; hit->minY = hit->maxY = y; } any = true; }
       else if (hit) {
         if (x < hit->minX) hit->minX = x;
@@ -187,21 +270,94 @@ bool solidOverlap(const Tilemap& tm, bool outside, const Rect& box, SolidHit* hi
   return any;
 }
 
-// First tilemap collider whose solid cells overlap `box`.
-bool anySolid(World& world, const Rect& box, const Tilemap** mapOut, SolidHit* hit) {
+// First tilemap collider whose full solid cells overlap `box`.
+bool anySolid(World& world, const GameObject* mover, const Rect& box, Geo* geoOut, SolidHit* hit) {
   bool found = false;
-  world.forEach<TilemapCollider>([&](TilemapCollider& tc) {
-    if (found || !tc.enabled()) return;
-    GameObject* go = tc.gameObject();
-    if (!go || !go->activeInHierarchy()) return;
-    Tilemap* tm = go->GetComponent<Tilemap>();
-    if (!tm) return;
-    if (solidOverlap(*tm, tc.solidOutside, box, hit)) {
-      found = true;
-      if (mapOut) *mapOut = tm;
-    }
+  eachMap(world, mover, [&](Geo& g) {
+    if (!solidOverlap(g, box, hit)) return false;
+    found = true;
+    if (geoOut) *geoOut = g;
+    return true;
   });
   return found;
+}
+
+// One-way landing: the highest top edge (smallest y) of a one-way cell under `box` that the box was above at
+// `oldBottom`. Cells at or above `ignoreTop` are skipped while a drop-through is active.
+bool oneWayTop(World& world, const GameObject* mover, const Rect& box, Scalar oldBottom, bool dropping, Scalar dropY, Scalar* topOut) {
+  bool found = false;
+  Scalar best = 0;
+  eachMap(world, mover, [&](Geo& g) {
+    const i32 x0 = g.cellX(box.x), x1 = g.cellX(box.x + box.width - kEps);
+    const i32 y0 = g.cellY(box.y), y1 = g.cellY(box.y + box.height - kEps);
+    for (i32 y = y0; y <= y1; ++y)
+      for (i32 x = x0; x <= x1; ++x) {
+        if (!isOneWay(cellFlags(*g.tm, x, y, false))) continue;
+        const Scalar top = g.o.y + static_cast<Scalar>(y) * g.th;
+        if (oldBottom > top + kEps) continue;
+        if (dropping && top <= dropY + kEps) continue;
+        if (!found || top < best) { best = top; found = true; }
+      }
+    return false;
+  });
+  if (found) *topOut = best;
+  return found;
+}
+
+// Slope surface under the box. The box rests on the highest surface under its bottom edge (sampled at the left
+// edge, the middle and the right edge), so a box walking up a slope is carried by its leading corner and never
+// has a corner inside the next tile. above: highest surface at or above the feet; below: highest one under them.
+struct SlopeProbe {
+  bool hasAbove = false, hasBelow = false;
+  Scalar yAbove = 0, yBelow = 0;
+};
+
+SlopeProbe probeSlope(World& world, const GameObject* mover, const Rect& box) {
+  SlopeProbe sp;
+  const Scalar bottom = box.y + box.height;
+  const Scalar xs[3] = {box.x + kEps, box.x + box.width * 0.5f, box.x + box.width - kEps};
+  eachMap(world, mover, [&](Geo& g) {
+    const i32 rb = g.cellY(bottom);
+    for (const Scalar footX : xs) {
+      const i32 tx = g.cellX(footX);
+      for (i32 ty = rb - 1; ty <= rb + 1; ++ty) {
+        const u32 sl = slopeOf(cellFlags(*g.tm, tx, ty, false));
+        if (!sl) continue;
+        i32 hl, hr;
+        packSlopeHeights(sl, &hl, &hr);
+        Scalar u = (footX - (g.o.x + static_cast<Scalar>(tx) * g.tw)) / g.tw;
+        u = u < 0 ? 0 : (u > 1 ? 1 : u);
+        const Scalar h = (static_cast<Scalar>(hl) + static_cast<Scalar>(hr - hl) * u) * (1.0f / 16.0f);
+        const Scalar y = g.o.y + static_cast<Scalar>(ty) * g.th + g.th * (1.0f - h);
+        if (y <= bottom + kEps) {
+          if (!sp.hasAbove || y < sp.yAbove) { sp.hasAbove = true; sp.yAbove = y; }
+        } else if (!sp.hasBelow || y < sp.yBelow) { sp.hasBelow = true; sp.yBelow = y; }
+      }
+    }
+    return false;
+  });
+  return sp;
+}
+
+// Full solid or one-way tile directly under the box.
+bool supportedByTiles(World& world, const GameObject* mover, const Rect& b, bool dropping, Scalar dropY) {
+  Rect probe = b;
+  probe.y += 0.25f;
+  if (anySolid(world, mover, probe, nullptr, nullptr)) return true;
+  Scalar top;
+  return oneWayTop(world, mover, probe, b.y + b.height, dropping, dropY, &top);
+}
+
+bool isGroundedAt(World& world, const GameObject* mover, const Rect& b, bool dropping, Scalar dropY) {
+  Rect probe = b;
+  probe.y += 0.25f;
+  if (anySolid(world, mover, probe, nullptr, nullptr)) return true;
+  Scalar top;
+  if (oneWayTop(world, mover, probe, b.y + b.height, dropping, dropY, &top)) return true;
+  const SlopeProbe sp = probeSlope(world, mover, b);
+  const Scalar bottom = b.y + b.height;
+  if (sp.hasAbove && bottom - sp.yAbove <= 0.3f) return true;
+  return sp.hasBelow && sp.yBelow - bottom <= 0.3f;
 }
 
 }  // namespace
@@ -209,9 +365,21 @@ bool anySolid(World& world, const Rect& box, const Tilemap** mapOut, SolidHit* h
 bool BoxCollider2D::CheckGround() const {
   World* w = World::active();
   if (!w) return false;
-  Rect b = bounds();
-  b.y += 0.25f;
-  return anySolid(*w, b, nullptr, nullptr);
+  return isGroundedAt(*w, gameObject(), bounds(), dropping, dropY);
+}
+
+bool BoxCollider2D::DropThrough() {
+  World* w = World::active();
+  if (!w) return false;
+  const Rect b = bounds();
+  Scalar top;
+  Rect probe = b;
+  probe.y += 0.25f;
+  if (!oneWayTop(*w, gameObject(), probe, b.y + b.height, false, 0, &top)) return false;
+  dropping = true;
+  dropY = b.y + b.height;
+  grounded = false;
+  return true;
 }
 
 Move2DResult BoxCollider2D::Move(Scalar dx, Scalar dy) {
@@ -219,42 +387,169 @@ Move2DResult BoxCollider2D::Move(Scalar dx, Scalar dy) {
   World* w = World::active();
   Transform* t = transform();
   if (!w) return res;
+  const GameObject* me = gameObject();
   Vector3 p = t->position();
   const Vector3 sc = t->lossyScale();
   const Scalar ox = offsetX * absS(sc.x), oy = offsetY * absS(sc.y);
   Rect b(p.x + ox, p.y + oy, sizeX * absS(sc.x), sizeY * absS(sc.y));
 
-  auto resolveAxis = [&](Scalar total, bool horizontal) {
-    if (total == 0) return;
-    const Scalar mag = absS(total);
-    const u32 steps = static_cast<u32>(mag / kMaxSubStep) + 1;
-    const Scalar step = total / static_cast<Scalar>(steps);
-    for (u32 i = 0; i < steps; ++i) {
-      if (horizontal) b.x += step; else b.y += step;
-      const Tilemap* tm = nullptr;
-      SolidHit hit;
-      if (!anySolid(*w, b, &tm, &hit)) continue;
-      const Vector2 org = tm->origin();
-      const Vector3 s = tm->transform()->lossyScale();
-      const Scalar ts = static_cast<Scalar>(tm->tileSize());
-      if (horizontal) {
-        const Scalar tw = ts * absS(s.x);
-        if (step > 0) { b.x = org.x + static_cast<Scalar>(hit.minX) * tw - b.width; res.hitRight = true; }
-        else { b.x = org.x + static_cast<Scalar>(hit.maxX + 1) * tw; res.hitLeft = true; }
-      } else {
-        const Scalar th = ts * absS(s.y);
-        if (step > 0) { b.y = org.y + static_cast<Scalar>(hit.minY) * th - b.height; res.hitDown = true; }
-        else { b.y = org.y + static_cast<Scalar>(hit.maxY + 1) * th; res.hitUp = true; }
-      }
+  if (autoDropThrough) {
+    const VirtualGamepad& pad = Input::pad();
+    if (pad.held.down && pad.pressed.south) DropThrough();
+  }
+  if (dropping && b.y + b.height > dropY + 1.0f) dropping = false;  // fell past the platform
+  const bool wasGrounded = isGroundedAt(*w, me, b, dropping, dropY);
+
+  // Raises the box by up to half a tile until it clears every full solid cell. Used to step from a slope onto
+  // the level ground at its top.
+  auto liftClear = [&](Rect& box, Scalar maxLift) {
+    Rect r = box;
+    for (Scalar l = 1; l <= maxLift; l += 1) {
+      r.y = box.y - l;
+      if (!anySolid(*w, me, r, nullptr, nullptr)) { box = r; return true; }
+    }
+    return false;
+  };
+  // Keeps the foot on the slope surface: pushes it out of a slope, and pulls it down onto one when it walked
+  // off a slope step while grounded.
+  auto settleSlope = [&](bool allowDown) {
+    const Scalar bottom = b.y + b.height;
+    const SlopeProbe sp = probeSlope(*w, me, b);
+    Rect nb = b;
+    if (sp.hasAbove && bottom > sp.yAbove && bottom - sp.yAbove <= kMaxPush) {
+      nb.y = sp.yAbove - b.height;
+    } else if (allowDown && !sp.hasAbove && sp.hasBelow && !supportedByTiles(*w, me, b, dropping, dropY)) {
+      Geo g;
+      eachMap(*w, me, [&](Geo& gg) { g = gg; return true; });
+      const Scalar maxSnap = g.th > 0 ? g.th * 0.5f : 8.0f;
+      if (sp.yBelow - bottom > maxSnap) return;
+      nb.y = sp.yBelow - b.height;
+    } else {
       return;
     }
+    if (!anySolid(*w, me, nb, nullptr, nullptr)) b = nb;
   };
-  resolveAxis(dx, true);
-  resolveAxis(dy, false);
+
+  // ---- horizontal
+  if (dx != 0) {
+    const Scalar mag = absS(dx);
+    const u32 steps = static_cast<u32>(mag / kMaxSubStep) + 1;
+    const Scalar step = dx / static_cast<Scalar>(steps);
+    for (u32 i = 0; i < steps; ++i) {
+      const Scalar before = b.x;
+      const bool onSlope = probeSlope(*w, me, b).hasAbove;
+      b.x += step;
+      Geo g;
+      SolidHit hit;
+      if (!anySolid(*w, me, b, &g, &hit)) {
+        if (wasGrounded) settleSlope(dy >= 0);
+        continue;
+      }
+      if (onSlope) {
+        Rect lifted = b;
+        if (liftClear(lifted, g.th * 0.5f)) { b = lifted; if (wasGrounded) settleSlope(false); continue; }
+      }
+      (void)before;
+      if (step > 0) { b.x = g.o.x + static_cast<Scalar>(hit.minX) * g.tw - b.width; res.hitRight = true; }
+      else { b.x = g.o.x + static_cast<Scalar>(hit.maxX + 1) * g.tw; res.hitLeft = true; }
+      break;
+    }
+  }
+  // Airborne boxes still get pushed out of a slope they ran into; grounded ones were settled above.
+  if (!wasGrounded) settleSlope(false);
+
+  // ---- vertical
+  if (dy != 0) {
+    const Scalar mag = absS(dy);
+    const u32 steps = static_cast<u32>(mag / kMaxSubStep) + 1;
+    const Scalar step = dy / static_cast<Scalar>(steps);
+    for (u32 i = 0; i < steps; ++i) {
+      const Scalar oldBottom = b.y + b.height;
+      b.y += step;
+      Geo g;
+      SolidHit hit;
+      const bool full = anySolid(*w, me, b, &g, &hit);
+      if (step > 0) {
+        // Lands on the highest of: the top of a full block, a one-way top the box was above, a slope surface.
+        // A slope surface can be higher than the block that carries it, so all three are compared.
+        Scalar land = 0;
+        bool landed = false;
+        if (full) { land = g.o.y + static_cast<Scalar>(hit.minY) * g.th; landed = true; }
+        Scalar ow = 0;
+        if (oneWayTop(*w, me, b, oldBottom, dropping, dropY, &ow) && (!landed || ow < land)) { land = ow; landed = true; }
+        const SlopeProbe sp = probeSlope(*w, me, b);
+        if (sp.hasAbove && oldBottom <= sp.yAbove + kLandTol && (!landed || sp.yAbove < land)) { land = sp.yAbove; landed = true; }
+        if (landed) { b.y = land - b.height; res.hitDown = true; break; }
+      } else if (full) {
+        b.y = g.o.y + static_cast<Scalar>(hit.maxY + 1) * g.th;
+        res.hitUp = true;
+        break;
+      }
+    }
+  }
 
   t->setPosition(Vector3(b.x - ox, b.y - oy, p.z));
-  grounded = CheckGround();
+  if (dropping && b.y + b.height > dropY + 1.0f) dropping = false;
+  grounded = isGroundedAt(*w, me, b, dropping, dropY);
   return res;
+}
+
+// ---- Camera2D ---------------------------------------------------------------------------------------------------
+namespace {
+Scalar g_defaultViewW = 320, g_defaultViewH = 240;
+}
+void Camera2D::setDefaultViewSize(Scalar w, Scalar h) {
+  if (w > 0 && h > 0) { g_defaultViewW = w; g_defaultViewH = h; }
+}
+Scalar Camera2D::effectiveViewWidth() const { return viewWidth > 0 ? viewWidth : g_defaultViewW; }
+Scalar Camera2D::effectiveViewHeight() const { return viewHeight > 0 ? viewHeight : g_defaultViewH; }
+
+Camera2D* Camera2D::main() {
+  World* w = World::active();
+  if (!w) return nullptr;
+  Camera2D* found = nullptr;
+  w->forEach<Camera2D>([&](Camera2D& c) {
+    GameObject* go = c.gameObject();
+    if (!found && c.enabled() && go && go->activeInHierarchy()) found = &c;
+  });
+  return found;
+}
+
+void Camera2D::UpdateView() {
+  World* w = World::active();
+  if (!w) return;
+  const Scalar vw = effectiveViewWidth(), vh = effectiveViewHeight();
+  const GameObject* tgt = target.isNull() ? nullptr : w->findByGuid(target);
+  if (tgt && tgt->alive && !tgt->dying) {
+    const Vector3 tp = tgt->transform.position();
+    const Scalar px = tp.x + targetOffsetX, py = tp.y + targetOffsetY;
+    const Scalar zx0 = viewX + (vw - deadZoneW) * 0.5f, zx1 = zx0 + deadZoneW;
+    const Scalar zy0 = viewY + (vh - deadZoneH) * 0.5f, zy1 = zy0 + deadZoneH;
+    if (px < zx0) viewX += px - zx0;
+    else if (px > zx1) viewX += px - zx1;
+    if (py < zy0) viewY += py - zy0;
+    else if (py > zy1) viewY += py - zy1;
+  }
+  if (useBounds) {
+    Scalar bx = boundsX, by = boundsY, bw = boundsW, bh = boundsH;
+    const GameObject* bo = boundsTilemap.isNull() ? nullptr : w->findByGuid(boundsTilemap);
+    const Tilemap* tm = bo ? bo->GetComponent<Tilemap>() : nullptr;
+    if (tm && tm->record()) {
+      const Vector2 o = tm->origin();
+      const Vector3 sc = bo->transform.lossyScale();
+      bx = o.x;
+      by = o.y;
+      bw = static_cast<Scalar>(tm->width() * tm->tileSize()) * absS(sc.x);
+      bh = static_cast<Scalar>(tm->height() * tm->tileSize()) * absS(sc.y);
+    }
+    // A room smaller than the view is centered on it.
+    viewX = bw <= vw ? bx + (bw - vw) * 0.5f : (viewX < bx ? bx : (viewX > bx + bw - vw ? bx + bw - vw : viewX));
+    viewY = bh <= vh ? by + (bh - vh) * 0.5f : (viewY < by ? by : (viewY > by + bh - vh ? by + bh - vh : viewY));
+  }
+  if (pixelSnap) {
+    viewX = Mathf::Floor(viewX + 0.5f);
+    viewY = Mathf::Floor(viewY + 0.5f);
+  }
 }
 
 // ---- UI ---------------------------------------------------------------------------------------------------------
@@ -350,7 +645,7 @@ void Gameplay2D::fixedStep(World& world) {
     if (m.generation != trig->generation) { m.generation = trig->generation; m.mask = 0; }
     u32 now = 0;
     for (u32 i = 0; i < n; ++i)
-      if (movers[i].box.Overlaps(tb)) now |= 1u << i;
+      if (movers[i].box.Overlaps(tb) && Physics2D::layersCollide(movers[i].go, trig)) now |= 1u << i;
     const u32 entered = now & ~m.mask;
     m.mask = now;
     for (u32 i = 0; i < n; ++i) {
@@ -367,6 +662,10 @@ void renderGameplay2D(World& world, IRenderer& r) {
   if (!GfxAssets::bound()) return;
   const PackAssets& as = GfxAssets::assets();
   const Scalar vw = static_cast<Scalar>(r.width()), vh = static_cast<Scalar>(r.height());
+  Camera2D::setDefaultViewSize(vw, vh);
+  // World-space drawing is scrolled by the camera view; the UI below is not.
+  Scalar camX = 0, camY = 0;
+  if (const Camera2D* cam = Camera2D::main()) { camX = cam->viewX; camY = cam->viewY; }
 
   world.forEach<Tilemap>([&](Tilemap& tm) {
     GameObject* go = tm.gameObject();
@@ -379,15 +678,23 @@ void renderGameplay2D(World& world, IRenderer& r) {
     const Vector2 o = tm.origin();
     const Vector3 sc = go->transform.lossyScale();
     const Scalar ts = static_cast<Scalar>(rec->tileSize), tw = ts * absS(sc.x), th = ts * absS(sc.y);
+    if (tw <= 0 || th <= 0) return;
     const u16* tiles = as.tilemapTiles(*rec);
     const u32 key = spriteSortKey(tm.sortingOrder);
-    for (u32 y = 0; y < rec->height; ++y) {
-      const Scalar dy = o.y + static_cast<Scalar>(y) * th;
+    // Only the tiles inside the view are visited.
+    i32 cx0 = static_cast<i32>(Mathf::Floor((camX - o.x) / tw)), cx1 = static_cast<i32>(Mathf::Floor((camX + vw - o.x) / tw));
+    i32 cy0 = static_cast<i32>(Mathf::Floor((camY - o.y) / th)), cy1 = static_cast<i32>(Mathf::Floor((camY + vh - o.y) / th));
+    if (cx0 < 0) cx0 = 0;
+    if (cy0 < 0) cy0 = 0;
+    if (cx1 >= static_cast<i32>(rec->width)) cx1 = static_cast<i32>(rec->width) - 1;
+    if (cy1 >= static_cast<i32>(rec->height)) cy1 = static_cast<i32>(rec->height) - 1;
+    for (i32 y = cy0; y <= cy1; ++y) {
+      const Scalar dy = o.y + static_cast<Scalar>(y) * th - camY;
       if (dy + th <= 0 || dy >= vh) continue;
-      for (u32 x = 0; x < rec->width; ++x) {
-        const u16 t = tiles[y * rec->width + x];
+      for (i32 x = cx0; x <= cx1; ++x) {
+        const u16 t = tiles[static_cast<u32>(y) * rec->width + static_cast<u32>(x)];
         if (t == 0xFFFF) continue;
-        const Scalar dx = o.x + static_cast<Scalar>(x) * tw;
+        const Scalar dx = o.x + static_cast<Scalar>(x) * tw - camX;
         if (dx + tw <= 0 || dx >= vw) continue;
         r.drawSprite(handle, Rect(static_cast<Scalar>((t % cols) * rec->tileSize), static_cast<Scalar>((t / cols) * rec->tileSize), ts, ts),
                      Rect(dx, dy, tw, th), tm.tint, key);
@@ -408,7 +715,7 @@ void renderGameplay2D(World& world, IRenderer& r) {
     else { sx = sy = 0; sw = static_cast<Scalar>(as.textures[ti].width); sh = static_cast<Scalar>(as.textures[ti].height); }
     const Vector3 pos = go->transform.position(), sc = go->transform.lossyScale();
     const Scalar dw = sw * absS(sc.x), dh = sh * absS(sc.y);
-    const Rect dst(pos.x - static_cast<Scalar>(sr.pivotX) * absS(sc.x), pos.y - static_cast<Scalar>(sr.pivotY) * absS(sc.y), dw, dh);
+    const Rect dst(pos.x - camX - static_cast<Scalar>(sr.pivotX) * absS(sc.x), pos.y - camY - static_cast<Scalar>(sr.pivotY) * absS(sc.y), dw, dh);
     if (dst.x + dw <= 0 || dst.y + dh <= 0 || dst.x >= vw || dst.y >= vh) return;
     const Rect src = sr.flipX ? Rect(sx + sw, sy, -sw, sh) : Rect(sx, sy, sw, sh);
     r.drawSprite(handle, src, dst, sr.color, spriteSortKey(sr.sortingOrder));

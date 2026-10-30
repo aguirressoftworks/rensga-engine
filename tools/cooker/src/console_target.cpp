@@ -33,6 +33,12 @@ ConsoleTargetData loadConsoleTarget(const std::filesystem::path& file) {
     t.depth = j.value("depth", "zbuffer");
     t.media = j.value("media", "");
     t.sectorAligned = j.value("packSectorAligned", t.media == "iso" || t.media == "disc" || t.media == "cd" || t.media == "dvd");
+    if (j.contains("audio")) {
+      t.audioSampleRate = j["audio"].value("sampleRate", 22050u);
+      t.audioVoices = j["audio"].value("voices", 16u);
+      if (t.audioSampleRate != 22050 && t.audioSampleRate != 44100) throw std::runtime_error("audio.sampleRate must be 22050 or 44100");
+      if (t.audioVoices < 1 || t.audioVoices > 32) throw std::runtime_error("audio.voices must be between 1 and 32");
+    }
     t.refreshHz = j.value("refreshHz", 60u);
     if (t.refreshHz < 24 || t.refreshHz > 120) throw std::runtime_error("refreshHz must be between 24 and 120");
     for (const json& c : j.at("allowedComponents")) t.allowedComponents.push_back(c.get<std::string>());
@@ -58,6 +64,8 @@ std::string generateConsoleTargetHeader(const ConsoleTargetData& t) {
        "constexpr const char* kProfile = \"" << t.profile << "\";\n"
        "constexpr unsigned kScreenWidth = " << t.width << ";\n"
        "constexpr unsigned kScreenHeight = " << t.height << ";\n"
+       "constexpr unsigned kAudioSampleRate = " << t.audioSampleRate << "u;\n"
+       "constexpr unsigned kAudioVoices = " << t.audioVoices << "u;\n"
        "constexpr unsigned kRefreshHz = " << t.refreshHz << "u;\n"
        "constexpr unsigned kRamBytes = " << t.ramBytes << "u;\n"
        "constexpr unsigned kVramBytes = " << t.vramBytes << "u;\n"

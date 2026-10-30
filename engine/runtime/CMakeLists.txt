@@ -5,8 +5,8 @@ set(RENSGA_PROJECT_SCRIPTS ${RENSGA_REFLECT_PROJECT_SRCS})  # generated tables r
 # Engine 0 hello: one main on linux-host (needs SDL2), windows, android and ps2.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_hello.cpp AND NOT RENSGA_TARGET STREQUAL "psp")
   if(RENSGA_TARGET STREQUAL "android")
-    add_library(rensga_hello SHARED main_hello.cpp)  # SDLActivity loads libmain.so
-    set_target_properties(rensga_hello PROPERTIES OUTPUT_NAME main)
+    add_library(rensga_hello SHARED main_hello.cpp)  # the APK loads the player as libmain.so (below); hello stays as libhello_main.so
+    set_target_properties(rensga_hello PROPERTIES OUTPUT_NAME hello_main)
     target_link_libraries(rensga_hello PRIVATE log)
   elseif(RENSGA_TARGET STREQUAL "ps2")
     add_executable(rensga_hello main_hello.cpp)
@@ -90,35 +90,39 @@ elseif(RENSGA_TARGET STREQUAL "linux-host")
 endif()
 
 # Desktop player (Engine 2): SDL platform + GL renderer. linux-host and windows are executables; on android it
-# builds as the second native library `librensga_player.so` (the APK still loads libmain.so = rensga_hello; switching
-# SDLActivity to the player is part of F7 packaging). Project scripts are compiled in, like the other runtimes.
+# builds as the native library `libmain.so` that SDLActivity loads (the APK runs the player; F2.01). Project scripts are compiled in, like the other runtimes.
 if(TARGET rensga_platform_sdl AND TARGET rensga_render_gl AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_desktop.cpp)
   if(RENSGA_TARGET STREQUAL "android")
-    add_library(rensga_desktop SHARED main_desktop.cpp ${RENSGA_PROJECT_SCRIPTS})
-    set_target_properties(rensga_desktop PROPERTIES OUTPUT_NAME rensga_player)
+    add_library(rensga_desktop SHARED main_desktop.cpp runtime_audio.cpp ${RENSGA_PROJECT_SCRIPTS})
+    set_target_properties(rensga_desktop PROPERTIES OUTPUT_NAME main)  # SDLActivity loads libmain.so (F2.01: the APK runs the player)
     target_link_libraries(rensga_desktop PRIVATE log)
   else()
-    add_executable(rensga_desktop main_desktop.cpp ${RENSGA_PROJECT_SCRIPTS})
+    add_executable(rensga_desktop main_desktop.cpp runtime_audio.cpp ${RENSGA_PROJECT_SCRIPTS})
     if(RENSGA_TARGET STREQUAL "windows")
       target_link_options(rensga_desktop PRIVATE -static-libgcc -static-libstdc++)
     endif()
   endif()
-  target_link_libraries(rensga_desktop PRIVATE rensga_api rensga_core rensga_platform_sdl rensga_render_gl)
+  target_link_libraries(rensga_desktop PRIVATE rensga_api rensga_core rensga_platform_sdl rensga_render_gl rensga_audio_sdl)
   target_include_directories(rensga_desktop PRIVATE ${RENSGA_GENERATED_DIR})
   rensga_runtime_target(rensga_desktop)
 endif()
 
 # PS2 game (gsKit renderer, libpad platform, cdrom0:/host: file system). The gs role owns main_ps2.cpp.
 if(RENSGA_TARGET STREQUAL "ps2" AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_ps2.cpp)
-  add_executable(rensga_ps2 main_ps2.cpp ${RENSGA_PROJECT_SCRIPTS})
+  add_executable(rensga_ps2 main_ps2.cpp runtime_audio.cpp ${RENSGA_PROJECT_SCRIPTS})
   target_include_directories(rensga_ps2 PRIVATE ${RENSGA_GENERATED_DIR})
-  target_link_libraries(rensga_ps2 PRIVATE rensga_api rensga_core rensga_platform_ps2 rensga_render_gs gskit dmakit c)
+  target_link_libraries(rensga_ps2 PRIVATE rensga_api rensga_core rensga_platform_ps2 rensga_audio_ps2 rensga_render_gs gskit dmakit c)
   set(RENSGA_PS2_STRESS_SPRITES 1000 CACHE STRING "PS2: sprites drawn per frame by rensga_ps2 (stress test)")
   set(RENSGA_PS2_CHECK_FRAMES 300 CACHE STRING "PS2: frame at which the alloc-check line is logged")
+  set(RENSGA_PS2_AUDIO_STRESS 0 CACHE STRING "PS2: run the audio stress (streamed music + 16 looping effects) for N frames, then exit (0 = off)")
   set(RENSGA_PS2_SHOT_FRAME 0 CACHE STRING "PS2: dump the frame buffers to host: at this frame (0 = off)")
   target_compile_definitions(rensga_ps2 PRIVATE RENSGA_PLATFORM_PS2 RENSGA_PS2_STRESS_SPRITES=${RENSGA_PS2_STRESS_SPRITES}
     RENSGA_PS2_CHECK_FRAMES=${RENSGA_PS2_CHECK_FRAMES})
   set(RENSGA_PS2_AUTOSTART "" CACHE STRING "PS2 game mode: scene name to load at frame 30 (no controller in emulator sandboxes)")
+  option(RENSGA_PS2_VRAM_STRESS "PS2: draw 24 textures (more than the VRAM texture area) every frame" OFF)
+  if(RENSGA_PS2_VRAM_STRESS)
+    target_compile_definitions(rensga_ps2 PRIVATE RENSGA_PS2_VRAM_STRESS=1)
+  endif()
   option(RENSGA_PS2_SAVE_SELFTEST "PS2 game mode: write and read back save:/selftest at frame 20" OFF)
   if(RENSGA_PS2_AUTOSTART)
     target_compile_definitions(rensga_ps2 PRIVATE "RENSGA_PS2_AUTOSTART=\"${RENSGA_PS2_AUTOSTART}\"")
@@ -129,6 +133,9 @@ if(RENSGA_TARGET STREQUAL "ps2" AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_ps2.
   option(RENSGA_PS2_FORMAT_BLANK_CARD "PS2 emulator test builds only: format an UNFORMATTED memory card instead of disabling saves" OFF)
   if(RENSGA_PS2_FORMAT_BLANK_CARD)
     target_compile_definitions(rensga_platform_ps2 PRIVATE RENSGA_PS2_FORMAT_BLANK_CARD=1)
+  endif()
+  if(RENSGA_PS2_AUDIO_STRESS GREATER 0)
+    target_compile_definitions(rensga_ps2 PRIVATE RENSGA_PS2_AUDIO_STRESS=${RENSGA_PS2_AUDIO_STRESS})
   endif()
   if(RENSGA_PS2_SHOT_FRAME GREATER 0)
     target_compile_definitions(rensga_ps2 PRIVATE RENSGA_PS2_SHOT_FRAME=${RENSGA_PS2_SHOT_FRAME})

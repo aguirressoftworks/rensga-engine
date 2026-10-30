@@ -1,5 +1,5 @@
 // Desktop player (Linux, Windows, and the Android native library): SDL platform + GL renderer.
-//   rensga_desktop [--pack <game.rpak>] [--scene <name>] [--frames N] [--screenshot out.png] [--stress-sprites N] [--headless-gl]
+//   rensga_desktop [--pack <game.rpak>] [--scene <name>] [--frames N] [--screenshot out.png] [--stress-sprites N] [--check-at N] [--headless-gl]
 // Without --pack it loads data:/game.rpak next to the executable (the APK assets on Android).
 // --scene <name> start in this scene of the pack (default: the first). Saves go to the SDL pref folder (save:/).
 // --frames N      stop after N frames (default: run until the window closes)
@@ -7,7 +7,19 @@
 // --stress-sprites N  no pack: N moving sprites (2D stress test), frame times in the heartbeat lines
 // --headless-gl   accepted for scripts; run under xvfb-run, the player never needs a visible desktop
 // Logs "rensga: frame <n>" every 60 frames and, on exit, "rensga: alloc-check frames=<N> allocs=<K>" (K must be 0;
-// the exit code is 4 otherwise). Audio: NullAudio until the mixer lands (hook marked AUDIO below).
+// the exit code is 4 otherwise).
+// --check-at N    also log the alloc-check line at frame N while running on (Android logs it at frame 600 and keeps going,
+//                 because a phone app has no exit; tools/android/run_device_check.sh greps for it).
+// Touch: SDL finger events drive the on-screen D-pad / South / East / Start zones (platform/touch.h); a translucent overlay
+// shows them on Android always and elsewhere once a finger has touched the window.
+// Hot reload (F2.03, desktop only, not Android/PS2): the pack file's mtime+size is polled twice a second; on a change the pack
+// is read into the other of two reload buffers (sized at start), the current scene is reloaded by name, textures and audio
+// clips are registered again and "rensga: hot-reload <pack>" is logged. This runs between frames, never inside one, and
+// restarts the alloc-check window (heap::checkReset) because a reload is allowed to allocate.
+// Audio (Engine 4): AudioMixer + SDL audio from the CTGT audio fields (runtime_audio.cpp). AudioSource clips come from the pack;
+// data:/music.wav (next to the pack) streams as looping music. SDL_AUDIODRIVER=disk SDL_DISKAUDIOFILE=out.raw captures it.
+// --audio-stress   looping streamed music + 16 overlapping looping effects for --frames N (default 600); logs
+//                  "rensga: audio-stress voices=16 mix_us=<avg>/<max> ..." (use with --pack, the pack folder is the data root)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,9 +34,11 @@
 
 #include "rensga/Rensga.h"
 #include "rensga/core/application.h"
+#include "rensga/core/pack_watcher.h"
 #include "rensga/platform/sdl.h"
 #include "rensga/platform/sdl_filesystem.h"
 #include "rensga/render/gl.h"
+#include "runtime_audio.h"
 
 using namespace rensga;
 
@@ -171,6 +185,27 @@ double nowMs() {
   return static_cast<double>(SDL_GetPerformanceCounter()) * 1000.0 / static_cast<double>(SDL_GetPerformanceFrequency());
 }
 
+// ---- touch overlay -----------------------------------------------------------------------------------------
+SdlPlatform* g_platform = nullptr;
+
+void drawTouchOverlay(IRenderer& r) {  // OverlayHook: translucent zones on top of everything
+  if (!g_platform || !g_platform->touchOverlayVisible()) return;
+  const TouchZones& z = g_platform->touchZones();
+  const Color32 pad(255, 255, 255, 40), key(255, 255, 255, 90);
+  const u32 k = 1000;
+  r.drawRect(z.dpad, pad, k);
+  const Scalar t = z.dpad.width / 3.0f;  // the d-pad's cross: four arms around the dead centre
+  r.drawRect(Rect(z.dpad.x, z.dpad.y + t, t, t), key, k + 1);
+  r.drawRect(Rect(z.dpad.x + 2 * t, z.dpad.y + t, t, t), key, k + 1);
+  r.drawRect(Rect(z.dpad.x + t, z.dpad.y, t, t), key, k + 1);
+  r.drawRect(Rect(z.dpad.x + t, z.dpad.y + 2 * t, t, t), key, k + 1);
+  r.drawRect(z.south, key, k);
+  r.drawRect(z.east, key, k);
+  r.drawRect(z.start, pad, k);
+}
+
+u64 audioClockUs() { return static_cast<u64>(nowMs() * 1000.0); }
+
 void splitPath(const char* path, char* dir, size_t dirSize, const char** base) {
   const char* slash = strrchr(path, '/');
   const char* bslash = strrchr(path, '\\');
@@ -189,16 +224,19 @@ int main(int argc, char** argv) {
   const char* packPath = nullptr;
   const char* shotPath = nullptr;
   const char* startScene = nullptr;
-  u32 maxFrames = 0, stressCount = 0;
+  u32 maxFrames = 0, stressCount = 0, checkAt = 0;
+  bool audioStress = false;
   for (int i = 1; i < argc; ++i) {
     if (!strcmp(argv[i], "--pack") && i + 1 < argc) packPath = argv[++i];
     else if (!strcmp(argv[i], "--scene") && i + 1 < argc) startScene = argv[++i];
     else if (!strcmp(argv[i], "--frames") && i + 1 < argc) maxFrames = static_cast<u32>(atoi(argv[++i]));
     else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) shotPath = argv[++i];
     else if (!strcmp(argv[i], "--stress-sprites") && i + 1 < argc) stressCount = static_cast<u32>(atoi(argv[++i]));
+    else if (!strcmp(argv[i], "--audio-stress")) audioStress = true;
+    else if (!strcmp(argv[i], "--check-at") && i + 1 < argc) checkAt = static_cast<u32>(atoi(argv[++i]));
     else if (!strcmp(argv[i], "--headless-gl")) {}
     else {
-      fprintf(stderr, "usage: rensga_desktop [--pack game.rpak] [--scene name] [--frames N] [--screenshot out.png] [--stress-sprites N] [--headless-gl]\n");
+      fprintf(stderr, "usage: rensga_desktop [--pack game.rpak] [--scene name] [--frames N] [--screenshot out.png] [--stress-sprites N] [--audio-stress] [--check-at N] [--headless-gl]\n");
       return 1;
     }
   }
@@ -206,6 +244,7 @@ int main(int argc, char** argv) {
   static LogcatSink logcat;
   log::addSink(&logcat);
   Application::setPlatform(RuntimePlatform::Android);
+  if (!checkAt) checkAt = 600;  // log the alloc-check line once, then keep running
 #elif defined(_WIN32)
   Application::setPlatform(RuntimePlatform::WindowsPlayer);
 #else
@@ -215,9 +254,10 @@ int main(int argc, char** argv) {
 
   static SdlPlatform platform;
   static GlRenderer renderer;
-  static NullAudio audio;  // AUDIO: replace with the mixer-backed SDL audio backend (Engine 4)
+  static RuntimeAudio audio;
   if (!platform.init()) return 2;
-  audio.init();
+  g_platform = &platform;
+  setOverlayHook(drawTouchOverlay);
 
   // File system: next to the pack when --pack is given, else the executable's folder (APK assets on Android).
   char dir[512] = "";
@@ -248,11 +288,13 @@ int main(int argc, char** argv) {
   u32 vw = 480, vh = 272;  // PSP profile resolution unless the pack says otherwise
   LoadedPack loaded;
   PackView view;
+  const PackConsoleTarget* ct = nullptr;
   u32 packTex[kMaxPackTextures] = {};
   if (stressCount) {
     if (!renderer.init(vw, vh)) return 3;
+    platform.setVirtualResolution(vw, vh);
     if (!setupStress(renderer, stressCount, vw, vh)) { RLOG_ERROR("game", "stress setup failed"); return 3; }
-    setOverlayHook(drawStress);
+    setOverlayHook(drawStress);  // the stress test has no touch controls
     RLOG_INFO("game", "rensga: stress sprites=%u", g_spriteCount);
   } else {
     Span<const u8> bytes = fs.readFile(packFile, arena);
@@ -260,9 +302,10 @@ int main(int argc, char** argv) {
       RLOG_ERROR("game", "rensga: cannot read pack %s", packFile);
       return 3;
     }
-    const PackConsoleTarget* ct = view.records<PackConsoleTarget>(pack_section::CTGT);
+    ct = view.records<PackConsoleTarget>(pack_section::CTGT);
     if (ct && ct->width && ct->height) { vw = ct->width; vh = ct->height; }
     if (!renderer.init(vw, vh)) return 3;
+    platform.setVirtualResolution(vw, vh);
     u32 sceneIndex = 0;
     if (startScene) {
       SceneManager::bind(&view, 0);
@@ -295,6 +338,74 @@ int main(int argc, char** argv) {
     RLOG_INFO("game", "rensga: scene loaded objects=%u pickups=%u", world.objectCount(), pickups);
   }
 
+  if (audioStress && maxFrames == 0) maxFrames = 600;
+  audio.init(&fs, ct, audioClockUs);
+  if (!stressCount) audio.registerPackClips(loaded.assets);
+  if (audioStress) audio.beginStress(stressCount ? nullptr : &loaded.assets);
+  else if (!stressCount) audio.startMusic();
+
+#if defined(RENSGA_HAS_PACK_WATCHER) && !defined(__ANDROID__)
+  // Hot reload buffers (F2.03): two arenas sized from the pack, allocated here once. A reload reads into the one that is
+  // not in use; the world's own arena is untouched (pools keep their capacity).
+  PackWatcher watcher;
+  Arena reloadArena[2];
+  u32 reloadCur = 0;  // arena holding the live pack after a reload (the first pack lives in `arena`)
+  bool reloadLive = false;
+  double nextWatchMs = 0;
+  char watchPath[600] = "";
+  if (!stressCount) {
+    snprintf(watchPath, sizeof(watchPath), "%s%s", dir, packFile + 6);  // skip "data:/"
+    watcher.watch(watchPath);
+    const size_t cap = static_cast<size_t>(view.size) * 2 + (1u << 20);
+    if (!reloadArena[0].create(cap) || !reloadArena[1].create(cap)) RLOG_WARN("game", "rensga: hot reload disabled (no memory)");
+  }
+  auto hotReload = [&]() {
+    Arena& next = reloadArena[reloadLive ? 1 - reloadCur : 0];
+    if (!next.capacity()) return;
+    next.reset();
+    Span<const u8> bytes = fs.readFile(packFile, next);
+    PackView nv;
+    if (!bytes || !nv.open(bytes.data, bytes.size, watchPath)) {
+      RLOG_WARN("game", "rensga: hot-reload failed: cannot read %s (keeping the running pack)", watchPath);
+      return;
+    }
+    char sceneName[64];
+    snprintf(sceneName, sizeof(sceneName), "%s", SceneManager::activeSceneName());
+    audio.mixer().stopAll();  // voices may point into the old pack buffer
+    world.destroyAllImmediate();
+    Gameplay2D::resetTriggerMemory();
+    UI::resetFocus();
+    view = nv;  // the object the SceneManager / GfxAssets point at, now on the new buffer
+    SceneManager::bind(&view, 0);
+    i32 si = sceneName[0] ? SceneManager::sceneIndexByName(sceneName) : 0;
+    if (si < 0) si = 0;
+    loaded = LoadedPack();
+    if (!world.loadPack(view, &loaded, static_cast<u32>(si))) {
+      RLOG_ERROR("game", "rensga: hot-reload: cannot load the new pack %s", watchPath);
+      return;
+    }
+    reloadCur = reloadLive ? 1 - reloadCur : 0;
+    reloadLive = true;
+    Input::loadActions(view, loaded.inputs, loaded.inputCount);
+    renderer.setMeshes(loaded.meshes);
+    renderer.releaseUserTextures();
+    const PackAssets& as = loaded.assets;
+    for (u32 i = 0; i < as.textureCount && i < kMaxPackTextures; ++i) {
+      const PackTexRec& t = as.textures[i];
+      TextureDesc d;
+      d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
+      d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
+      packTex[i] = renderer.uploadTexture(d);
+    }
+    GfxAssets::bind(&view, &loaded.assets, packTex, as.textureCount);
+    SceneManager::bind(&view, static_cast<u32>(si));
+    audio.registerPackClips(loaded.assets);
+    heap::checkReset();  // the reload may allocate; the check window restarts
+    RLOG_INFO("game", "rensga: hot-reload %s (scene %s, objects=%u)", watchPath, SceneManager::activeSceneName(), world.objectCount());
+    fflush(stdout);
+  };
+#endif
+
   GameLoop loop;
   loop.init(world);
   loop.setFixedStepHook(physics::fixedStep, nullptr);
@@ -306,9 +417,16 @@ int main(int argc, char** argv) {
   while (!platform.shouldQuit() && !Application::quitRequested() && (maxFrames == 0 || frame < maxFrames)) {
     const double t0 = nowMs();
     const double now = platform.timeSeconds();
+#if defined(RENSGA_HAS_PACK_WATCHER) && !defined(__ANDROID__)
+    if (watcher.watching() && t0 >= nextWatchMs) {  // ~2 polls a second, between frames
+      nextWatchMs = t0 + 500.0;
+      if (watcher.check()) hotReload();
+    }
+#endif
     platform.pollInput(pad);
     loop.frame(static_cast<Scalar>(now - last), pad);
     last = now;
+    audio.update();
     if (stressCount) {
       stepStress(vw, vh);
       snprintf(g_hud, sizeof(g_hud), "%d", static_cast<int>(g_hudMs * 10.0f));
@@ -317,6 +435,7 @@ int main(int argc, char** argv) {
     ++frame;
     // The first frame includes lazy driver work (shader JIT, buffer setup): the alloc check starts after it.
     if (frame == 1) heap::checkReset();
+    if (checkAt && frame == checkAt) heap::logAllocCheck();
     const double ms = nowMs() - t0;
     sumMs += ms;
     if (ms > maxMs) maxMs = ms;
@@ -328,6 +447,7 @@ int main(int argc, char** argv) {
       fflush(stdout);
     }
   }
+  if (audioStress) audio.logStress(frame);
   const u64 allocs = heap::logAllocCheck();  // before the screenshot: the PNG writer is allowed to allocate
   int rc = 0;
   if (shotPath && !renderer.screenshot(shotPath)) rc = 5;
@@ -335,6 +455,7 @@ int main(int argc, char** argv) {
   if (stressCount && renderer.droppedSprites()) RLOG_WARN("game", "rensga: dropped %u sprites", renderer.droppedSprites());
   RLOG_INFO("game", "rensga: quit after %u frames", frame);
   log::flushAll();
+  audio.shutdown();
   world.shutdown();
   platform.shutdown();
   if (allocs != 0 && rc == 0) rc = 4;

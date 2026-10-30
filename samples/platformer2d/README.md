@@ -26,3 +26,12 @@ PS2: `RENSGA_PS2_PROJECT=samples/platformer2d RENSGA_PS2_PACK=samples/platformer
 `tools/emulators/pcsx2_boot.sh build/ci/ps2/rensga.iso`. Emulator test builds can add
 `RENSGA_PS2_CMAKE_ARGS="-DRENSGA_PS2_AUTOSTART=Room -DRENSGA_PS2_SAVE_SELFTEST=ON -DRENSGA_PS2_FORMAT_BLANK_CARD=ON"` (skip the title, write and
 read back a save, format the blank card PCSX2 starts with).
+
+## Audio (Engine 4)
+
+`tools/gen_sfx.py` (stdlib only, deterministic) writes `Assets/Audio/{jump,coin,hit,save}.wav` (packed as AUDI clips, played by
+the scripts through `GameState::Sfx`) and `Streaming/music.wav` (8 s loop, 22050 Hz mono). Files in `Streaming/` are not packed:
+the cooker copies them next to `game.rpak` and the mixer streams them in 4096-frame double-buffered chunks as `data:/music.wav`
+(PC: next to the pack; PS2: `MUSIC.WAV` on the disc root, added by `tools/ci/ps2.sh`; Android: must be in the APK assets).
+Stress: `rensga_desktop --pack <game.rpak> --audio-stress --frames 600`, or PS2 `RENSGA_PS2_CMAKE_ARGS="-DRENSGA_PS2_AUDIO_STRESS=600"`.
+Both log `rensga: audio-stress voices=16 mix_us=<avg>/<max>`. `ConsoleTarget.json` has `"audio": {"sampleRate", "voices"}`.

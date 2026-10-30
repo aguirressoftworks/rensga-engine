@@ -1,4 +1,4 @@
-add_library(rensga_platform_sdl STATIC src/sdl_platform.cpp src/sdl_filesystem.cpp)
+add_library(rensga_platform_sdl STATIC src/sdl_platform.cpp src/sdl_filesystem.cpp src/touch.cpp)
 target_include_directories(rensga_platform_sdl PUBLIC include)
 target_link_libraries(rensga_platform_sdl PUBLIC rensga_core ${RENSGA_SDL2_TARGET})
 rensga_runtime_target(rensga_platform_sdl)

@@ -591,12 +591,18 @@ void World::sendUIClick(GameObject* self) {
   }
 }
 
-void World::destroyAllImmediate() {
+void World::destroyAllImmediate(bool keepDontDestroy) {
   for (u32 i = 0; i < objectHighWater_; ++i) {
     GameObject* go = &objects_[i];
-    if (go->alive && !go->dying && !go->transform.parent_) destroy(go);
+    if (go->alive && !go->dying && !go->transform.parent_ && !(keepDontDestroy && go->dontDestroyOnLoad)) destroy(go);
   }
   flushNow();
+}
+
+void World::dontDestroyOnLoad(GameObject* go) {
+  if (!go || !go->alive || go->dying) return;
+  if (go->transform.parent_) go->transform.SetParent(nullptr, true);
+  go->dontDestroyOnLoad = true;
 }
 
 // ---- Instantiate / delayed Destroy -----------------------------------------

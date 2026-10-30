@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <fstream>
 #include <map>
+#include <set>
 #include <sstream>
 
 #include <nlohmann/json.hpp>
@@ -40,11 +41,111 @@ uint32_t blobAdd(std::vector<uint8_t>& blob, const void* data, size_t bytes) {
 
 struct TexInfo { uint32_t index, w, h; };
 
+// ---- per-asset cache entries (host-endian; a cache is never shared between machines) ----
+uint64_t fnvBytes(const void* data, size_t n, uint64_t h) {
+  const uint8_t* p = static_cast<const uint8_t*>(data);
+  for (size_t i = 0; i < n; ++i) { h ^= p[i]; h *= 1099511628211ull; }
+  return h;
+}
+std::string cacheKey(const AssetCache& c, const char* kind, const std::vector<uint8_t>& src, const std::string& settings) {
+  const std::string head = c.salt + '\0' + kind + '\0' + settings + '\0';
+  uint64_t out[2];
+  const uint64_t seeds[2] = {1469598103934665603ull, 0x9E3779B97F4A7C15ull};
+  for (int i = 0; i < 2; ++i) {
+    uint64_t h = fnvBytes(head.data(), head.size(), seeds[i]);
+    out[i] = fnvBytes(src.data(), src.size(), h);
+  }
+  char b[33];
+  snprintf(b, sizeof b, "%016llx%016llx", static_cast<unsigned long long>(out[0]), static_cast<unsigned long long>(out[1]));
+  return b;
+}
+
+struct CacheWriter {
+  std::vector<uint8_t> b;
+  void u32v(uint32_t v) { raw(&v, 4); }
+  void raw(const void* p, size_t n) { const uint8_t* q = static_cast<const uint8_t*>(p); b.insert(b.end(), q, q + n); }
+  bool save(const fs::path& path) {
+    const uint64_t sum = fnvBytes(b.data(), b.size(), 1469598103934665603ull);
+    raw(&sum, 8);
+    std::error_code ec;
+    fs::create_directories(path.parent_path(), ec);
+    const fs::path tmp = path.string() + ".tmp";
+    {
+      std::ofstream out(tmp, std::ios::binary);
+      if (!out) return false;
+      out.write(reinterpret_cast<const char*>(b.data()), static_cast<std::streamsize>(b.size()));
+      if (!out) return false;
+    }
+    fs::rename(tmp, path, ec);
+    return !ec;
+  }
+};
+struct CacheReader {
+  std::vector<uint8_t> b;
+  size_t pos = 0;
+  bool bad = false;
+  bool load(const fs::path& path) {
+    if (!readBytes(path, b) || b.size() < 12) return false;
+    uint64_t sum;
+    memcpy(&sum, b.data() + b.size() - 8, 8);
+    b.resize(b.size() - 8);
+    return sum == fnvBytes(b.data(), b.size(), 1469598103934665603ull);
+  }
+  uint32_t u32v() { uint32_t v = 0; raw(&v, 4); return v; }
+  void raw(void* p, size_t n) {
+    if (bad || b.size() - pos < n) { bad = true; return; }
+    if (n) memcpy(p, b.data() + pos, n);
+    pos += n;
+  }
+};
+constexpr uint32_t kMagicTex = 0x54434752u, kMagicAud = 0x41434752u;  // "RGCT", "RGCA"
+
+void storeTex(const fs::path& path, const CookedTexture& ct, uint32_t srcW, uint32_t srcH) {
+  CacheWriter w;
+  w.u32v(kMagicTex); w.u32v(srcW); w.u32v(srcH); w.u32v(ct.width); w.u32v(ct.height); w.u32v(ct.format);
+  w.u32v(static_cast<uint32_t>(ct.pixels.size())); w.u32v(static_cast<uint32_t>(ct.palette.size()));
+  w.raw(ct.pixels.data(), ct.pixels.size());
+  w.raw(ct.palette.data(), ct.palette.size() * 4);
+  w.save(path);
+}
+bool loadTex(const fs::path& path, CookedTexture& ct, uint32_t& srcW, uint32_t& srcH) {
+  CacheReader r;
+  if (!r.load(path) || r.u32v() != kMagicTex) return false;
+  srcW = r.u32v(); srcH = r.u32v(); ct.width = r.u32v(); ct.height = r.u32v(); ct.format = r.u32v();
+  const uint32_t np = r.u32v(), nc = r.u32v();
+  if (r.bad || np > r.b.size() || nc > r.b.size()) return false;
+  ct.pixels.resize(np);
+  ct.palette.resize(nc);
+  r.raw(ct.pixels.data(), np);
+  r.raw(ct.palette.data(), static_cast<size_t>(nc) * 4);
+  return !r.bad && r.pos == r.b.size();
+}
+void storeAud(const fs::path& path, const PcmAudio& pcm, uint32_t srcFrames, uint32_t srcRate) {
+  CacheWriter w;
+  w.u32v(kMagicAud); w.u32v(srcFrames); w.u32v(srcRate); w.u32v(pcm.sampleRate); w.u32v(pcm.channels);
+  w.u32v(static_cast<uint32_t>(pcm.samples.size()));
+  w.raw(pcm.samples.data(), pcm.samples.size() * 2);
+  w.save(path);
+}
+bool loadAud(const fs::path& path, PcmAudio& pcm, uint32_t& srcFrames, uint32_t& srcRate) {
+  CacheReader r;
+  if (!r.load(path) || r.u32v() != kMagicAud) return false;
+  srcFrames = r.u32v(); srcRate = r.u32v(); pcm.sampleRate = r.u32v(); pcm.channels = r.u32v();
+  const uint32_t n = r.u32v();
+  if (r.bad || n > r.b.size()) return false;
+  pcm.samples.resize(n);
+  r.raw(pcm.samples.data(), static_cast<size_t>(n) * 2);
+  return !r.bad && r.pos == r.b.size();
+}
+
 }  // namespace
 
 bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& plugin, CookedAssets& out,
-                const std::function<void(CookMessage::Severity, const std::string&, const std::string&, const std::string&)>& report) {
+                const std::function<void(CookMessage::Severity, const std::string&, const std::string&, const std::string&)>& report,
+                AssetCache* cache) {
   bool ok = true;
+  if (cache && cache->dir.empty()) cache = nullptr;
+  std::set<std::string> usedEntries;  // cache files this cook needs; the rest are pruned when the cook succeeds
   auto fail = [&](const AssetSource& a, const std::string& what) {
     report(CookMessage::Error, a.rel + " (guid " + a.guid + "): " + what, a.rel, a.guid);
     ok = false;
@@ -66,13 +167,7 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     return true;
   };
 
-  auto addTexture = [&](const AssetSource& a, const ImageRgba& img, const TextureImport& ti) {
-    CookedTexture ct;
-    std::string err;
-    if (!plugin.cookTexture(img, ti, ct, err)) {
-      fail(a, err);
-      return;
-    }
+  auto addCooked = [&](const AssetSource& a, const CookedTexture& ct, uint32_t srcW, uint32_t srcH) {
     PackTexRec r = {};
     Guid::parse(a.guid.c_str(), r.guid);
     r.width = ct.width;
@@ -85,8 +180,17 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
       r.paletteOffset = blobAdd(out.blob, ct.palette.data(), ct.palette.size() * 4);
     }
     out.textureBytes += ct.pixels.size() + ct.palette.size() * 4;
-    texByGuid[a.guid] = {static_cast<uint32_t>(out.textures.size()), img.width, img.height};
+    texByGuid[a.guid] = {static_cast<uint32_t>(out.textures.size()), srcW, srcH};
     out.textures.push_back(r);
+  };
+  auto addTexture = [&](const AssetSource& a, const ImageRgba& img, const TextureImport& ti) {
+    CookedTexture ct;
+    std::string err;
+    if (!plugin.cookTexture(img, ti, ct, err)) {
+      fail(a, err);
+      return;
+    }
+    addCooked(a, ct, img.width, img.height);
   };
 
   // Pass 1: textures (PNG) and the default font's texture. The default font comes first so its
@@ -105,6 +209,18 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     ImageRgba img;
     std::string err;
     if (!readBytes(a.path, bytes)) { fail(a, "cannot read file"); continue; }
+    std::string entry;
+    if (cache) {
+      entry = cacheKey(*cache, "tex", bytes, a.importSettings) + ".tex";
+      CookedTexture hit;
+      uint32_t sw = 0, sh = 0;
+      if (cache->reuse && loadTex(cache->dir / entry, hit, sw, sh)) {
+        usedEntries.insert(entry);
+        ++cache->cached;
+        addCooked(a, hit, sw, sh);
+        continue;
+      }
+    }
     if (!decodePng(bytes, img, err)) { fail(a, err); continue; }
     if (img.width == 0 || img.height == 0 || img.width > 1024 || img.height > 1024) {
       fail(a, "texture is " + std::to_string(img.width) + "x" + std::to_string(img.height) + ", the limit is 1024x1024");
@@ -112,7 +228,14 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     }
     TextureImport ti;
     ti.format = s.value("format", std::string("auto"));
-    addTexture(a, img, ti);
+    CookedTexture ct;
+    if (!plugin.cookTexture(img, ti, ct, err)) { fail(a, err); continue; }
+    if (cache) {
+      storeTex(cache->dir / entry, ct, img.width, img.height);
+      usedEntries.insert(entry);
+      ++cache->cooked;
+    }
+    addCooked(a, ct, img.width, img.height);
   }
 
   // Pass 2: audio.
@@ -124,7 +247,6 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     PcmAudio pcm;
     std::string err;
     if (!readBytes(a.path, bytes)) { fail(a, "cannot read file"); continue; }
-    if (!parseWav(bytes, pcm, err)) { fail(a, err); continue; }
     AudioImport ai;
     ai.mono = s.value("mono", false);
     ai.halveRate = s.value("halveRate", false);
@@ -132,9 +254,26 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     ai.loop = s.value("loop", false);
     ai.loopStart = s.value("loopStart", static_cast<int64_t>(0));
     ai.loopEnd = s.value("loopEnd", static_cast<int64_t>(-1));
-    const uint32_t srcFrames = pcm.frames();
-    const uint32_t srcRate = pcm.sampleRate;
-    if (!plugin.cookAudio(pcm, ai, err)) { fail(a, err); continue; }
+    uint32_t srcFrames = 0, srcRate = 0;
+    std::string entry;
+    bool hit = false;
+    if (cache) {
+      entry = cacheKey(*cache, "aud", bytes, a.importSettings) + ".aud";
+      hit = cache->reuse && loadAud(cache->dir / entry, pcm, srcFrames, srcRate);
+    }
+    if (hit) {
+      ++cache->cached;
+    } else {
+      if (!parseWav(bytes, pcm, err)) { fail(a, err); continue; }
+      srcFrames = pcm.frames();
+      srcRate = pcm.sampleRate;
+      if (!plugin.cookAudio(pcm, ai, err)) { fail(a, err); continue; }
+      if (cache) {
+        storeAud(cache->dir / entry, pcm, srcFrames, srcRate);
+        ++cache->cooked;
+      }
+    }
+    if (cache) usedEntries.insert(entry);
     const uint32_t frames = pcm.frames();
     // Loop points are authored in source frames; rescale if the plugin shortened the clip.
     auto scale = [&](int64_t f) { return srcFrames ? static_cast<uint32_t>(f * frames / srcFrames) : 0u; };
@@ -204,11 +343,28 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
             break;
           }
         if (bad) continue;
+        // Tile flags (pack-format.md): "solid" [ids], "oneWay" [ids], "slopes" {"<id>": "45L"|"45R"|"22L_lo"|...}.
+        // A tile may have only one of the three; a tilemap with only "solid" cooks to the original 1-per-tile bytes.
         std::vector<uint8_t> solid(tileCount, 0);
-        for (const json& sj : j.value("solid", json::array())) {
-          uint32_t id = sj.get<uint32_t>();
-          if (id >= tileCount) { fail(a, "solid tile id " + std::to_string(id) + " is outside the tileset"); bad = true; break; }
-          solid[id] = 1;
+        auto setFlag = [&](uint32_t id, uint8_t flag, const char* what) {
+          if (id >= tileCount) { fail(a, std::string(what) + " tile id " + std::to_string(id) + " is outside the tileset"); bad = true; return; }
+          if (solid[id] && solid[id] != flag) { fail(a, "tile id " + std::to_string(id) + " has more than one of solid, oneWay and slopes"); bad = true; return; }
+          solid[id] = flag;
+        };
+        for (const json& sj : j.value("solid", json::array())) { setFlag(sj.get<uint32_t>(), PackTileFlag::kSolid, "solid"); if (bad) break; }
+        if (!bad)
+          for (const json& sj : j.value("oneWay", json::array())) { setFlag(sj.get<uint32_t>(), PackTileFlag::kOneWay, "oneWay"); if (bad) break; }
+        if (!bad && j.contains("slopes")) {
+          static const struct { const char* name; uint8_t code; } kSlopes[] = {
+              {"45L", kSlope45L}, {"45R", kSlope45R}, {"22L_lo", kSlope22L_lo}, {"22L_hi", kSlope22L_hi},
+              {"22R_lo", kSlope22R_lo}, {"22R_hi", kSlope22R_hi}};
+          for (auto it = j["slopes"].begin(); it != j["slopes"].end() && !bad; ++it) {
+            uint8_t code = 0;
+            const std::string name = it.value().get<std::string>();
+            for (const auto& k : kSlopes) if (name == k.name) code = k.code;
+            if (!code) { fail(a, "unknown slope \"" + name + "\" (use 45L, 45R, 22L_lo, 22L_hi, 22R_lo, 22R_hi)"); bad = true; break; }
+            setFlag(static_cast<uint32_t>(std::stoul(it.key())), static_cast<uint8_t>(code << PackTileFlag::kSlopeShift), "slope");
+          }
         }
         if (bad) continue;
         r.tilesOffset = blobAdd(out.blob, tiles.data(), tiles.size() * 2);
@@ -293,7 +449,49 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     for (size_t i = 0; i < r.charCount; ++i) r.advance[i] = 8;
     out.fonts.insert(out.fonts.begin(), r);
   }
+  if (cache && ok) {  // drop entries no asset needs any more (changed or deleted sources)
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(cache->dir, ec)) {
+      const std::string name = e.path().filename().string();
+      if ((endsWith(name, ".tex") || endsWith(name, ".aud") || endsWith(name, ".tmp")) && !usedEntries.count(name)) fs::remove(e.path(), ec);
+    }
+  }
   return ok;
+}
+
+}  // namespace rensga
+
+namespace rensga {
+
+bool cookPhysics2D(const std::string& text, PackPhysics2D& out, std::string& error) {
+  for (uint32_t& m : out.masks) m = 0xFFFFFFFFu;
+  try {
+    const json j = json::parse(text);
+    if (j.value("format", 0) != 1) { error = "unsupported format version"; return false; }
+    if (j.contains("matrix")) {
+      if (!j["matrix"].is_array() || j["matrix"].size() != 32) { error = "\"matrix\" needs 32 bitmasks"; return false; }
+      for (size_t i = 0; i < 32; ++i) out.masks[i] = j["matrix"][i].get<uint32_t>();
+    }
+    std::vector<std::string> names;
+    for (const json& n : j.value("layers", json::array())) names.push_back(n.get<std::string>());
+    if (names.size() > 32) { error = "more than 32 layer names"; return false; }
+    auto layerOf = [&](const json& v, uint32_t& idx) {
+      if (v.is_number_unsigned() || v.is_number_integer()) { idx = v.get<uint32_t>(); return idx < 32; }
+      const std::string n = v.get<std::string>();
+      for (size_t i = 0; i < names.size(); ++i) if (names[i] == n) { idx = static_cast<uint32_t>(i); return true; }
+      return false;
+    };
+    for (const json& pr : j.value("ignore", json::array())) {
+      uint32_t x = 0, y = 0;
+      if (!pr.is_array() || pr.size() != 2 || !layerOf(pr[0], x) || !layerOf(pr[1], y)) { error = "bad \"ignore\" pair " + pr.dump(); return false; }
+      out.masks[x] &= ~(1u << y);
+      out.masks[y] &= ~(1u << x);
+    }
+  } catch (const std::exception& e) {
+    error = e.what();
+    return false;
+  }
+  return true;
 }
 
 }  // namespace rensga
