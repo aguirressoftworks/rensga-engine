@@ -8,6 +8,13 @@ set -eu
 cd "$REPO"
 PROJ="${RENSGA_ANDROID_PROJECT:-$REPO/samples/platformer2d}"; PROJ="$(cd "$PROJ" && pwd)"
 PACK="${RENSGA_ANDROID_PACK:-$PROJ/Library/Cooked/ps2/game.rpak}"
+if [ ! -f "$PACK" ] && [ -z "${RENSGA_ANDROID_PACK:-}" ]; then
+  # Fresh checkout (CI): build the host cooker with the project's scripts and cook the pack for the ps2 profile.
+  CB="$CI_OUT/android-cooker"
+  cmake --preset linux-host -B "$CB" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_BUILD_TESTS=OFF -DRENSGA_BUILD_EDITOR=OFF >/dev/null
+  cmake --build "$CB" -j"$JOBS" --target rensga-cooker
+  "$CB/tools/cooker/rensga-cooker" cook --project "$PROJ" --target ps2
+fi
 [ -f "$PACK" ] || { echo "android: no cooked pack at $PACK (cook the project first, see the header of this script)" >&2; exit 1; }
 rm -rf tools/android/build/assets; mkdir -p tools/android/build/assets
 cp "$PACK" tools/android/build/assets/game.rpak

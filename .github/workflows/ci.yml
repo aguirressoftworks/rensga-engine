@@ -36,6 +36,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cmake g++ make libsdl2-dev
       - run: tools/ci/android.sh
       # F2.G1: no phone on a runner, so this prints "android: built, not run (no device)". Run it locally with a phone attached.
       - run: tools/ci/android_device.sh
