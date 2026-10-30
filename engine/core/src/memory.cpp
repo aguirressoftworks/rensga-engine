@@ -91,6 +91,57 @@ MemoryConfig MemoryConfig::fromRamBudget(size_t ramBytes) {
   return c;
 }
 
+// ---- MemoryBudget ----------------------------------------------------------
+
+void MemoryBudget::init(size_t totalBytes, size_t reservedBytes) {
+  *this = MemoryBudget();
+  total_ = totalBytes;
+  reserved_ = reservedBytes > totalBytes ? totalBytes : reservedBytes;
+}
+
+bool MemoryBudget::createArena(Arena& arena, const char* name, size_t bytes) {
+  bytes = alignUp(bytes, kDmaAlignment);
+  if (count_ >= kMaxArenas) {
+    lastRefused_ = name;
+    RLOG_ERROR("memory", "arena '%s' refused: budget table is full (%u arenas)", name, kMaxArenas);
+    return false;
+  }
+  if (bytes > remaining()) {
+    lastRefused_ = name;
+    RLOG_ERROR("memory", "arena '%s' refused: needs %zu bytes, only %zu left of the %zu byte budget (%zu reserved, %zu committed)",
+               name, bytes, remaining(), total_, reserved_, committed_);
+    return false;
+  }
+  if (!arena.create(bytes)) {
+    lastRefused_ = name;
+    RLOG_ERROR("memory", "arena '%s' refused: the system could not provide %zu bytes", name, bytes);
+    return false;
+  }
+  committed_ += bytes;
+  entries_[count_].name = name;
+  entries_[count_].arena = &arena;
+  ++count_;
+  return true;
+}
+
+bool MemoryBudget::track(const Arena& arena, const char* name) {
+  if (count_ >= kMaxArenas) return false;
+  entries_[count_].name = name;
+  entries_[count_].arena = &arena;
+  ++count_;
+  return true;
+}
+
+bool MemoryBudget::stats(u32 index, ArenaStats& out) const {
+  if (index >= count_) return false;
+  const Arena& a = *entries_[index].arena;
+  out.name = entries_[index].name;
+  out.capacity = a.capacity();
+  out.used = a.used();
+  out.peak = a.highWater();
+  return true;
+}
+
 // ---- Heap counter ---------------------------------------------------------
 
 namespace {
@@ -100,6 +151,8 @@ bool g_guardEnabled = true;
 u64 g_guardStart = 0;
 u32 g_violations = 0;
 bool g_inFrame = false;
+u64 g_checkFrames = 0;
+u64 g_checkBase = 0;
 
 void* countedAlloc(size_t size, size_t align) {
   if (size == 0) size = 1;
@@ -119,6 +172,18 @@ void* countedAlloc(size_t size, size_t align) {
 namespace heap {
 u64 allocationCount() { return g_allocCount; }
 u64 totalBytes() { return g_totalBytes; }
+void noteFrameDone() {
+  if (++g_checkFrames == 1) g_checkBase = g_allocCount;
+}
+u64 checkFrames() { return g_checkFrames; }
+u64 checkAllocs() { return g_checkFrames ? g_allocCount - g_checkBase : 0; }
+void checkReset() { g_checkFrames = 0; g_checkBase = 0; }
+u64 logAllocCheck() {
+  u64 k = checkAllocs();
+  RLOG_INFO("game", "rensga: alloc-check frames=%llu allocs=%llu", static_cast<unsigned long long>(g_checkFrames),
+            static_cast<unsigned long long>(k));
+  return k;
+}
 }  // namespace heap
 
 void FrameHeapGuard::begin() {

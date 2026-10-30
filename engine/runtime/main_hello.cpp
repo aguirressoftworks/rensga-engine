@@ -1,6 +1,7 @@
 // Engine 0 hello: the same main on every F1 target. Clears to the brand `bg` (dark) color and logs boot +
 // frame heartbeats through the engine logger, using only IPlatform/IRenderer.
 //   rensga_hello [--frames N]     (N = 0 or absent: run until the window closes / forever on PS2)
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -10,6 +11,7 @@
 #include "rensga/platform/ps2.h"
 #include "rensga/render/gs.h"
 using PlatformImpl = rensga::Ps2Platform;
+using FsImpl = rensga::Ps2FileSystem;
 using RendererImpl = rensga::GsRenderer;
 #else
 #if defined(_WIN32)
@@ -20,8 +22,10 @@ using RendererImpl = rensga::GsRenderer;
 #include <android/log.h>
 #endif
 #include "rensga/platform/sdl.h"
+#include "rensga/platform/sdl_filesystem.h"
 #include "rensga/render/gl.h"
 using PlatformImpl = rensga::SdlPlatform;
+using FsImpl = rensga::SdlFileSystem;
 using RendererImpl = rensga::GlRenderer;
 #endif
 
@@ -54,6 +58,15 @@ int main(int argc, char** argv) {
   static RendererImpl renderer;
   if (!platform.init()) return 2;
   if (!renderer.init(960, 544)) return 3;
+#if defined(RENSGA_PLATFORM_PS2)
+  RLOG_INFO("hello", "rensga: ps2 video=%s region=%c", platform.info().pal ? "PAL" : "NTSC", platform.info().region);
+#endif
+  static FsImpl fs;
+  {  // save:/ round trip: proves the virtual-path mapping on this platform (a read-only disc may fail; that is logged, not fatal)
+    const char msg[] = "rensga hello";
+    bool ok = fs.writeFile("save:/hello.txt", msg, sizeof(msg));
+    RLOG_INFO("hello", "rensga: save:/hello.txt write %s", ok ? "ok" : "failed");
+  }
 
   u32 frame = 0;
   while (!platform.shouldQuit() && (maxFrames == 0 || frame < maxFrames)) {
@@ -62,7 +75,10 @@ int main(int argc, char** argv) {
     renderer.beginFrame(kBrandBg);
     renderer.endFrame();
     ++frame;
-    if (frame % 60 == 0) RLOG_INFO("hello", "frame %u t=%.2f", static_cast<unsigned>(frame), platform.timeSeconds());
+    if (frame % 60 == 0) {
+      RLOG_INFO("hello", "rensga: frame %u t=%.2f", static_cast<unsigned>(frame), platform.timeSeconds());
+      fflush(stdout);
+    }
   }
   RLOG_INFO("hello", "rensga hello: done frames=%u", static_cast<unsigned>(frame));
   platform.shutdown();

@@ -14,6 +14,7 @@ struct MeshRenderer : Component {
   SERIALIZE_FIELD(Color32, color, Color32(255, 255, 255, 255))
   // Runtime only (not reflected): index into the pack MESH table, set by the pack loader.
   u32 meshIndex = kInvalidIndex;
+  void OnCloned(const Component* source) override { meshIndex = static_cast<const MeshRenderer*>(source)->meshIndex; }
 };
 
 struct BoxCollider : Component {

@@ -42,7 +42,7 @@ struct PlayerController : Behaviour {
     if (jumpQueued && cc->isGrounded()) cc->velocity.y = jumpSpeed;
     jumpQueued = false;
 
-    cc->Move(dir * (speed * Time::fixedDeltaTime));
+    cc->Move(dir * (speed * Time::fixedDeltaTime()));
     if (dir.sqrMagnitude() > 0.01f)
       transform()->setRotation(Quaternion::AngleAxis(Mathf::Atan2(dir.x, dir.z) * Mathf::Rad2Deg, Vector3(0, 1, 0)));
   }

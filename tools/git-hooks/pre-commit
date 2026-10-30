@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Rensga pre-commit guard: never commit a console BIOS (RULES.md section 5).
+# Rejects staged files that
+#   * have the extension .bin .rom .erom .nvm .mec and are >= 64 KiB, or
+#   * live under a path containing "bios" (any case), except docs/ and tools/ scripts (.sh .md .py .txt .json).
+# Install with tools/install_git_hooks.sh. To bypass for a legitimate case, fix the rule here with a written reason.
+set -u
+bad=0
+while IFS= read -r -d '' f; do
+  lower="$(printf '%s' "$f" | tr '[:upper:]' '[:lower:]')"
+  case "$lower" in
+    *.bin|*.rom|*.erom|*.nvm|*.mec)
+      size="$(git cat-file -s ":$f" 2>/dev/null || echo 0)"
+      if [ "$size" -ge 65536 ]; then echo "pre-commit: refusing $f ($size bytes): looks like a BIOS/ROM dump" >&2; bad=1; fi;;
+  esac
+  case "$lower" in
+    *bios*)
+      case "$lower" in
+        docs/*|tools/*.sh|tools/*/*.sh|tools/*.md|tools/*.py|tools/*/*.py) ;;
+        *) echo "pre-commit: refusing $f: path contains 'bios'" >&2; bad=1;;
+      esac;;
+  esac
+done < <(git diff --cached --name-only --diff-filter=AMR -z)
+[ $bad -eq 0 ] || { echo "pre-commit: a Sony BIOS must never enter the repository (RULES.md section 5)." >&2; exit 1; }

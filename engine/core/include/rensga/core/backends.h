@@ -8,14 +8,18 @@
 namespace rensga {
 
 struct VirtualGamepad {
-  Scalar leftX = 0, leftY = 0;  // nub, -1..1 (+Y is up/forward)
+  Scalar leftX = 0, leftY = 0;    // left stick / nub, -1..1 (+Y is up/forward)
+  Scalar rightX = 0, rightY = 0;  // right stick, -1..1 (0 on pads without one)
+  // Only bools: Input::update walks this struct as a bool array.
   struct Buttons {
     bool south = false, east = false, west = false, north = false;
     bool l = false, r = false, start = false, select = false;
     bool up = false, down = false, left = false, right = false;
+    bool l2 = false, r2 = false;  // triggers as buttons
   };
   Buttons held;
-  Buttons pressed;  // went down this frame (set by the platform or by Input::update)
+  Buttons pressed;   // went down this frame (set by Input::update)
+  Buttons released;  // went up this frame (set by Input::update)
 };
 
 class IPlatform {
@@ -68,6 +72,19 @@ class IFileSystem {
   virtual Span<const u8> readFile(const char* path, Arena& arena) = 0;
   // Appends text to the persistent game log (host0:/rensga.log on PSP dev builds).
   virtual void writeLog(const char* text) = 0;
+
+  // Virtual paths: "data:/<rel>" is the game data root (read only), "save:/<rel>" is writable.
+  // A path without a prefix is taken as relative to the data root.
+  // Streams use a fixed slot table (kMaxStreams, no heap). Default implementations fail.
+  static constexpr i32 kMaxStreams = 8;
+  // Returns a handle >= 0, or -1 (missing file or no free slot).
+  virtual i32 openStream(const char*) { return -1; }
+  // Reads up to `bytes` into dst; returns the bytes read (0 at the end or on a bad handle).
+  virtual u32 readStream(i32, void*, u32) { return 0; }
+  virtual bool seekStream(i32, u32) { return false; }
+  virtual void closeStream(i32) {}
+  // Writes (replaces) a file, normally under "save:/". False on failure or a read-only root.
+  virtual bool writeFile(const char*, const void*, u32) { return false; }
 };
 
 // ---- null implementations for headless tests -------------------------------
@@ -118,15 +135,26 @@ class NullFileSystem : public IFileSystem {
 };
 
 // stdio-based file system (host sim, tests; PSP dev builds can use it for host0: too).
+// `root` is the data root (prepended as-is, so give it a trailing '/'); `saveRoot` is where
+// "save:/" goes (defaults to the data root).
 class StdioFileSystem : public IFileSystem {
  public:
-  explicit StdioFileSystem(const char* root = "", const char* logPath = nullptr);
+  explicit StdioFileSystem(const char* root = "", const char* logPath = nullptr, const char* saveRoot = nullptr);
+  ~StdioFileSystem() override;
   Span<const u8> readFile(const char* path, Arena& arena) override;
   void writeLog(const char* text) override;
+  i32 openStream(const char* path) override;
+  u32 readStream(i32 handle, void* dst, u32 bytes) override;
+  bool seekStream(i32 handle, u32 offset) override;
+  void closeStream(i32 handle) override;
+  bool writeFile(const char* path, const void* data, u32 bytes) override;
 
  private:
+  bool resolve(const char* path, char* out, u32 outSize, bool* isSave) const;
   char root_[256];
+  char saveRoot_[256];
   char logPath_[256];
+  void* streams_[kMaxStreams];
 };
 
 }  // namespace rensga

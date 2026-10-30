@@ -3,28 +3,139 @@
 #include <string.h>
 
 #include "rensga/core/components.h"
+#include "rensga/core/debug.h"
 #include "rensga/core/log.h"
+#include "rensga/core/time.h"
 
 namespace rensga {
 
 // ---- Transform / Component -------------------------------------------------
 
 void Transform::setParent(Transform* newParent) {
-  if (parent == newParent) return;
-  if (parent) {
-    Transform** link = &parent->firstChild;
-    while (*link && *link != this) link = &(*link)->nextSibling;
-    if (*link) *link = nextSibling;
+  if (parent_ == newParent) return;
+  if (parent_) {
+    Transform** link = &parent_->firstChild_;
+    while (*link && *link != this) link = &(*link)->nextSibling_;
+    if (*link) *link = nextSibling_;
   }
-  nextSibling = nullptr;
-  parent = newParent;
+  nextSibling_ = nullptr;
+  parent_ = newParent;
   if (newParent) {
     // Append to keep a stable child order.
-    Transform** link = &newParent->firstChild;
-    while (*link) link = &(*link)->nextSibling;
+    Transform** link = &newParent->firstChild_;
+    while (*link) link = &(*link)->nextSibling_;
     *link = this;
   }
 }
+
+u32 Transform::childCount() const {
+  u32 n = 0;
+  for (const Transform* c = firstChild_; c; c = c->nextSibling_) ++n;
+  return n;
+}
+
+Transform* Transform::GetChild(u32 index) const {
+  Transform* c = firstChild_;
+  while (c && index--) c = c->nextSibling_;
+  return c;
+}
+
+Transform* Transform::Find(const char* childName) const {
+  if (!childName) return nullptr;
+  const Transform* cur = this;
+  const char* p = childName;
+  while (*p && cur) {
+    const char* end = p;
+    while (*end && *end != '/') ++end;
+    size_t len = static_cast<size_t>(end - p);
+    const Transform* next = nullptr;
+    for (const Transform* c = cur->firstChild_; c; c = c->nextSibling_) {
+      if (strlen(c->gameObject->name) == len && strncmp(c->gameObject->name, p, len) == 0) {
+        next = c;
+        break;
+      }
+    }
+    cur = next;
+    p = *end == '/' ? end + 1 : end;
+  }
+  return const_cast<Transform*>(cur == this ? nullptr : cur);
+}
+
+void Transform::SetParent(Transform* newParent, bool worldPositionStays) {
+  if (newParent == this || parent_ == newParent) return;
+  if (newParent && newParent->IsChildOf(this)) {
+    RLOG_ERROR("world", "SetParent: '%s' cannot become a child of its own descendant '%s'", gameObject->name,
+               newParent->gameObject->name);
+    return;
+  }
+  World* w = gameObject->world;
+  bool wasActive = gameObject->activeInHierarchy();
+  Vector3 wp = position();
+  Quaternion wr = rotation();
+  Vector3 ws = lossyScale();
+  setParent(newParent);
+  if (worldPositionStays) {
+    setPosition(wp);
+    setRotation(wr);
+    Vector3 ps = newParent ? newParent->lossyScale() : Vector3(1, 1, 1);
+    lscale_ = Vector3(ps.x != 0 ? ws.x / ps.x : ws.x, ps.y != 0 ? ws.y / ps.y : ws.y, ps.z != 0 ? ws.z / ps.z : ws.z);
+  }
+  if (w && wasActive != gameObject->activeInHierarchy()) {
+    w->refreshEnabled(gameObject, true);
+    if (!wasActive) w->awakeSubtree(gameObject);
+  }
+}
+
+namespace {
+// Rotation whose +Z axis is `forward` and whose +Y is as close to `up` as possible.
+Quaternion lookRotation(const Vector3& forward, const Vector3& up) {
+  Vector3 f = forward.normalized();
+  Vector3 r = Vector3::Cross(up, f);
+  if (r.sqrMagnitude() < 1e-12f) r = Vector3::Cross(Vector3(0, 0, 1), f);
+  if (r.sqrMagnitude() < 1e-12f) r = Vector3::Cross(Vector3(1, 0, 0), f);
+  r = r.normalized();
+  Vector3 u = Vector3::Cross(f, r);
+  // Rotation matrix with columns r, u, f -> quaternion (Shepperd).
+  Scalar m00 = r.x, m01 = u.x, m02 = f.x;
+  Scalar m10 = r.y, m11 = u.y, m12 = f.y;
+  Scalar m20 = r.z, m21 = u.z, m22 = f.z;
+  Scalar tr = m00 + m11 + m22;
+  Quaternion q;
+  if (tr > 0) {
+    Scalar s = Mathf::Sqrt(tr + 1.0f) * 2.0f;
+    q = Quaternion(Scalar(m21 - m12) / s, Scalar(m02 - m20) / s, Scalar(m10 - m01) / s, 0.25f * s);
+  } else if (m00 > m11 && m00 > m22) {
+    Scalar s = Mathf::Sqrt(1.0f + m00 - m11 - m22) * 2.0f;
+    q = Quaternion(0.25f * s, Scalar(m01 + m10) / s, Scalar(m02 + m20) / s, Scalar(m21 - m12) / s);
+  } else if (m11 > m22) {
+    Scalar s = Mathf::Sqrt(1.0f + m11 - m00 - m22) * 2.0f;
+    q = Quaternion(Scalar(m01 + m10) / s, 0.25f * s, Scalar(m12 + m21) / s, Scalar(m02 - m20) / s);
+  } else {
+    Scalar s = Mathf::Sqrt(1.0f + m22 - m00 - m11) * 2.0f;
+    q = Quaternion(Scalar(m02 + m20) / s, Scalar(m12 + m21) / s, 0.25f * s, Scalar(m10 - m01) / s);
+  }
+  return q.normalized();
+}
+}  // namespace
+
+void Transform::LookAt(const Vector3& target, const Vector3& worldUp) {
+  Vector3 d = target - position();
+  if (d.sqrMagnitude() < 1e-12f) return;
+  setRotation(lookRotation(d, worldUp));
+}
+
+void GameObject::SetTag(const char* newTag) {
+  size_t n = newTag ? strlen(newTag) : 0;
+  if (n == 0) {
+    newTag = "Untagged";
+    n = 8;
+  }
+  if (n >= kMaxTagLength) n = kMaxTagLength - 1;
+  memcpy(tag, newTag, n);
+  tag[n] = 0;
+}
+
+bool GameObject::CompareTag(const char* other) const { return other && strcmp(tag, other) == 0; }
 
 void Component::setEnabled(bool e) {
   if (enabled_ == e) return;
@@ -51,13 +162,21 @@ bool World::init(const WorldConfig& config, Arena& arena) {
   poolCount_ = 0;
   for (u32 i = 0; i < kMaxTypes; ++i) pools_[i] = ComponentPool();
   pendingDestroy_ = false;
+  started_ = false;
+  cloneDepth_ = 0;
+  delayedCount_ = 0;
+  delayed_ = config.maxDelayedDestroys ? arena.allocateArray<DelayedDestroy>(config.maxDelayedDestroys) : nullptr;
+  if (config.maxDelayedDestroys && !delayed_) return false;
+  active_ = this;
   return true;
 }
 
 void World::shutdown() {
   for (u32 i = 0; i < objectHighWater_; ++i)
-    if (objects_[i].alive && !objects_[i].dying && !objects_[i].transform.parent) destroy(&objects_[i]);
-  flushDestroyed();
+    if (objects_[i].alive && !objects_[i].dying && !objects_[i].transform.parent_) destroy(&objects_[i]);
+  flushNow();
+  delayedCount_ = 0;
+  if (active_ == this) active_ = nullptr;
 }
 
 GameObject* World::objectAt(u32 index) const {
@@ -75,6 +194,23 @@ GameObject* World::findByGuid(const Guid& guid) const {
   for (u32 i = 0; i < objectHighWater_; ++i)
     if (objects_[i].alive && !objects_[i].dying && objects_[i].guid == guid) return &objects_[i];
   return nullptr;
+}
+
+GameObject* World::findByTag(const char* tag) const {
+  if (!tag) return nullptr;
+  for (u32 i = 0; i < objectHighWater_; ++i)
+    if (objects_[i].alive && !objects_[i].dying && objects_[i].activeInHierarchy() && strcmp(objects_[i].tag, tag) == 0)
+      return &objects_[i];
+  return nullptr;
+}
+
+u32 World::findAllByTag(const char* tag, GameObject** out, u32 capacity) const {
+  u32 n = 0;
+  if (!tag) return 0;
+  for (u32 i = 0; i < objectHighWater_ && n < capacity; ++i)
+    if (objects_[i].alive && !objects_[i].dying && objects_[i].activeInHierarchy() && strcmp(objects_[i].tag, tag) == 0)
+      out[n++] = &objects_[i];
+  return n;
 }
 
 GameObject* World::createObject(const char* name, GameObject* parent) {
@@ -134,7 +270,14 @@ ComponentPool* World::ensurePool(const TypeInfo& type, u32 capacity) {
     p.generations[i] = 1;
     p.flags[i] = 0;
   }
-  poolOrder_[poolCount_++] = type.id;
+  // Keep poolOrder_ sorted by script execution order (lower first); equal orders keep creation order.
+  u32 at = poolCount_;
+  while (at > 0 && pools_[poolOrder_[at - 1]].type->executionOrder > type.executionOrder) {
+    poolOrder_[at] = poolOrder_[at - 1];
+    --at;
+  }
+  poolOrder_[at] = type.id;
+  ++poolCount_;
   return &p;
 }
 
@@ -177,7 +320,40 @@ Component* World::addComponent(GameObject* go, const TypeInfo& type) {
   go->components[go->componentCount].typeId = type.id;
   go->components[go->componentCount].slot = slot;
   ++go->componentCount;
+  if (started_ && cloneDepth_ == 0) awakeComponent(*p, slot, go);
   return c;
+}
+
+Component* World::getComponentNth(const GameObject* go, const TypeInfo& type, u32 n) const {
+  if (!go) return nullptr;
+  const ComponentPool* p = poolFor(type.id);
+  if (!p) return nullptr;
+  for (u32 i = 0; i < go->componentCount; ++i) {
+    if (go->components[i].typeId != type.id) continue;
+    u32 slot = go->components[i].slot;
+    if ((p->flags[slot] & (kSlotAlive | kSlotDying)) != kSlotAlive) continue;
+    if (n-- == 0) return type.asComponent(p->at(slot));
+  }
+  return nullptr;
+}
+
+Component* World::findInChildren(const GameObject* go, const TypeInfo& type, bool includeInactive) const {
+  if (!includeInactive && !go->selfActive_) return nullptr;
+  if (Component* c = getComponent(go, type)) return c;
+  for (const Transform* t = go->transform.firstChild_; t; t = t->nextSibling_)
+    if (Component* c = findInChildren(t->gameObject, type, includeInactive)) return c;
+  return nullptr;
+}
+
+Component* World::getComponentInChildren(const GameObject* go, const TypeInfo& type, bool includeInactive) const {
+  if (!go) return nullptr;
+  return findInChildren(go, type, includeInactive);
+}
+
+Component* World::getComponentInParent(const GameObject* go, const TypeInfo& type) const {
+  for (const Transform* t = go ? &go->transform : nullptr; t; t = t->parent_)
+    if (Component* c = getComponent(t->gameObject, type)) return c;
+  return nullptr;
 }
 
 Component* World::getComponent(const GameObject* go, const TypeInfo& type) const {
@@ -207,7 +383,7 @@ void World::destroy(GameObject* go) {
       ++p->generations[slot];
     }
   }
-  for (Transform* c = go->transform.firstChild; c; c = c->nextSibling) destroy(c->gameObject);
+  for (Transform* c = go->transform.firstChild_; c; c = c->nextSibling_) destroy(c->gameObject);
 }
 
 void World::destroy(Component* c) {
@@ -249,6 +425,11 @@ void World::releaseObject(GameObject* go) {
 }
 
 void World::flushDestroyed() {
+  tickDelayed(Time::deltaTime());
+  flushNow();
+}
+
+void World::flushNow() {
   if (!pendingDestroy_) return;
   pendingDestroy_ = false;
   // Whole objects. Children release first because they are also flagged dying.
@@ -320,29 +501,48 @@ void World::refreshEnabled(GameObject* go, bool recursive) {
     }
   }
   if (recursive)
-    for (Transform* c = go->transform.firstChild; c; c = c->nextSibling) refreshEnabled(c->gameObject, true);
+    for (Transform* c = go->transform.firstChild_; c; c = c->nextSibling_) refreshEnabled(c->gameObject, true);
+}
+
+void World::awakeComponent(ComponentPool& p, u32 slot, GameObject* go) {
+  if (!p.type->asBehaviour) return;
+  if ((p.flags[slot] & (kSlotAlive | kSlotDying | kSlotAwoken)) != kSlotAlive || !go->activeInHierarchy()) return;
+  Behaviour* b = p.type->asBehaviour(p.at(slot));
+  p.flags[slot] |= kSlotAwoken;
+  b->Awake();
+  if (shouldBeEnabled(go, b) && (p.flags[slot] & (kSlotAlive | kSlotDying)) == kSlotAlive) {
+    p.flags[slot] |= kSlotEnabledNotified;
+    b->OnEnable();
+  }
+}
+
+void World::awakeSubtree(GameObject* go) {
+  if (!started_ || !go || !go->alive || go->dying || !go->activeInHierarchy()) return;
+  for (u32 i = 0; i < go->componentCount; ++i) {
+    ComponentPool* p = poolFor(go->components[i].typeId);
+    if (p) awakeComponent(*p, go->components[i].slot, go);
+  }
+  for (Transform* c = go->transform.firstChild_; c; c = c->nextSibling_) awakeSubtree(c->gameObject);
 }
 
 void World::setObjectActive(GameObject* go, bool active) {
-  if (!go || go->activeSelf == active) return;
-  go->activeSelf = active;
+  if (!go || go->selfActive_ == active) return;
+  go->selfActive_ = active;
   refreshEnabled(go, true);
+  if (active) awakeSubtree(go);  // first activation: Awake + OnEnable now, Start before the next Update
 }
 
 void World::startPending() {
+  started_ = true;
+  Debug::tickLines(Time::deltaTime());
   for (int round = 0; round < 8; ++round) {
     bool worked = false;
     // Pass 1: Awake, then OnEnable.
     forEachBehaviour([&](ComponentPool& p, u32 slot, Behaviour* b) {
       GameObject* go = objectAt(b->ownerIndex_);
       if ((p.flags[slot] & kSlotAwoken) || !go || !go->activeInHierarchy()) return;
-      p.flags[slot] |= kSlotAwoken;
       worked = true;
-      b->Awake();
-      if (shouldBeEnabled(go, b) && (p.flags[slot] & (kSlotAlive | kSlotDying)) == kSlotAlive) {
-        p.flags[slot] |= kSlotEnabledNotified;
-        b->OnEnable();
-      }
+      awakeComponent(p, slot, go);
     });
     // Pass 2: Start, once, before the first Update.
     forEachBehaviour([&](ComponentPool& p, u32 slot, Behaviour* b) {
@@ -378,6 +578,158 @@ void World::sendTriggerEnter(GameObject* self, GameObject* other) {
     if ((p->flags[slot] & (kSlotAlive | kSlotDying | kSlotStarted)) != (kSlotAlive | kSlotStarted)) continue;
     p->type->asBehaviour(p->at(slot))->OnTriggerEnter(other);
   }
+}
+
+// ---- Instantiate / delayed Destroy -----------------------------------------
+
+GameObject* World::cloneSubtree(const GameObject* src, Transform* parent, bool root) {
+  u32 childTotal = src->transform.childCount();  // before the clone exists: it may be attached below `src`
+  GameObject* go = createObject(src->name, parent ? parent->gameObject : nullptr);
+  if (!go) return nullptr;
+  if (root) {
+    size_t n = strlen(go->name);
+    static const char suffix[] = " (Clone)";
+    if (n + sizeof(suffix) <= kMaxNameLength) memcpy(go->name + n, suffix, sizeof(suffix));
+  }
+  memcpy(go->tag, src->tag, sizeof(go->tag));
+  go->layer = src->layer;
+  go->selfActive_ = src->selfActive_;
+  go->transform.lpos_ = src->transform.lpos_;
+  go->transform.lrot_ = src->transform.lrot_;
+  go->transform.lscale_ = src->transform.lscale_;
+  for (u32 i = 0; i < src->componentCount; ++i) {
+    const ComponentPool* sp = poolFor(src->components[i].typeId);
+    u32 sslot = src->components[i].slot;
+    if (!sp || (sp->flags[sslot] & (kSlotAlive | kSlotDying)) != kSlotAlive) continue;
+    const TypeInfo& type = *sp->type;
+    Component* c = addComponent(go, type);
+    if (!c) {
+      destroy(go);
+      return nullptr;
+    }
+    u8 blob[kMaxFields * 16];
+    u32 size = blobSize(type);
+    const void* smem = sp->at(sslot);
+    if (size <= sizeof(blob)) {
+      writeBlob(type, smem, blob);
+      readBlob(type, c, blob, size);
+    }
+    const Component* sc = type.asComponent(const_cast<void*>(smem));
+    c->enabled_ = sc->enabled_;
+    c->OnCloned(sc);
+  }
+  for (u32 i = 0; i < childTotal; ++i) {
+    const Transform* child = src->transform.GetChild(i);
+    if (!child || child->gameObject->dying) continue;
+    if (!cloneSubtree(child->gameObject, &go->transform, false)) {
+      destroy(go);
+      return nullptr;
+    }
+  }
+  return go;
+}
+
+GameObject* World::instantiate(const GameObject* original, Transform* parent, const Vector3* pos, const Quaternion* rot,
+                               bool keepLocalUnderParent) {
+  if (!original || !original->alive || original->dying) return nullptr;
+  ++cloneDepth_;
+  GameObject* root = cloneSubtree(original, parent, true);
+  --cloneDepth_;
+  if (!root) {
+    RLOG_ERROR("world", "Instantiate('%s') failed: object or component capacity exhausted", original->name);
+    return nullptr;
+  }
+  if (!parent && original->transform.parent_) {
+    // A clone of a child that gets no parent becomes a root and keeps the original's world placement.
+    root->transform.lpos_ = original->transform.position();
+    root->transform.lrot_ = original->transform.rotation();
+    root->transform.lscale_ = original->transform.lossyScale();
+  }
+  if (pos) root->transform.setPosition(*pos);
+  else if (parent && !keepLocalUnderParent) root->transform.setPosition(original->transform.position());
+  if (rot) root->transform.setRotation(*rot);
+  else if (parent && !keepLocalUnderParent) root->transform.setRotation(original->transform.rotation());
+  awakeSubtree(root);
+  return root;
+}
+
+bool World::addDelayed(const DelayedDestroy& d) {
+  for (u32 i = 0; i < delayedCount_; ++i) {
+    if (delayed_[i].typeId == d.typeId && delayed_[i].index == d.index && delayed_[i].generation == d.generation) {
+      if (d.remaining < delayed_[i].remaining) delayed_[i].remaining = d.remaining;
+      return true;
+    }
+  }
+  if (delayedCount_ >= config_.maxDelayedDestroys) return false;
+  delayed_[delayedCount_++] = d;
+  return true;
+}
+
+void World::destroy(GameObject* go, Scalar delay) {
+  if (!go || !go->alive || go->dying) return;
+  if (delay <= 0) {
+    destroy(go);
+    return;
+  }
+  DelayedDestroy d;
+  d.index = go->index;
+  d.generation = go->generation;
+  d.remaining = delay;
+  if (!addDelayed(d)) {
+    RLOG_WARN("world", "delayed-destroy table full (%u): destroying '%s' at the end of this frame", config_.maxDelayedDestroys,
+              go->name);
+    destroy(go);
+  }
+}
+
+void World::destroy(Component* c, Scalar delay) {
+  if (!c) return;
+  if (delay <= 0) {
+    destroy(c);
+    return;
+  }
+  ComponentPool* p = poolFor(c->typeId_);
+  if (!p || (p->flags[c->slot_] & kSlotDying)) return;
+  DelayedDestroy d;
+  d.typeId = c->typeId_;
+  d.index = c->slot_;
+  d.generation = p->generations[c->slot_];
+  d.remaining = delay;
+  if (!addDelayed(d)) {
+    RLOG_WARN("world", "delayed-destroy table full (%u): destroying a '%s' at the end of this frame", config_.maxDelayedDestroys,
+              p->type->name);
+    destroy(c);
+  }
+}
+
+void World::tickDelayed(Scalar dt) {
+  u32 w = 0;
+  for (u32 i = 0; i < delayedCount_; ++i) {
+    DelayedDestroy d = delayed_[i];
+    bool valid;
+    if (d.typeId == kInvalidIndex) {
+      valid = d.index < objectHighWater_ && objects_[d.index].alive && !objects_[d.index].dying &&
+              objects_[d.index].generation == d.generation;
+    } else {
+      const ComponentPool* p = poolFor(d.typeId);
+      valid = p && d.index < p->highWater && (p->flags[d.index] & (kSlotAlive | kSlotDying)) == kSlotAlive &&
+              p->generations[d.index] == d.generation;
+    }
+    if (!valid) continue;  // already destroyed some other way
+    d.remaining -= dt;
+    if (d.remaining <= 0) {
+      if (d.typeId == kInvalidIndex) destroy(&objects_[d.index]);
+      else destroy(poolFor(d.typeId)->type->asComponent(poolFor(d.typeId)->at(d.index)));
+      continue;
+    }
+    delayed_[w++] = d;
+  }
+  delayedCount_ = w;
+}
+
+void World::destroyImmediate(GameObject* go) {
+  destroy(go);
+  flushNow();
 }
 
 }  // namespace rensga

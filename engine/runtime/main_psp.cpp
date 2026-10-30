@@ -108,8 +108,8 @@ int main() {
     renderer.setMeshes(t);
     GameObject* cam = world.createObject("Camera");
     cam->AddComponent<Camera>();
-    cam->transform.localPosition = Vector3(0, 1.2f, 3.5f);
-    cam->transform.localRotation = Quaternion::AngleAxis(-15.0f, Vector3(1, 0, 0));
+    cam->transform.lpos_ = Vector3(0, 1.2f, 3.5f);
+    cam->transform.lrot_ = Quaternion::AngleAxis(-15.0f, Vector3(1, 0, 0));
     GameObject* cube = world.createObject("Cube");
     cube->AddComponent<MeshRenderer>()->meshIndex = 0;
   }
@@ -134,7 +134,7 @@ int main() {
     last = now;
     if (!havePack) {
       GameObject* cube = world.findByName("Cube");
-      if (cube) cube->transform.localRotation = Quaternion::Euler(20.0f, static_cast<Scalar>(frame) * 1.5f, 0);
+      if (cube) cube->transform.lrot_ = Quaternion::Euler(20.0f, static_cast<Scalar>(frame) * 1.5f, 0);
     }
     renderWorld(world, renderer);
     ++frame;

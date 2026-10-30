@@ -3,6 +3,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "rensga/core/backends.h"
 
 namespace rensga {
 
@@ -40,6 +43,32 @@ void FileSink::write(const LogRecord& r) {
 }
 void FileSink::flush() {
   if (file_) fflush(static_cast<FILE*>(file_));
+}
+
+void RingSink::write(const LogRecord& r) {
+  Entry& e = entries_[count_ % kCapacity];
+  e.level = r.level;
+  strncpy(e.channel, r.channel ? r.channel : "", sizeof(e.channel) - 1);
+  e.channel[sizeof(e.channel) - 1] = 0;
+  strncpy(e.message, r.message ? r.message : "", kMessageLength - 1);
+  e.message[kMessageLength - 1] = 0;
+  ++count_;
+}
+
+const RingSink::Entry* RingSink::entry(u32 index) const {
+  if (index >= count()) return nullptr;
+  u64 first = count_ > kCapacity ? count_ - kCapacity : 0;
+  return &entries_[(first + index) % kCapacity];
+}
+
+void FsLogSink::write(const LogRecord& r) {
+  if (!fs_) return;
+  char line[600];
+  if (strncmp(r.message, "rensga:", 7) == 0)
+    snprintf(line, sizeof(line), "%s", r.message);
+  else
+    snprintf(line, sizeof(line), "rensga: %s [%s] %s", levelName(r.level), r.channel, r.message);
+  fs_->writeLog(line);
 }
 
 namespace log {

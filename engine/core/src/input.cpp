@@ -80,7 +80,11 @@ void Input::update(const VirtualGamepad& pad) {
   const bool* cur = reinterpret_cast<const bool*>(&s.pad.held);
   const bool* old = reinterpret_cast<const bool*>(&s.prev.held);
   bool* pr = reinterpret_cast<bool*>(&s.pad.pressed);
-  for (size_t i = 0; i < sizeof(VirtualGamepad::Buttons); ++i) pr[i] = cur[i] && !old[i];
+  bool* rel = reinterpret_cast<bool*>(&s.pad.released);
+  for (size_t i = 0; i < sizeof(VirtualGamepad::Buttons); ++i) {
+    pr[i] = cur[i] && !old[i];
+    rel[i] = !cur[i] && old[i];
+  }
 }
 
 Vector2 Input::GetAxis2(const char* name) {
@@ -110,6 +114,13 @@ bool Input::GetButtonDown(const char* name) {
   const Action* a = find(name);
   return a && a->kind == PackInputKind::Button && buttonHeld(st().pad.pressed, a->source);
 }
+
+bool Input::GetButtonUp(const char* name) {
+  const Action* a = find(name);
+  return a && a->kind == PackInputKind::Button && buttonHeld(st().pad.released, a->source);
+}
+
+Vector2 Input::GetRightStick() { return Vector2(st().pad.rightX, st().pad.rightY); }
 
 const VirtualGamepad& Input::pad() { return st().pad; }
 

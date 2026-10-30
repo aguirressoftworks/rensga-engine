@@ -22,6 +22,14 @@ elseif(NOT RENSGA_TARGET MATCHES "^(linux-host|psp|windows|android|ps2)$")
   message(FATAL_ERROR "Unknown target slot '${RENSGA_TARGET}'.")
 endif()
 
+# Determinism (RULES 1.9): no fused multiply-add contraction and no fast-math on any preset (GCC and Clang).
+add_compile_options(-ffp-contract=off)
+foreach(_fl CMAKE_C_FLAGS CMAKE_CXX_FLAGS CMAKE_C_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELEASE CMAKE_C_FLAGS_DEBUG CMAKE_CXX_FLAGS_DEBUG)
+  if("${${_fl}}" MATCHES "-ffast-math|-Ofast")
+    message(FATAL_ERROR "${_fl} contains fast-math/-Ofast; the engine must be deterministic.")
+  endif()
+endforeach()
+
 # SDL2 for the desktop / Android runtime (platform/sdl, render/gl). Pinned: 2.30.8 (Windows devel zip and
 # Android source are fetched by sha256 in tools/docker/{windows,android}/Dockerfile).
 set(RENSGA_SDL2_TARGET "")

@@ -42,8 +42,8 @@ Added addByName(World& w, GameObject* go, const char* type) {
 
 GameObject* make(World& w, const char* name, Vector3 pos, Vector3 scale, GameObject* parent = nullptr) {
   GameObject* go = w.createObject(name, parent);
-  go->transform.localPosition = pos;
-  go->transform.localScale = scale;
+  go->transform.lpos_ = pos;
+  go->transform.lscale_ = scale;
   return go;
 }
 

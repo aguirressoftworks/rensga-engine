@@ -83,6 +83,8 @@ struct ObjectDef {
   std::string parentGuid;
   int parent = -1;
   bool active = true;
+  std::string tag;  // empty = Untagged
+  int layer = 0;
   PackTransform xf = {};
   struct Comp { const TypeInfo* type; std::vector<uint8_t> blob; json fields; };
   std::vector<Comp> comps;
@@ -272,6 +274,8 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
       }
       o.name = oj.value("name", "");
       o.active = oj.value("active", true);
+      o.tag = oj.value("tag", "");
+      o.layer = oj.value("layer", 0);
       if (oj.contains("parent") && !oj["parent"].is_null()) o.parentGuid = oj["parent"].get<std::string>();
       Vector3 p, s(1, 1, 1);
       Quaternion q;
@@ -443,11 +447,13 @@ lightDone:
   };
   std::vector<uint8_t> strs(1, 0);  // offset 0 = ""
   u32 strCount = 1;
+  std::map<std::string, u32> strIndex;  // string -> index in STRS (OBJS tag field)
   auto addStr = [&](const std::string& s) {
     if (s.empty()) return u32(0);
     u32 off = static_cast<u32>(strs.size());
     strs.insert(strs.end(), s.begin(), s.end());
     strs.push_back(0);
+    strIndex[s] = strCount;
     ++strCount;
     return off;
   };
@@ -463,6 +469,11 @@ lightDone:
     po.nameStr = addStr(objs[i].name);
     po.parentIndex = objs[i].parent;
     po.active = objs[i].active ? 1 : 0;
+    po.layer = static_cast<u16>(objs[i].layer);
+    if (!objs[i].tag.empty() && objs[i].tag != "Untagged") {
+      if (!strIndex.count(objs[i].tag)) addStr(objs[i].tag);
+      po.tag = static_cast<u16>(strIndex[objs[i].tag]);
+    }
     pobjs.push_back(po);
     pxf.push_back(objs[i].xf);
     for (const auto& c : objs[i].comps) {

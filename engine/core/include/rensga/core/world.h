@@ -11,6 +11,7 @@ struct WorldConfig {
   u32 maxObjects = 256;
   u32 maxComponentsPerType = 256;
   u32 spareComponents = 8;  // extra slots per loaded type for runtime Instantiate
+  u32 maxDelayedDestroys = 128;  // pending Destroy(obj, delay) entries
 };
 
 enum PoolFlags : u8 {
@@ -46,8 +47,20 @@ struct LoadedPack {
   u32 componentCount = 0;
 };
 
+// One pending Destroy(obj, delay). typeId == kInvalidIndex means a GameObject, otherwise a component slot.
+struct DelayedDestroy {
+  u32 typeId = kInvalidIndex;
+  u32 index = 0;
+  u32 generation = 0;
+  Scalar remaining = 0;
+};
+
 class World {
  public:
+  // The World the static lookups (GameObject::Find, Instantiate without an explicit owner) use: the most
+  // recently initialised one that has not been shut down.
+  static World* active() { return active_; }
+
   bool init(const WorldConfig& config, Arena& arena);
   // Runs OnDisable/OnDestroy for everything still alive.
   void shutdown();
@@ -62,6 +75,21 @@ class World {
   GameObject* objectAt(u32 index) const;  // null if not alive
   GameObject* findByName(const char* name) const;
   GameObject* findByGuid(const Guid& guid) const;
+  GameObject* findByTag(const char* tag) const;
+  // Fills `out` with up to `capacity` live objects carrying `tag` (object index order); returns the count found.
+  u32 findAllByTag(const char* tag, GameObject** out, u32 capacity) const;
+
+  // ---- Unity Instantiate / Destroy
+  // Clones `original` and its children (reflected fields are copied, so the clone is a prefab-like copy).
+  // The clone is named "<name> (Clone)". With pos/rot the root is placed in world space. Awake/OnEnable run
+  // immediately once the world has started; Start runs before its first Update. Null if a pool is full.
+  GameObject* instantiate(const GameObject* original, Transform* parent = nullptr, const Vector3* pos = nullptr,
+                          const Quaternion* rot = nullptr, bool keepLocalUnderParent = true);
+  // Destroy(obj, delay): Refs read null once the delay passed; callbacks run at the end of that frame.
+  void destroy(GameObject* go, Scalar delay);
+  void destroy(Component* c, Scalar delay);
+  // Engine/editor only (not exposed to scripts): destroys and runs OnDisable/OnDestroy right now.
+  void destroyImmediate(GameObject* go);
 
   // ---- components
   bool reservePool(const TypeInfo& type, u32 capacity);
@@ -75,6 +103,10 @@ class World {
   T* getComponent(const GameObject* go) const {
     return static_cast<T*>(getComponent(go, *T::staticTypeInfo()));
   }
+  // The n-th (0-based) live component of `type` on `go`, or null.
+  Component* getComponentNth(const GameObject* go, const TypeInfo& type, u32 n) const;
+  Component* getComponentInChildren(const GameObject* go, const TypeInfo& type, bool includeInactive) const;
+  Component* getComponentInParent(const GameObject* go, const TypeInfo& type) const;
   const ComponentPool* pool(const TypeInfo& type) const;
   template <class T>
   const ComponentPool* pool() const {
@@ -99,8 +131,10 @@ class World {
   void fixedUpdate();
   void update();
   void lateUpdate();
-  void flushDestroyed(); // OnDisable/OnDestroy, free slots
+  void flushDestroyed(); // delayed-destroy timers, then OnDisable/OnDestroy, free slots
   void setObjectActive(GameObject* go, bool active);
+  // Awake + OnEnable for every not yet awake component of `go` and its children (no-op until started).
+  void awakeSubtree(GameObject* go);
   void refreshEnabled(GameObject* go, bool recursive);
   // Calls OnTriggerEnter on every behaviour attached to `self`.
   void sendTriggerEnter(GameObject* self, GameObject* other);
@@ -115,6 +149,12 @@ class World {
   ComponentPool* poolFor(u32 typeId) const;
   ComponentPool* ensurePool(const TypeInfo& type, u32 capacity);
   void releaseObject(GameObject* go);
+  void flushNow();
+  void tickDelayed(Scalar dt);
+  bool addDelayed(const DelayedDestroy& d);
+  void awakeComponent(ComponentPool& p, u32 slot, GameObject* go);
+  GameObject* cloneSubtree(const GameObject* src, Transform* parent, bool root);
+  Component* findInChildren(const GameObject* go, const TypeInfo& type, bool includeInactive) const;
   bool shouldBeEnabled(const GameObject* go, const Component* c) const;
   template <class F>
   void forEachBehaviour(F&& f);
@@ -130,6 +170,11 @@ class World {
   u32 poolOrder_[kMaxTypes] = {};
   u32 poolCount_ = 0;
   bool pendingDestroy_ = false;
+  bool started_ = false;      // true after the first startPending(): later components Awake immediately
+  u32 cloneDepth_ = 0;        // >0 while Instantiate copies: the clone wakes up once it is complete
+  DelayedDestroy* delayed_ = nullptr;
+  u32 delayedCount_ = 0;
+  static inline World* active_ = nullptr;
 };
 
 // ---- inline definitions needing a complete World -----------------------------
@@ -176,10 +221,37 @@ T* GameObject::GetComponent() const {
   return world->getComponent<T>(this);
 }
 template <class T>
+u32 GameObject::GetComponents(T** out, u32 capacity) const {
+  u32 n = 0;
+  while (n < capacity) {
+    Component* c = world->getComponentNth(this, *T::staticTypeInfo(), n);
+    if (!c) break;
+    out[n++] = static_cast<T*>(c);
+  }
+  return n;
+}
+template <class T>
+T* GameObject::GetComponentInChildren(bool includeInactive) const {
+  return static_cast<T*>(world->getComponentInChildren(this, *T::staticTypeInfo(), includeInactive));
+}
+template <class T>
+T* GameObject::GetComponentInParent() const {
+  return static_cast<T*>(world->getComponentInParent(this, *T::staticTypeInfo()));
+}
+template <class T>
 T* GameObject::AddComponent() {
   return world->addComponent<T>(this);
 }
 inline Ref<GameObject> GameObject::ref() { return world->ref(this); }
 inline void GameObject::SetActive(bool active) { world->setObjectActive(this, active); }
+inline GameObject* GameObject::Find(const char* objectName) {
+  return World::active() ? World::active()->findByName(objectName) : nullptr;
+}
+inline GameObject* GameObject::FindWithTag(const char* objectTag) {
+  return World::active() ? World::active()->findByTag(objectTag) : nullptr;
+}
+inline u32 GameObject::FindGameObjectsWithTag(const char* objectTag, GameObject** out, u32 capacity) {
+  return World::active() ? World::active()->findAllByTag(objectTag, out, capacity) : 0;
+}
 
 }  // namespace rensga

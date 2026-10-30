@@ -62,6 +62,7 @@ struct TypeInfo {
   void (*destruct)(void* obj) = nullptr;
   Component* (*asComponent)(void* obj) = nullptr;  // null if not a Component
   Behaviour* (*asBehaviour)(void* obj) = nullptr;  // null if not a Behaviour
+  i32 executionOrder = 0;  // script execution order: lower runs first (EXECUTION_ORDER(n) in the class body)
   bool isBehaviour() const { return asBehaviour != nullptr; }
 };
 
@@ -124,6 +125,12 @@ template <> struct FieldTypeOf<Quaternion> { static constexpr FieldType value = 
 template <> struct FieldTypeOf<Color32> { static constexpr FieldType value = FieldType::Color32; };
 template <> struct FieldTypeOf<Guid> { static constexpr FieldType value = FieldType::Guid; };
 
+// Reads `static constexpr i32 kExecutionOrder` from a class (see EXECUTION_ORDER); 0 when absent.
+template <class C, class = void>
+struct ExecutionOrderOf { static constexpr i32 value = 0; };
+template <class C>
+struct ExecutionOrderOf<C, decltype((void)C::kExecutionOrder)> { static constexpr i32 value = C::kExecutionOrder; };
+
 template <class C>
 struct TypeBuilder {
   static inline TypeInfo* info = nullptr;
@@ -144,6 +151,7 @@ TypeInfo* beginType(const char* name) {
   info->fields = TypeBuilder<C>::fields;
   info->construct = [](void* where) { new (where) C(); };
   info->destruct = [](void* obj) { static_cast<C*>(obj)->~C(); };
+  info->executionOrder = ExecutionOrderOf<C>::value;
   if constexpr (__is_base_of(Component, C)) {
     info->asComponent = [](void* obj) -> Component* { return static_cast<C*>(obj); };
   }
@@ -179,3 +187,6 @@ FieldDesc* addField(TypeInfo* info, const char* name, FieldType type, T C::*memb
 #define HEADER(text) static_assert(true, "");
 #define TOOLTIP(text) static_assert(true, "");
 #define REQUIRE_COMPONENT(Type) static_assert(true, "");
+// Script execution order (default 0, lower runs first), read at compile time by the registry. Put it in the class
+// body, e.g. `EXECUTION_ORDER(-100)` for an input script that must update before the rest.
+#define EXECUTION_ORDER(n) static constexpr ::rensga::i32 kExecutionOrder = (n);

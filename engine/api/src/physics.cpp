@@ -18,11 +18,7 @@ struct Aabb {
   Vector3 min, max;
 };
 
-Vector3 worldScale(const Transform* t) {
-  Vector3 s(1, 1, 1);
-  for (; t; t = t->parent) s = Vector3(s.x * t->localScale.x, s.y * t->localScale.y, s.z * t->localScale.z);
-  return s;
-}
+Vector3 worldScale(const Transform* t) { return t->lossyScale(); }
 
 Aabb boxWorld(const BoxCollider& b) {
   const Transform* t = b.transform();
@@ -88,7 +84,7 @@ void CharacterController::Move(const Vector3& motion) {
   GameObject* self = gameObject();
   World& world = *self->world;
   Transform* t = transform();
-  const Scalar dt = Time::fixedDeltaTime;
+  const Scalar dt = Time::fixedDeltaTime();
   const Vector3 half(radius, height * 0.5f, radius);
 
   velocity.y += gravity * dt;

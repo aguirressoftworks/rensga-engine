@@ -1,0 +1,54 @@
+#include "rensga/core/application.h"
+
+namespace rensga {
+
+namespace {
+constexpr RuntimePlatform compiledPlatform() {
+#if defined(__ANDROID__)
+  return RuntimePlatform::Android;
+#elif defined(__PSP__)
+  return RuntimePlatform::Psp;
+#elif defined(_EE) || defined(__PS2__) || defined(PS2)
+  return RuntimePlatform::Ps2;
+#elif defined(_WIN32)
+  return RuntimePlatform::WindowsPlayer;
+#else
+  return RuntimePlatform::LinuxPlayer;
+#endif
+}
+bool g_quit = false;
+bool g_playing = true;
+i32 g_fps = -1;
+RuntimePlatform g_platform = compiledPlatform();
+}  // namespace
+
+void Application::Quit() { g_quit = true; }
+bool Application::quitRequested() { return g_quit; }
+bool Application::isPlaying() { return g_playing; }
+void Application::setPlaying(bool playing) { g_playing = playing; }
+i32 Application::targetFrameRate() { return g_fps; }
+void Application::setTargetFrameRate(i32 fps) { g_fps = fps <= 0 ? -1 : fps; }
+RuntimePlatform Application::platform() { return g_platform; }
+void Application::setPlatform(RuntimePlatform p) { g_platform = p; }
+
+const char* Application::platformName(RuntimePlatform p) {
+  switch (p) {
+    case RuntimePlatform::LinuxPlayer: return "LinuxPlayer";
+    case RuntimePlatform::WindowsPlayer: return "WindowsPlayer";
+    case RuntimePlatform::Android: return "Android";
+    case RuntimePlatform::Psp: return "PSP";
+    case RuntimePlatform::Ps2: return "PS2";
+    case RuntimePlatform::Psx: return "PSX";
+    case RuntimePlatform::Headless: return "Headless";
+  }
+  return "?";
+}
+
+void Application::reset() {
+  g_quit = false;
+  g_playing = true;
+  g_fps = -1;
+  g_platform = compiledPlatform();
+}
+
+}  // namespace rensga

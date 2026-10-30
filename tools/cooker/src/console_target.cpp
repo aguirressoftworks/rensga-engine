@@ -32,6 +32,8 @@ ConsoleTargetData loadConsoleTarget(const std::filesystem::path& file) {
     t.maxComponentsPerType = b.at("maxComponentsPerType").get<uint64_t>();
     t.depth = j.value("depth", "zbuffer");
     t.media = j.value("media", "");
+    t.refreshHz = j.value("refreshHz", 60u);
+    if (t.refreshHz < 24 || t.refreshHz > 120) throw std::runtime_error("refreshHz must be between 24 and 120");
     for (const json& c : j.at("allowedComponents")) t.allowedComponents.push_back(c.get<std::string>());
     if (j.contains("tessellation")) {
       t.sphereSegments = j["tessellation"].value("sphereSegments", 12);
@@ -55,6 +57,7 @@ std::string generateConsoleTargetHeader(const ConsoleTargetData& t) {
        "constexpr const char* kProfile = \"" << t.profile << "\";\n"
        "constexpr unsigned kScreenWidth = " << t.width << ";\n"
        "constexpr unsigned kScreenHeight = " << t.height << ";\n"
+       "constexpr unsigned kRefreshHz = " << t.refreshHz << "u;\n"
        "constexpr unsigned kRamBytes = " << t.ramBytes << "u;\n"
        "constexpr unsigned kVramBytes = " << t.vramBytes << "u;\n"
        "constexpr unsigned kTrianglesPerFrame = " << t.trianglesPerFrame << "u;\n"

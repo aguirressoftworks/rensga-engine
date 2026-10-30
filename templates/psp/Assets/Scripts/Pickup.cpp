@@ -9,7 +9,7 @@ struct Pickup : Behaviour {
   RANGE(0, 360)
   SERIALIZE_FIELD(Scalar, spinSpeed, 90.0f)
 
-  void Update() override { transform()->Rotate(Vector3(0, spinSpeed * Time::deltaTime, 0)); }
+  void Update() override { transform()->Rotate(Vector3(0, spinSpeed * Time::deltaTime(), 0)); }
   void OnTriggerEnter(GameObject* other) override {
     if (!other || !other->GetComponent<CharacterController>()) return;
     PickupCounter::Collect();

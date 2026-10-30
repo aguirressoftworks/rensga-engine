@@ -13,7 +13,8 @@ constexpr u32 makeFourCC(char a, char b, char c, char d) {
          (static_cast<u32>(static_cast<u8>(c)) << 16) | (static_cast<u32>(static_cast<u8>(d)) << 24);
 }
 
-constexpr u32 kPackVersion = 1;
+constexpr u32 kPackVersion = 2;     // written by the cooker
+constexpr u32 kPackMinVersion = 1;  // oldest version the runtime still reads (v1 OBJS has no tag)
 constexpr u32 kPackAlignment = 16;
 constexpr u32 kPackSectorAlignment = 2048;       // reserved for disc targets
 constexpr u32 kPackFlagSectorAligned = 1u << 0;  // reserved: sections aligned to 2048
@@ -56,7 +57,8 @@ struct PackObject {
   i32 parentIndex;  // index into OBJS, -1 = root
   u16 active;
   u16 layer;
-  u32 reserved;
+  u16 tag;   // v2: index into STRS strings (STRS string 0 is "", so 0 = "Untagged"); v1 packs hold 0 here
+  u16 pad;
 };
 static_assert(sizeof(PackObject) == 32, "PackObject is 32 bytes");
 
@@ -145,6 +147,7 @@ struct PackView {
     return s ? reinterpret_cast<const T*>(base + s->offset) : nullptr;
   }
   const char* string(u32 byteOffset) const;  // from STRS, "" if out of range
+  const char* stringByIndex(u32 index) const;  // n-th string of STRS (0 is ""), "" if out of range
   const u8* section(u32 fourcc) const {
     const PackSection* s = find(fourcc);
     return s ? base + s->offset : nullptr;

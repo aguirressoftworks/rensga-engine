@@ -60,7 +60,7 @@ TEST(cook_fixture_and_load_back) {
   Aligned pk(readAll(r.packPath));
   PackView view;
   CHECK(view.open(pk.data, pk.size));
-  CHECK_EQ(view.header->version, 1u);
+  CHECK_EQ(view.header->version, kPackVersion);  // v2: OBJS carries tag and layer
   for (u32 i = 0; i < view.header->sectionCount; ++i) CHECK((view.sections[i].offset & 15) == 0);
 
   Arena arena;
@@ -85,11 +85,13 @@ TEST(cook_fixture_and_load_back) {
   GameObject* hat = find(world, "Hat");
   GameObject* cam = find(world, "Cam");
   CHECK(player && hat && cam);
+  CHECK(player->CompareTag("Player") && player->layer == 8);  // OBJS tag + layer (v2)
+  CHECK(hat->CompareTag("Untagged") && hat->layer == 0);
   if (!player || !hat || !cam) return;
-  CHECK_NEAR(player->transform.localPosition.x, 1.0f, 1e-5f);
-  CHECK_NEAR(player->transform.localPosition.z, 3.0f, 1e-5f);
-  CHECK(hat->transform.parent == &player->transform);
-  CHECK_NEAR(hat->transform.localScale.x, 0.5f, 1e-5f);
+  CHECK_NEAR(player->transform.localPosition().x, 1.0f, 1e-5f);
+  CHECK_NEAR(player->transform.localPosition().z, 3.0f, 1e-5f);
+  CHECK(hat->transform.parent() == &player->transform);
+  CHECK_NEAR(hat->transform.localScale().x, 0.5f, 1e-5f);
   CharacterController* cc = player->GetComponent<CharacterController>();
   CHECK(cc != nullptr);
   if (cc) CHECK_NEAR(cc->gravity, -15.5f, 1e-5f);
@@ -130,16 +132,22 @@ TEST(cook_is_incremental_and_deterministic) {
   CHECK(readAll(c.packPath) == first);
 }
 
-TEST(pack_loader_rejects_version_2) {
+TEST(pack_loader_accepts_v1_and_v2_rejects_others) {
   CookResult r = cook("cook_ok");
   std::vector<uint8_t> bytes = readAll(r.packPath);
   Aligned good(bytes);
   PackView v;
   CHECK(v.open(good.data, good.size));
-  bytes[4] = 2;  // version field
+  bytes[4] = 1;  // a v1 pack (no OBJS tag) still opens
+  Aligned old(bytes);
+  CHECK(v.open(old.data, old.size));
+  bytes[4] = 3;  // unknown future version
   Aligned bad(bytes);
   CHECK(!v.open(bad.data, bad.size));
-  bytes[4] = 1;
+  bytes[4] = 0;
+  Aligned zero(bytes);
+  CHECK(!v.open(zero.data, zero.size));
+  bytes[4] = static_cast<uint8_t>(kPackVersion);
   bytes[0] = 'X';
   Aligned badMagic(bytes);
   CHECK(!v.open(badMagic.data, badMagic.size));

@@ -25,7 +25,9 @@ class Input {
   static Vector2 GetAxis2(const char* name);  // Move -> (x, y), y up
   static bool GetButton(const char* name);
   static bool GetButtonDown(const char* name);  // went down this frame
-  static const VirtualGamepad& pad();
+  static bool GetButtonUp(const char* name);  // went up this frame
+  static Vector2 GetRightStick();             // (rightX, rightY), y up
+  static const VirtualGamepad& pad();         // held / pressed / released + both sticks
 };
 
 }  // namespace rensga

@@ -98,15 +98,15 @@ TEST(api_script_registration_by_name) {
 TEST(physics_gravity_ground_and_wall) {
   Sim s;
   GameObject* floor = s.world.createObject("floor");
-  floor->transform.localPosition = Vector3(0, -0.5f, 0);
+  floor->transform.lpos_ = Vector3(0, -0.5f, 0);
   BoxCollider* fb = s.world.addComponent<BoxCollider>(floor);
   fb->size = Vector3(20, 1, 20);
   GameObject* wall = s.world.createObject("wall");
-  wall->transform.localPosition = Vector3(3, 2, 0);
+  wall->transform.lpos_ = Vector3(3, 2, 0);
   BoxCollider* wb = s.world.addComponent<BoxCollider>(wall);
   wb->size = Vector3(1, 4, 4);
   GameObject* p = s.world.createObject("p");
-  p->transform.localPosition = Vector3(0, 3, 0);
+  p->transform.lpos_ = Vector3(0, 3, 0);
   CharacterController* cc = s.world.addComponent<CharacterController>(p);
   for (int i = 0; i < 120; ++i) cc->Move(Vector3(0.1f, 0, 0));
   CHECK(cc->isGrounded());
@@ -118,13 +118,13 @@ TEST(physics_sphere_trigger_fires_once) {
   Sim s;
   g_trace[0] = 0;
   GameObject* t = s.world.createObject("trig");
-  t->transform.localPosition = Vector3(0, 1, 2);
+  t->transform.lpos_ = Vector3(0, 1, 2);
   SphereCollider* sc = s.world.addComponent<SphereCollider>(t);
   sc->radius = 0.5f;
   sc->isTrigger = true;
   t->AddComponent<TraceB>();
   GameObject* p = s.world.createObject("p");
-  p->transform.localPosition = Vector3(0, 1, 0);
+  p->transform.lpos_ = Vector3(0, 1, 0);
   CharacterController* cc = s.world.addComponent<CharacterController>(p);
   cc->gravity = 0;
   GameLoop loop;
@@ -134,7 +134,7 @@ TEST(physics_sphere_trigger_fires_once) {
   VirtualGamepad pad;
   loop.frame(1.0f / 60.0f, pad);
   g_trace[0] = 0;
-  p->transform.localPosition = Vector3(0, 1, 1.5f);
+  p->transform.lpos_ = Vector3(0, 1, 1.5f);
   for (int i = 0; i < 5; ++i) loop.frame(1.0f / 60.0f, pad);
   CHECK(strstr(g_trace, "Trigger ") != nullptr);
   CHECK(strstr(strstr(g_trace, "Trigger ") + 1, "Trigger ") == nullptr);
@@ -185,7 +185,7 @@ TEST(game_ramp_is_walkable) {
   Sim s;
   CHECK(buildTestLevel(s.world));
   GameObject* player = s.world.findByName("Player");
-  player->transform.localPosition = Vector3(6, 1, -9);
+  player->transform.lpos_ = Vector3(6, 1, -9);
   InputScript in;
   in.add(0, 0, 1, 0);  // up the ramp (+z), camera looks +z
   in.add(75, 0, 0, 0);

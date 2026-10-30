@@ -101,13 +101,13 @@ TEST(world_hierarchy_and_children_destroy) {
   Fixture f;
   GameObject* parent = f.world.createObject("parent");
   GameObject* child = f.world.createObject("child", parent);
-  parent->transform.localPosition = Vector3(10, 0, 0);
-  child->transform.localPosition = Vector3(0, 1, 0);
+  parent->transform.lpos_ = Vector3(10, 0, 0);
+  child->transform.lpos_ = Vector3(0, 1, 0);
   Vector3 wp = child->transform.position();
   CHECK_NEAR(wp.x, 10.0f, 1e-5f);
   CHECK_NEAR(wp.y, 1.0f, 1e-5f);
   child->transform.setPosition(Vector3(0, 0, 0));
-  CHECK_NEAR(child->transform.localPosition.x, -10.0f, 1e-4f);
+  CHECK_NEAR(child->transform.localPosition().x, -10.0f, 1e-4f);
   Ref<GameObject> rc = child->ref();
   f.world.destroy(parent);
   CHECK(rc.get() == nullptr);
@@ -179,7 +179,7 @@ TEST(null_backends_drive_loop_and_renderer) {
   Fixture f;
   GameObject* cam = f.world.createObject("cam");
   cam->AddComponent<Camera>();
-  cam->transform.localPosition = Vector3(0, 0, 5);
+  cam->transform.lpos_ = Vector3(0, 0, 5);
   GameObject* cube = f.world.createObject("cube");
   MeshRenderer* mr = cube->AddComponent<MeshRenderer>();
   mr->meshIndex = 0;
@@ -241,14 +241,14 @@ TEST(pack_load_roundtrip_and_version_refusal) {
   CHECK_EQ(f.world.objectCount(), 2u);
   GameObject* child = f.world.findByName("child");
   CHECK(child != nullptr);
-  CHECK(child->transform.parent == &f.world.findByName("root")->transform);
+  CHECK(child->transform.parent() == &f.world.findByName("root")->transform);
   CHECK_NEAR(child->transform.position().x, 3.0f, 1e-5f);
   BoxCollider* got = child->GetComponent<BoxCollider>();
   CHECK(got != nullptr && got->isTrigger && got->size == Vector3(2, 3, 4));
   GameObject* root = f.world.findByGuid(objs[0].guid);
   CHECK(root != nullptr && strcmp(root->name, "root") == 0);
 
-  h->version = 2;  // another version is refused with a log line
+  h->version = 99;  // another version is refused with a log line
   PackView bad;
   CHECK(!bad.open(buf, off));
 }

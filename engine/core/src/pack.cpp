@@ -21,8 +21,9 @@ bool PackView::open(const u8* data, size_t byteSize) {
     RLOG_ERROR("pack", "bad magic, not a Rensga pack");
     return false;
   }
-  if (h->version != kPackVersion) {
-    RLOG_ERROR("pack", "unsupported pack version %u (this runtime reads version %u)", h->version, kPackVersion);
+  if (h->version < kPackMinVersion || h->version > kPackVersion) {
+    RLOG_ERROR("pack", "unsupported pack version %u (this runtime reads versions %u to %u)", h->version, kPackMinVersion,
+               kPackVersion);
     return false;
   }
   if (h->totalSize > byteSize || sizeof(PackHeader) + static_cast<size_t>(h->sectionCount) * sizeof(PackSection) > h->totalSize) {
@@ -53,6 +54,15 @@ const char* PackView::string(u32 byteOffset) const {
   const PackSection* s = find(pack_section::STRS);
   if (!s || byteOffset >= s->size) return "";
   return reinterpret_cast<const char*>(base + s->offset + byteOffset);
+}
+
+const char* PackView::stringByIndex(u32 index) const {
+  const PackSection* s = find(pack_section::STRS);
+  if (!s || index >= s->count) return "";
+  const char* p = reinterpret_cast<const char*>(base + s->offset);
+  const char* end = p + s->size;
+  for (u32 i = 0; i < index && p < end; ++i) p += strlen(p) + 1;
+  return p < end ? p : "";
 }
 
 bool World::loadPack(const PackView& pack, LoadedPack* out) {
@@ -110,11 +120,15 @@ bool World::loadPack(const PackView& pack, LoadedPack* out) {
       return false;
     }
     go->guid = objs[i].guid;
-    go->activeSelf = objs[i].active != 0;
+    go->selfActive_ = objs[i].active != 0;
     go->layer = objs[i].layer;
-    go->transform.localPosition = Vector3(xfrms[i].position[0], xfrms[i].position[1], xfrms[i].position[2]);
-    go->transform.localRotation = Quaternion(xfrms[i].rotation[0], xfrms[i].rotation[1], xfrms[i].rotation[2], xfrms[i].rotation[3]);
-    go->transform.localScale = Vector3(xfrms[i].scale[0], xfrms[i].scale[1], xfrms[i].scale[2]);
+    if (pack.header->version >= 2 && objs[i].tag != 0) {
+      const char* tag = pack.stringByIndex(objs[i].tag);
+      if (*tag) go->SetTag(tag);
+    }
+    go->transform.lpos_ = Vector3(xfrms[i].position[0], xfrms[i].position[1], xfrms[i].position[2]);
+    go->transform.lrot_ = Quaternion(xfrms[i].rotation[0], xfrms[i].rotation[1], xfrms[i].rotation[2], xfrms[i].rotation[3]);
+    go->transform.lscale_ = Vector3(xfrms[i].scale[0], xfrms[i].scale[1], xfrms[i].scale[2]);
     map[i] = go->index;
   }
   for (u32 i = 0; i < objCount; ++i) {

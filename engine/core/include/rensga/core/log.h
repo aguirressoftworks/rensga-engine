@@ -53,6 +53,41 @@ class CallbackSink : public ILogSink {
   void* user_;
 };
 
+class IFileSystem;
+
+// Keeps the last kCapacity records in a fixed ring (no heap) for an in-game console or crash dump.
+class RingSink : public ILogSink {
+ public:
+  static constexpr u32 kCapacity = 64;
+  static constexpr u32 kMessageLength = 160;
+  struct Entry {
+    LogLevel level = LogLevel::Info;
+    char channel[16] = {};
+    char message[kMessageLength] = {};
+  };
+  void write(const LogRecord& record) override;
+  u32 count() const { return count_ < kCapacity ? count_ : kCapacity; }
+  u64 totalWritten() const { return count_; }
+  // 0 = oldest kept record. nullptr if out of range.
+  const Entry* entry(u32 index) const;
+  void clear() { count_ = 0; }
+
+ private:
+  Entry entries_[kCapacity];
+  u64 count_ = 0;
+};
+
+// Sends records through IFileSystem::writeLog (host0:/rensga.log on PSP). Each line starts with
+// "rensga: "; a message that already starts with it is not prefixed twice.
+class FsLogSink : public ILogSink {
+ public:
+  explicit FsLogSink(IFileSystem* fs) : fs_(fs) {}
+  void write(const LogRecord& record) override;
+
+ private:
+  IFileSystem* fs_;
+};
+
 namespace log {
 constexpr u32 kMaxSinks = 8;
 bool addSink(ILogSink* sink);  // not owned; false if full

@@ -1,6 +1,6 @@
 # Game/API tests: the template project's scripts are compiled in (static registration), like the runtime.
 set(RENSGA_PROJECT_SCRIPTS_T ${RENSGA_REFLECT_PROJECT_SRCS})
-rensga_reflect_scan(tests_game RENSGA_GAME_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/test_game.cpp)
+rensga_reflect_scan(tests_game RENSGA_GAME_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/test_game.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_lifecycle.cpp)
 add_executable(rensga_game_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp ${RENSGA_GAME_TESTS} ${RENSGA_PROJECT_SCRIPTS_T})
 target_link_libraries(rensga_game_tests PRIVATE rensga_api rensga_core)
 target_include_directories(rensga_game_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests)

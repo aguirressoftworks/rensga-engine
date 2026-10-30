@@ -19,3 +19,14 @@ imgui.ini
 tools/android/local.properties
 tools/android/.gradle/
 tools/android/app/.cxx/
+# console BIOS dumps and PCSX2 sandboxes: never commit (RULES.md section 5)
+*.erom
+*.nvm
+*.mec
+*.rom
+**/bios/
+pcsx2-sandbox/
+
+# platform/emulator sandboxes (local only; never commit BIOS or emulator configs)
+build/pcsx2/
+*.bios

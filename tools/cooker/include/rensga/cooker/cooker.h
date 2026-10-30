@@ -18,6 +18,7 @@ struct ConsoleTargetData {
   uint32_t width = 0, height = 0;
   uint64_t ramBytes = 0, vramBytes = 0, trianglesPerFrame = 0, maxObjects = 0, maxComponentsPerType = 0;
   std::string depth, media;
+  uint32_t refreshHz = 60;  // optional "refreshHz" (60 NTSC, 50 PAL); the loop's fixed step is 1/refreshHz
   std::vector<std::string> allowedComponents;
   int sphereSegments = 12, capsuleSegments = 12;
 };
