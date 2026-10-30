@@ -199,7 +199,9 @@ u32 GsRenderer::uploadTexture(const TextureDesc& d) {
     g.PSM = d.format == tex_format::CLUT8 ? GS_PSM_T8 : GS_PSM_T4;
     g.ClutPSM = GS_PSM_CT32;
     g.Clut = g_clut[texCount_];
-    g.ClutStorageMode = GS_CLUT_STOREMODE_LOAD;
+    // gsKit puts this field into TEX0.CSM (not CLD, which it always sets): 0 = CSM1. GS_CLUT_STOREMODE_LOAD (1) selects CSM2,
+    // which reads the palette as 16-entry rows 1 KB apart and showed black/white/neighbouring-palette wedges.
+    g.ClutStorageMode = 0;
     const u32 n = d.format == tex_format::CLUT8 ? 256 : 16;
     for (u32 i = 0; i < n; ++i) {
       u32 e = d.palette[i];

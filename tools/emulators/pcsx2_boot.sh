@@ -5,6 +5,7 @@
 #   --frames N   success when a heartbeat with frame >= N is seen (default 60, i.e. the first heartbeat)
 #   --timeout S  give up after S seconds (default 90)
 #   --log FILE   keep the captured console log (default build/pcsx2/last.log; give an absolute path)
+#   --sw         use PCSX2's software renderer (Renderer = 13, closest to a real GS); same as env PCSX2_RENDERER=software
 #   --shot FILE  also save a PNG of the emulator window once the success heartbeat is seen (ImageMagick `import`)
 # Exit: 0 heartbeat seen, 1 timeout/no heartbeat, 2 setup error.
 # How it works:
@@ -21,11 +22,12 @@
 #   * The script then polls stdout+stderr of PCSX2 and the sandbox emulog.txt for the heartbeat and kills PCSX2.
 set -u
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+RENDERER=12; [ "${PCSX2_RENDERER:-}" = software ] && RENDERER=13
 IMG=""; FRAMES=60; TMO=90; OUTLOG=""; SHOT=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --frames) FRAMES="$2"; shift 2;; --timeout) TMO="$2"; shift 2;; --log) OUTLOG="$2"; shift 2;; --shot) SHOT="$2"; shift 2;;
-    -h|--help) sed -n 2,12p "$0"; exit 0;; *) IMG="$1"; shift;;
+    --frames) FRAMES="$2"; shift 2;; --timeout) TMO="$2"; shift 2;; --log) OUTLOG="$2"; shift 2;; --shot) SHOT="$2"; shift 2;; --sw) RENDERER=13; shift;;
+    -h|--help) sed -n 2,13p "$0"; exit 0;; *) IMG="$1"; shift;;
   esac
 done
 [ -n "$IMG" ] && [ -f "$IMG" ] || { echo "usage: $0 <elf-or-iso> [--frames N] [--timeout S] [--log out.txt]" >&2; exit 2; }
@@ -62,7 +64,7 @@ EnableFastBoot = true
 HostFs = true
 EnableCheats = false
 [EmuCore/GS]
-Renderer = 12
+Renderer = $RENDERER
 [Logging]
 EnableSystemConsole = true
 EnableEEConsole = true
@@ -81,7 +83,8 @@ Xvfb -displayfd 3 -screen 0 1280x720x24 -nolisten tcp 3>"$W/display" >/dev/null 
 XVFB=$!
 for _ in $(seq 50); do [ -s "$W/display" ] && break; sleep 0.2; done
 DSP=":$(tr -d '[:space:]' < "$W/display")"
-( cd "$HOSTROOT" && env -u WAYLAND_DISPLAY DISPLAY="$DSP" LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe XDG_CONFIG_HOME="$XDG" XDG_DATA_HOME="$XDG/data" XDG_CACHE_HOME="$XDG/cache" QT_QPA_PLATFORM=xcb SDL_VIDEODRIVER=x11 \
+# Mesa software WSI: Xvfb has no DRI3, so Vulkan presentation (needed even by the Software renderer) only works this way.
+( cd "$HOSTROOT" && env -u WAYLAND_DISPLAY MESA_VK_WSI_DEBUG=sw DISPLAY="$DSP" LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe XDG_CONFIG_HOME="$XDG" XDG_DATA_HOME="$XDG/data" XDG_CACHE_HOME="$XDG/cache" QT_QPA_PLATFORM=xcb SDL_VIDEODRIVER=x11 \
   timeout "$((TMO + 10))" pcsx2-qt "${ARGS[@]}" >>"$LOG" 2>&1 ) &
 RUN=$!
 rc=1; end=$((SECONDS + TMO))
