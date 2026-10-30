@@ -262,7 +262,9 @@ void drawPicker(App& a) {
   ImGui::SameLine();
   ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0f, avail - (icon + gap + ts.x) - 160));
   ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (icon - 34) * 0.5f);
-  if (primaryButton("Create Project", ImVec2(160, 34))) h.openCreate = true;
+  // RULES §7: one gold action at a time. Gold moves to Open once a project is selected.
+  const bool hasSel = h.sel >= 0;
+  if (hasSel ? ImGui::Button("Create Project", ImVec2(160, 34)) : primaryButton("Create Project", ImVec2(160, 34))) h.openCreate = true;
   ImGui::Spacing();
   ImGui::PushFont(a.fonts.uiBold, 17);
   ImGui::PushStyleColor(ImGuiCol_Text, brandRamp("cerrado.300"));
@@ -349,7 +351,7 @@ void drawPicker(App& a) {
   if (ImGui::Button("Quit", ImVec2(90, 32))) a.quitRequested = true;
   ImGui::SameLine();
   ImGui::BeginDisabled(h.sel < 0);
-  if (primaryButton("Open", ImVec2(120, 32))) openEntry(a, h.sel);
+  if (hasSel ? primaryButton("Open", ImVec2(120, 32)) : ImGui::Button("Open", ImVec2(120, 32))) openEntry(a, h.sel);
   ImGui::EndDisabled();
   ImGui::End();
   ImGui::PopStyleVar(3);
