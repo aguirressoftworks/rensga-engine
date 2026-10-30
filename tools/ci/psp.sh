@@ -19,4 +19,8 @@ step "headless boot smoke test"
 log="$(cd "$ROOT" && timeout -s KILL 90 xvfb-run -a PPSSPPHeadless "$ROOT/rensga_game.elf" -r "$ROOT" --graphics=software --timeout=60 2>&1 || true)"
 echo "$log" | tail -15
 [ -f "$ROOT/rensga_shot.bmp" ] || { echo "PSP game did not reach its exit frame (no rensga_shot.bmp)" >&2; exit 1; }
+# the PSP log sink writes host0:/rensga.log; contract 7 (F2.G1): no operator new after the first frame
+grep -qE "rensga: alloc-check frames=[1-9][0-9]* allocs=0" "$ROOT/rensga.log" 2>/dev/null \
+  || { echo "PSP game did not log alloc-check allocs=0 (see $ROOT/rensga.log)" >&2; exit 1; }
+grep -h "alloc-check" "$ROOT/rensga.log" | tail -1
 echo "psp: ELF built and booted to frame 240"

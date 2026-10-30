@@ -7,6 +7,7 @@
 
 #include "rensga/core/backends.h"
 #include "rensga/core/log.h"
+#include "rensga/core/memory.h"
 #if defined(RENSGA_PLATFORM_PS2)
 #include "rensga/platform/ps2.h"
 #include "rensga/render/gs.h"
@@ -75,11 +76,15 @@ int main(int argc, char** argv) {
     renderer.beginFrame(kBrandBg);
     renderer.endFrame();
     ++frame;
+    heap::noteFrameDone();  // contract 7: allocations after the first frame are counted
+    if (frame == 1) heap::checkReset();  // the first frame includes lazy driver setup
     if (frame % 60 == 0) {
       RLOG_INFO("hello", "rensga: frame %u t=%.2f", static_cast<unsigned>(frame), platform.timeSeconds());
       fflush(stdout);
     }
+    if (frame == 300 && maxFrames == 0) heap::logAllocCheck();  // endless runs (PS2, Android) log once
   }
+  if (maxFrames != 0) heap::logAllocCheck();
   RLOG_INFO("hello", "rensga hello: done frames=%u", static_cast<unsigned>(frame));
   platform.shutdown();
   return 0;

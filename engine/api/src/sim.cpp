@@ -126,6 +126,7 @@ u32 stateHash(World& world, u32 initialPickups) {
 
 SimResult runSim(World& world, u32 frames, const InputScript* input, u32 initialPickups) {
   physics::resetTriggerMemory();
+  Gameplay2D::resetTriggerMemory();
   Input::update(VirtualGamepad());
   Input::update(VirtualGamepad());
   GameLoop loop;

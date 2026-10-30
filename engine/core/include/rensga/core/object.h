@@ -133,6 +133,8 @@ class Behaviour : public Component {
   virtual void OnDisable() {}
   virtual void OnDestroy() {}
   virtual void OnTriggerEnter(GameObject* /*other*/) {}
+  // The UIButton on this object was pressed (focus + south button).
+  virtual void OnUIClick() {}
 };
 
 constexpr u32 kMaxComponentsPerObject = 8;

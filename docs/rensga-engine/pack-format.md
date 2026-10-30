@@ -64,10 +64,11 @@ Each component's blob holds its type's reflected fields in declaration order, ra
 ### Cooker output order
 
 STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, INPT, CTGT, BLOB, TEXR, AUDI, TMAP, ANIM, FONT. Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
+| `SCNE` | `PackSceneRec` 32 B | F2.05 scene list in build-settings order: `Guid`, `nameStr` (file name without extension), `firstObject`, `objectCount`, reserved. OBJS, XFRM and COMP hold the objects of every scene, one contiguous block per scene; `objectIndex` and `parentIndex` stay global. A pack without SCNE is one scene. |
 
 ## Loading
 
 1. `PackView::open(data, size)` validates magic, version, bounds and alignment, and exposes the sections.
-2. `World::loadPack(view, &loaded)` sizes component pools from the COMP counts, creates objects, links parents, constructs components through `TypeRegistry` (by `typeHash`) and reads their FDAT blobs, then binds `MeshRenderer::meshIndex` from MESH. `LoadedPack` returns the mesh table, input actions, the target summary and `assets` (`PackAssets`, the v2 tables).
+2. `World::loadPack(view, &loaded, sceneIndex = 0)` sizes component pools (for the largest scene when SCNE lists several) from the COMP counts, creates objects, links parents, constructs components through `TypeRegistry` (by `typeHash`) and reads their FDAT blobs, then binds `MeshRenderer::meshIndex` from MESH. It creates only the objects of scene `sceneIndex`; `SceneManager::LoadScene` calls it again at the end of a frame after destroying the old objects. `LoadedPack` returns the mesh table, input actions, the target summary and `assets` (`PackAssets`, the v2 tables).
 
 Cooking is deterministic: the same sources and ConsoleTarget produce a byte-identical pack. The cooker keeps `Library/Cooked/<target>/cook.manifest.json` (content hashes of every input plus the reflected field layout) and skips the cook when nothing changed.

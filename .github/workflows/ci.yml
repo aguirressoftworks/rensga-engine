@@ -1,4 +1,4 @@
-# Same jobs as tools/ci/run_local.sh: each job runs the script in tools/ci, which uses the pinned docker wrappers.
+# PS2 alloc-check (tools/ci/ps2_check.sh) is local only: PCSX2 needs the user's own BIOS. Same jobs as tools/ci/run_local.sh: each job runs the script in tools/ci, which uses the pinned docker wrappers.
 name: ci
 on:
   push:
@@ -19,13 +19,17 @@ jobs:
       - uses: actions/cache@v4
         with: { path: "~/.local/bin", key: ppsspp-headless-v1.17.1 }
       - run: tools/ci/build_ppsspp_headless.sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - run: tools/ci/psp.sh
+      - run: tools/ci/psp.sh            # boots to frame 240 and requires alloc-check allocs=0 (F2.G1)
+      - run: tools/ci/determinism.sh    # Linux rensga_headless vs PSP rensga_sim state hash (F2.G2)
       - run: tools/ci/psp_gpu_check.sh
   windows:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - run: tools/ci/windows.sh
+      # F2.G1: run rensga_desktop.exe under wine + Xvfb and require alloc-check allocs=0. Exit 77 (wine missing) is not a failure.
+      - run: sudo apt-get update && sudo apt-get install -y wine wine64 xvfb libgl1-mesa-dri
+      - run: tools/ci/windows_run.sh || [ $? = 77 ]
       - uses: actions/upload-artifact@v4
         with: { name: rensga-hello-windows, path: build/ci/windows/engine/runtime/ }
   android:
@@ -33,6 +37,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: tools/ci/android.sh
+      # F2.G1: no phone on a runner, so this prints "android: built, not run (no device)". Run it locally with a phone attached.
+      - run: tools/ci/android_device.sh
       - uses: actions/upload-artifact@v4
         with: { name: rensga-hello-apk, path: build/ci/android/rensga-hello.apk }
   ps2:

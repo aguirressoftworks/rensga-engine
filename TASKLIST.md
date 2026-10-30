@@ -23,7 +23,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | --- | --- | --- | --- |
 | **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..57) done after the review, 13/13 tests |
 | F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 4.8% — closed (all tasks and gates) |
-| F2 · Shared core | 9.3% | 14.1% | 0% |
+| F2 · Shared core | 9.3% | 14.1% | 2.95% — API 1-3 done and accepted; Engine 1-5 implemented with the open items listed under each task; gates: G2 met, G1 met except Android (built, not run) |
 | F3 · Editor core | 9.3% | 23.4% | 0% |
 | F4 · 2D slice everywhere + PSP base | 8.0% | 31.4% | 0% |
 | F5 · PSP track | 16.4% | 47.8% | 0% |
@@ -32,7 +32,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | F8 · PS2 track | 7.4% | 73.7% | 0% |
 | F9 · PSX track | 24.2% | 97.9% | 0% |
 | F10 · Ship 1.0 | 2.1% | 100.0% | 0% |
-| **Step 2 total** | **100%** | | **4.8%** |
+| **Step 2 total** | **100%** | | **7.75%** |
 
 ---
 
@@ -170,18 +170,18 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 
 | Hook / endpoint | Lives in | MVP state | Finished by |
 | --- | --- | --- | --- |
-| `IPlatform`, `IFileSystem` | `engine/core`, `backends/platform/psp` | PSP + null | **F2.01**&nbsp;Engine 1, **F4.03**&nbsp;PSP Engine 1 |
-| `IRenderer` with sort keys | `engine/core`, `backends/render/gu` | GU 3D + overlay quads, null | **F2.02**&nbsp;Engine 2, **F5.01**&nbsp;PSP Engine 6, **F9.04**&nbsp;PSX Engine 3 |
-| `IAudioBackend` | `engine/core` | null only | **F2.04**&nbsp;Engine 4, **F9.06**&nbsp;PSX Engine 5 |
+| `IPlatform`, `IFileSystem` | `engine/core`, `backends/platform/{sdl,psp,ps2}` | `data:/` and `save:/` paths, stream slots, `writeFile`; SDL (PC, Android assets), PSP (host0/ms0), PS2 (cdrom0/host/mass/mc0); no Android touch yet | **F2.01**&nbsp;Engine 1, **F4.03**&nbsp;PSP Engine 1 |
+| `IRenderer` with sort keys | `engine/core`, `backends/render/gu` | GU 3D + overlay quads, null; additive 2D calls (`uploadTexture`, `drawSprite`, `drawRect`, `drawText`) in GL and gsKit, no-op in GU/null (PSP 2D is F4) | **F2.02**&nbsp;Engine 2, **F5.01**&nbsp;PSP Engine 6, **F9.04**&nbsp;PSX Engine 3 |
+| `IAudioBackend` | `engine/core`, `backends/audio` | software mixer (16 voices, streamed music), SDL and audsrv backends; no runtime main creates it yet | **F2.04**&nbsp;Engine 4, **F9.06**&nbsp;PSX Engine 5 |
 | `Scalar` | `engine/core/math` | `float` | **F9.02**&nbsp;PSX Engine 1 (20.12 fixed-point) |
 | Reflection macros | `engine/core/reflect` | build-time codegen tables (`tools/reflect`), thin static registrar | done in F1.05 |
-| `Ref<T>`, object model | `engine/core` | GameObject, Transform, GetComponent | **F2.07**&nbsp;API 2 |
-| Lifecycle | `engine/api` | Awake, Start, FixedUpdate, Update, LateUpdate | **F2.08**&nbsp;API 3 |
+| `Ref<T>`, object model | `engine/core` | done in F2.07 (tags, layers, Instantiate/Destroy, hierarchy API) | done in F2.07 |
+| Lifecycle | `engine/api` | done in F2.08 (all eight callbacks, execution order, `Time` getters) | done in F2.08 |
 | Input actions | `InputActions.json`, `engine/api` | Move, Jump, Camera | **F3.06**&nbsp;API 5, **F6.04**&nbsp;Editor 10 |
 | Physics | `engine/api` | CharacterController, box colliders, sphere triggers | **F6.08**&nbsp;API 6 |
 | ConsoleTarget + profile defines | `ProjectSettings/`, generated header | PSP profile | **F1.02**&nbsp;API 0, **F5.12**&nbsp;PSP API 0 |
 | Project layout, `.meta`, `Library/` | templates, cooker | layout and GUIDs; no asset database | **F3.02**&nbsp;Editor 3 |
-| Pack format | `tools/cooker`, runtime loader | v1 | **F2.03**&nbsp;Engine 3 |
+| Pack format | `tools/cooker`, runtime loader | v2 (TEXR, AUDI, TMAP, ANIM, FONT, SCNE; readers accept v1 and v2) | **F2.03**&nbsp;Engine 3 (cook cache, hot reload) |
 | `ICookerFormatPlugin` | `tools/cooker` | PSP meshes only | **F4.05**&nbsp;PSP Engine 3, **F9.05**&nbsp;PSX Engine 4 |
 | Primitive generator | shared lib | 5 shapes | **F7.01**&nbsp;PSP Template 0 |
 | Budget validator | `tools/pipeline` | RAM, triangles, capacity | **F6.05**&nbsp;Editor 11 |
@@ -190,7 +190,7 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | EBOOT packaging | `editor/targets/psp` packager | placeholder icon | **F5.03**&nbsp;PSP Engine 8 |
 | `TargetModule` | `editor/core`, `editor/targets/psp` | PSP only | **F1.04**&nbsp;Editor 0.5, **F5.04**&nbsp;PSP Editor 0 |
 | Inspector | `editor/app`, `editor/core` | reflection-driven editing, Add / Remove Component; no prefabs, multi-edit or custom drawers | **F3.01**&nbsp;Editor 2 |
-| GL scene renderer | `editor/app/render` | OpenGL 3.3, vertex color x lambert, no textures | **F2.02**&nbsp;Engine 2, **F8.01**&nbsp;Engine 7 (matching GL look) |
+| GL scene renderer | `editor/app/render` | OpenGL 3.3, vertex color x lambert, no textures (the 2D sprite batcher is separate, in `backends/render/gl`) | **F8.01**&nbsp;Engine 7 (matching GL look) |
 | `SceneDocument` undo | `editor/core` | JSON snapshots, 200 steps | **F1.05**&nbsp;Editor 1 |
 | Scene editing | `editor/app/panels` | pick, gizmos, hierarchy and inspector edits | **F3.01**&nbsp;Editor 2 |
 | Game tab preview | `editor/app/panels/game_view.cpp` | GL approximation at the target resolution | **F3.04**&nbsp;Editor 5, **F5.07**&nbsp;PSP Editor 3 (preview look) |
@@ -204,6 +204,12 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | CMake presets | `CMakePresets.json` | `linux-host`, `psp`, `windows`, `android`, `ps2` enabled (cross builds in pinned Docker images via `tools/docker/*.sh`); `psx` declared | done in F1.01 (psx: **F9**) |
 
 Recorded deviations:
+
+- **F2: VU0 acceleration is out of scope.** The API 1 roadmap lists it as a topic; `Mathf` and the vector types are portable C++ with no libm and `-ffp-contract=off`, which the Linux/PSP hash match depends on. A VU0 path would need its own determinism check (F8).
+- **F2: PS2 runs are local only.** PCSX2 needs the user's own BIOS, referenced in place through `~/.config/rensga/emulators.json`; the `ps2_check` job exits 77 (skipped) in public CI. The sandbox has no controller, so PS2 samples use AUTOSTART/SELFTEST cmake options.
+- **F2: Android device check is built, not run.** No phone was attached, and the APK still ships `hello`, not the player (F7). F2.G1 stays open for Android.
+- **F2: `IFileSystem` fixed slot table.** 8 stream slots, no heap; PS2 memory card saves use flat names under `mc0:/RENSGA` and write no `icon.sys`.
+- **F2: Windows alloc-check ran under wine.** CI installs wine and skips if missing; a native Windows run is not done.
 
 - **Native PSP platform instead of SDL2.** The PSP backend uses sceCtrl/sceDisplay directly (pspsdk); SDL2 stays on the editor and host side. Reason: pspdev does ship SDL2, but running SDL2 input/timing alongside raw GU rendering was deferred to keep the MVP to one day; `IPlatform` isolates it, and PSP Engine 1 (F4.03) moves the platform layer to SDL2 as the design doc specifies.
 - **Project scripts are compiled into the cooker, CLI and editor at build time** (`RENSGA_PROJECT_DIR`, `rensga_cooker_scripts`). Reason: reflection registers types at static init, so scenes can only be read by an executable that links the scripts. F1.05 replaced static-init field registration with build-time codegen (`tools/reflect/reflect_scan.py` writes `*.reflect.gen.cpp`; the macros only declare), which closes the reflection deviation. Scripts are still linked in until hot reload (Editor 4) loads them dynamically.
@@ -252,21 +258,29 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/ren
 Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
 - [ ] **F2.01** Engine 1 · Core and platform layer — loop, memory, input, files, logging · `1.27%` 🔶
+  - Acceptance note: fixed-timestep loop, arena/pool/frame allocators with budgets, `data:/` and `save:/` file systems (PC, Android assets via `SDL_RWFromFile`, PS2 cdrom0/host/mass, PSP ms0:/host0:), logging and the alloc-check are done and pass on Linux, Windows (wine), PSP and PS2. Missing: Android touch controls on the virtual gamepad, and an Android runtime that runs the engine loop (the APK still ships `hello`; F7). Not ticked until those exist.
 - [ ] **F2.02** Engine 2 · 2D renderer — gsKit backend + GL/GLES backend · `1.69%`
   - Stage 2 progress: GL desktop player + gsKit backend done (1000 sprites, allocs=0, PCSX2 boot ok). Open: font/tilemap draw paths (F4).
+  - Acceptance note: Android GLES path not run on a device; no PS2 VRAM manager beyond the generation-tagged texture cache in `gs_renderer.cpp`. Not ticked.
 - [ ] **F2.03** Engine 3 · Asset pipeline — c++ cooker, per-target formats, pack files · `1.27%` 🔶
   - Stage 2 progress: pack v2 sections + importers (PNG/WAV/glTF/tilemap/anim/font) done. Open: per-asset cook cache, runtime hot-reload wiring.
+  - Acceptance note: `pack_watcher.h` exists but no runtime main uses it; no CLUT-ordering (CSM1) review. Not ticked.
 - [ ] **F2.04** Engine 4 · Audio — own software mixer on SDL audio · `0.84%`
   - Stage 2 progress: mixer, SDL and audsrv backends, AudioSource done. Open: runtime mains do not yet create the mixer; untested on hardware.
+  - Acceptance note: no runtime main creates the mixer or plays sound, so the 16-voice exercise never ran on a target; `platformer2d` is silent. Not ticked.
 - [ ] **F2.05** Engine 5 · Gameplay framework — entities, collision, animation, saves, UI · `1.27%`
-- [ ] **F2.06** API 1 · Math and core types — vector3, Quaternion, Mathf, Random · `0.84%` 🔶
-- [ ] **F2.07** API 2 · Object model — gameObject, Component, Transform · `1.27%` 🔶
-- [ ] **F2.08** API 3 · Lifecycle, Time, Debug, Application — execution order and global services · `0.84%` 🔶
+  - Stage 3 progress: SpriteRenderer, SpriteAnimator, Tilemap, TilemapCollider, BoxCollider2D (per-axis tile sweep, ground check, trigger events), UIText/UIImage/UIButton (focus + south press, `OnUIClick`), SceneManager (multi-scene packs via the SCNE section, deferred load), Save store (checksummed files; PS2 memory card mc0:/RENSGA via libmc, tested in PCSX2), `samples/platformer2d` (Title + Room, bot test, desktop + PS2 runs). Open: 2D camera/scroll, DontDestroyOnLoad, Collider2D layers, editor gizmos for the 2D components, PSP/PSX 2D (F4/F9), real-pad PS2 play-through (PCSX2 sandbox has no controller).
+  - Acceptance note: ran green (ctest 27/27, desktop screenshot, PCSX2 boot with save readback). Not ticked because the slopes and one-way platforms in the roadmap note and the open items above are not built.
+- [x] **F2.06** API 1 · Math and core types — vector3, Quaternion, Mathf, Random · `0.84%` 🔶
+- [x] **F2.07** API 2 · Object model — gameObject, Component, Transform · `1.27%` 🔶
+- [x] **F2.08** API 3 · Lifecycle, Time, Debug, Application — execution order and global services · `0.84%` 🔶
 
 **Gates**
 
 - [ ] **F2.G1** The no-per-frame-allocation check passes on every target.
-- [ ] **F2.G2** Determinism test: the same scene and inputs give the same state hash on Linux and PSP.
+  - Evidence (`alloc-check ... allocs=0`): Linux headless 400 frames, Linux desktop 299, Windows (wine + Xvfb) 199, PSP (PPSSPPHeadless) 239, PS2 (PCSX2, local) 300. Android: built, not run (no device); ticks after the user's phone run (`tools/ci/android_device.sh`).
+- [x] **F2.G2** Determinism test: the same scene and inputs give the same state hash on Linux and PSP.
+  - Evidence: `tests/determinism/walk.json`, 400 frames, Linux hash == PSP hash `05d7d1bf`, all 400 per-frame trace hashes equal (`tools/ci/determinism.sh`).
 
 ### F3 · Editor core — 9.3% (cumulative 23.4%)
 

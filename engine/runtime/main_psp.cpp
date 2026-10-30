@@ -138,6 +138,7 @@ int main() {
     }
     renderWorld(world, renderer);
     ++frame;
+    if (frame == 1) heap::checkReset();  // first frame includes lazy GU/driver setup (same rule as the desktop player)
 #ifdef RENSGA_EXIT_AFTER_FRAMES
     if (frame >= RENSGA_EXIT_AFTER_FRAMES) break;  // screenshot/CI builds (PPSSPPHeadless needs a clean exit)
 #endif
@@ -146,6 +147,7 @@ int main() {
 #ifdef RENSGA_EXIT_AFTER_FRAMES
   dumpFrameBmp();
 #endif
+  heap::logAllocCheck();
   RLOG_INFO("game", "rensga: quit after %u frames", frame);
   log::flushAll();
   world.shutdown();

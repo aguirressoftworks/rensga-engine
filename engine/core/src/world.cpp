@@ -580,6 +580,25 @@ void World::sendTriggerEnter(GameObject* self, GameObject* other) {
   }
 }
 
+void World::sendUIClick(GameObject* self) {
+  if (!self || self->dying) return;
+  for (u32 i = 0; i < self->componentCount; ++i) {
+    ComponentPool* p = poolFor(self->components[i].typeId);
+    u32 slot = self->components[i].slot;
+    if (!p || !p->type->asBehaviour) continue;
+    if ((p->flags[slot] & (kSlotAlive | kSlotDying | kSlotStarted)) != (kSlotAlive | kSlotStarted)) continue;
+    p->type->asBehaviour(p->at(slot))->OnUIClick();
+  }
+}
+
+void World::destroyAllImmediate() {
+  for (u32 i = 0; i < objectHighWater_; ++i) {
+    GameObject* go = &objects_[i];
+    if (go->alive && !go->dying && !go->transform.parent_) destroy(go);
+  }
+  flushNow();
+}
+
 // ---- Instantiate / delayed Destroy -----------------------------------------
 
 GameObject* World::cloneSubtree(const GameObject* src, Transform* parent, bool root) {

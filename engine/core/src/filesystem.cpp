@@ -92,7 +92,7 @@ i32 StdioFileSystem::openStream(const char* path) {
   }
   FILE* f = fopen(full, "rb");
   if (!f) {
-    RLOG_ERROR("fs", "cannot open %s", full);
+    if (!save) RLOG_ERROR("fs", "cannot open %s", full);  // a missing save file is normal
     return -1;
   }
   streams_[slot] = f;

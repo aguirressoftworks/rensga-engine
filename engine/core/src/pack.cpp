@@ -128,7 +128,7 @@ const char* PackView::stringByIndex(u32 index) const {
   return p < end ? p : "";
 }
 
-bool World::loadPack(const PackView& pack, LoadedPack* out) {
+bool World::loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex) {
   u32 objCount = 0, xfrmCount = 0, compCount = 0, meshCount = 0, vertCount = 0, inputCount = 0;
   const PackObject* objs = pack.records<PackObject>(pack_section::OBJS, &objCount);
   const PackTransform* xfrms = pack.records<PackTransform>(pack_section::XFRM, &xfrmCount);
@@ -144,13 +144,37 @@ bool World::loadPack(const PackView& pack, LoadedPack* out) {
     RLOG_ERROR("pack", "scene sections missing or inconsistent (OBJS=%u XFRM=%u)", objCount, xfrmCount);
     return false;
   }
-  if (objCount > config_.maxObjects) {
-    RLOG_ERROR("pack", "scene has %u objects, capacity is %u", objCount, config_.maxObjects);
+  // Scene range [first, first + count) of OBJS. Without SCNE the pack is one scene.
+  u32 sceneCount = 0;
+  const PackSceneRec* scenes = pack.records<PackSceneRec>(pack_section::SCNE, &sceneCount);
+  u32 first = 0, count = objCount;
+  if (scenes) {
+    if (sceneIndex >= sceneCount) {
+      RLOG_ERROR("pack", "scene index %u is out of range (%u scenes)", sceneIndex, sceneCount);
+      return false;
+    }
+    first = scenes[sceneIndex].firstObject;
+    count = scenes[sceneIndex].objectCount;
+    if (first > objCount || count > objCount - first) {
+      RLOG_ERROR("pack", "scene %u has a bad object range", sceneIndex);
+      return false;
+    }
+  } else if (sceneIndex != 0) {
+    RLOG_ERROR("pack", "scene index %u is out of range (1 scene)", sceneIndex);
     return false;
   }
+  for (u32 s = 0; s < (scenes ? sceneCount : 1); ++s) {
+    const u32 n = scenes ? scenes[s].objectCount : objCount;
+    if (n > config_.maxObjects) {
+      RLOG_ERROR("pack", "scene has %u objects, capacity is %u", n, config_.maxObjects);
+      return false;
+    }
+  }
 
-  // Count components per type to size each pool from scene data.
+  // Count components per type to size each pool from scene data. With several scenes a pool is sized for the
+  // largest scene, so any scene can be loaded later into the same pools.
   u32 perType[kMaxTypes] = {};
+  u32 perScene[kMaxTypes] = {};
   for (u32 i = 0; i < compCount; ++i) {
     const TypeInfo* t = TypeRegistry::instance().findByHash(comps[i].typeHash);
     if (!t) {
@@ -162,7 +186,21 @@ bool World::loadPack(const PackView& pack, LoadedPack* out) {
       RLOG_ERROR("pack", "component %u of type '%s' has bad offsets", i, t->name);
       return false;
     }
-    ++perType[t->id];
+    if (comps[i].objectIndex >= first && comps[i].objectIndex - first < count) ++perScene[t->id];
+  }
+  if (scenes) {
+    for (u32 s = 0; s < sceneCount; ++s) {
+      u32 c[kMaxTypes] = {};
+      for (u32 i = 0; i < compCount; ++i) {
+        const TypeInfo* t = TypeRegistry::instance().findByHash(comps[i].typeHash);
+        const u32 o = comps[i].objectIndex;
+        if (o >= scenes[s].firstObject && o - scenes[s].firstObject < scenes[s].objectCount) ++c[t->id];
+      }
+      for (u32 id = 0; id < kMaxTypes; ++id)
+        if (c[id] > perType[id]) perType[id] = c[id];
+    }
+  } else {
+    for (u32 id = 0; id < kMaxTypes; ++id) perType[id] = perScene[id];
   }
   for (u32 id = 0; id < kMaxTypes; ++id) {
     if (!perType[id]) continue;
@@ -172,13 +210,18 @@ bool World::loadPack(const PackView& pack, LoadedPack* out) {
     if (!reservePool(*t, cap < perType[id] ? perType[id] : cap)) return false;
   }
 
-  // Objects first (parents may come later in the table), then parent links.
+  // Objects first (parents may come later in the table), then parent links. `map` is indexed by the scene-local
+  // index (global OBJS index minus `first`).
   size_t mark = arena_->used();
-  u32* map = arena_->allocateArray<u32>(objCount ? objCount : 1);
+  u32* map = arena_->allocateArray<u32>(count ? count : 1);
   if (!map) return false;
-  for (u32 i = 0; i < objCount; ++i) {
+  const bool wake = started_;  // a scene loaded into a running world wakes up once complete
+  if (wake) ++cloneDepth_;
+  for (u32 k = 0; k < count; ++k) {
+    const u32 i = first + k;
     GameObject* go = createObject(pack.string(objs[i].nameStr));
     if (!go) {
+      if (wake) --cloneDepth_;
       arena_->rewind(mark);
       return false;
     }
@@ -192,17 +235,19 @@ bool World::loadPack(const PackView& pack, LoadedPack* out) {
     go->transform.lpos_ = Vector3(xfrms[i].position[0], xfrms[i].position[1], xfrms[i].position[2]);
     go->transform.lrot_ = Quaternion(xfrms[i].rotation[0], xfrms[i].rotation[1], xfrms[i].rotation[2], xfrms[i].rotation[3]);
     go->transform.lscale_ = Vector3(xfrms[i].scale[0], xfrms[i].scale[1], xfrms[i].scale[2]);
-    map[i] = go->index;
+    map[k] = go->index;
   }
-  for (u32 i = 0; i < objCount; ++i) {
-    i32 p = objs[i].parentIndex;
-    if (p >= 0 && static_cast<u32>(p) < objCount) objects_[map[i]].transform.setParent(&objects_[map[p]].transform);
+  for (u32 k = 0; k < count; ++k) {
+    i32 p = objs[first + k].parentIndex;
+    if (p >= static_cast<i32>(first) && static_cast<u32>(p) < first + count)
+      objects_[map[k]].transform.setParent(&objects_[map[static_cast<u32>(p) - first]].transform);
   }
 
   bool ok = true;
   for (u32 i = 0; i < compCount && ok; ++i) {
+    if (comps[i].objectIndex < first || comps[i].objectIndex - first >= count) continue;
     const TypeInfo* t = TypeRegistry::instance().findByHash(comps[i].typeHash);
-    GameObject* go = &objects_[map[comps[i].objectIndex]];
+    GameObject* go = &objects_[map[comps[i].objectIndex - first]];
     Component* c = addComponent(go, *t);
     if (!c) {
       ok = false;
@@ -216,9 +261,15 @@ bool World::loadPack(const PackView& pack, LoadedPack* out) {
   }
 
   for (u32 i = 0; i < meshCount && ok; ++i) {
-    if (meshes[i].objectIndex >= objCount) continue;
-    GameObject* go = &objects_[map[meshes[i].objectIndex]];
+    if (meshes[i].objectIndex < first || meshes[i].objectIndex - first >= count) continue;
+    GameObject* go = &objects_[map[meshes[i].objectIndex - first]];
     if (MeshRenderer* mr = getComponent<MeshRenderer>(go)) mr->meshIndex = i;
+  }
+  if (wake) {
+    --cloneDepth_;
+    if (ok)
+      for (u32 k = 0; k < count; ++k)
+        if (!objects_[map[k]].transform.parent_) awakeSubtree(&objects_[map[k]]);
   }
   arena_->rewind(mark);
   if (!ok) return false;
@@ -233,7 +284,7 @@ bool World::loadPack(const PackView& pack, LoadedPack* out) {
     out->hasTarget = ctgt != nullptr;
     if (ctgt) out->target = *ctgt;
     out->assets = pack.assets();
-    out->objectCount = objCount;
+    out->objectCount = count;
     out->componentCount = compCount;
   }
   return true;

@@ -23,7 +23,7 @@ using nlohmann::json;
 namespace rensga {
 namespace {
 
-constexpr const char* kCookerVersion = "rensga-cooker-2";
+constexpr const char* kCookerVersion = "rensga-cooker-3";
 
 struct Ctx {
   CookResult result;
@@ -243,25 +243,44 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
     cx.error("ProjectSettings/Project.json lists no scenes");
     return R;
   }
-  auto sit = assets.find(sceneGuids[0]);
-  if (sit == assets.end()) {
-    cx.error("Project.json references scene GUID " + sceneGuids[0] + " but no asset has that GUID", "ProjectSettings/Project.json", sceneGuids[0]);
-    return R;
-  }
-  if (sceneGuids.size() > 1) cx.msg(CookMessage::Warning, "only the first scene is cooked into game.rpak in the MVP");
-  const Asset& sceneAsset = sit->second;
+  // F2.05: every scene listed in Project.json is cooked into the one pack. Their objects are concatenated in
+  // build-settings order (one contiguous block per scene, recorded in SCNE), so SceneManager can load any of them.
+  struct SceneBlock { std::string guid, name; u32 first = 0, count = 0; };
+  std::vector<SceneBlock> sceneBlocks;
+  const Asset* firstScene = nullptr;
   json scene;
-  {
-    std::string txt;
-    readText(sceneAsset.path, txt);
-    try {
-      scene = json::parse(txt);
-      if (scene.value("format", 0) != 1) throw std::runtime_error("unsupported scene format version");
-    } catch (const std::exception& e) {
-      cx.error(std::string("scene parse error: ") + e.what(), sceneAsset.rel, sceneAsset.guid);
+  for (size_t si = 0; si < sceneGuids.size(); ++si) {
+    auto sit = assets.find(sceneGuids[si]);
+    if (sit == assets.end()) {
+      cx.error("Project.json references scene GUID " + sceneGuids[si] + " but no asset has that GUID", "ProjectSettings/Project.json", sceneGuids[si]);
       return R;
     }
+    const Asset& sa = sit->second;
+    json one;
+    std::string txt;
+    readText(sa.path, txt);
+    try {
+      one = json::parse(txt);
+      if (one.value("format", 0) != 1) throw std::runtime_error("unsupported scene format version");
+    } catch (const std::exception& e) {
+      cx.error(std::string("scene parse error: ") + e.what(), sa.rel, sa.guid);
+      return R;
+    }
+    SceneBlock blk;
+    blk.guid = sceneGuids[si];
+    blk.name = fs::path(sa.rel).stem().string();
+    blk.count = static_cast<u32>(one.value("objects", json::array()).size());
+    if (si == 0) {
+      firstScene = &sa;
+      scene = one;
+      blk.first = 0;
+    } else {
+      blk.first = static_cast<u32>(scene.at("objects").size());
+      for (const json& oj : one.value("objects", json::array())) scene["objects"].push_back(oj);
+    }
+    sceneBlocks.push_back(blk);
   }
+  const Asset& sceneAsset = *firstScene;
 
   // ---- scene objects through reflection
   std::vector<ObjectDef> objs;
@@ -573,6 +592,15 @@ lightDone:
     ct.maxComponentsPerType = static_cast<u32>(target.maxComponentsPerType);
   }
 
+  std::vector<PackSceneRec> pscenes;
+  for (const SceneBlock& b : sceneBlocks) {
+    PackSceneRec sr = {};
+    Guid::parse(b.guid.c_str(), sr.guid);
+    sr.nameStr = addStr(b.name);
+    sr.firstObject = b.first;
+    sr.objectCount = b.count;
+    pscenes.push_back(sr);
+  }
   secs.push_back({pack_section::STRS, strs, strCount});
   secs.push_back({pack_section::OBJS, bytesOf(pobjs.data(), pobjs.size() * sizeof(PackObject)), static_cast<u32>(pobjs.size())});
   secs.push_back({pack_section::XFRM, bytesOf(pxf.data(), pxf.size() * sizeof(PackTransform)), static_cast<u32>(pxf.size())});
@@ -582,6 +610,7 @@ lightDone:
   secs.push_back({pack_section::VERT, vertBytes, static_cast<u32>(vertBytes.size() / sizeof(PackVertex))});
   secs.push_back({pack_section::INPT, bytesOf(pinputs.data(), pinputs.size() * sizeof(PackInputAction)), static_cast<u32>(pinputs.size())});
   secs.push_back({pack_section::CTGT, bytesOf(&ct, sizeof ct), 1});
+  secs.push_back({pack_section::SCNE, bytesOf(pscenes.data(), pscenes.size() * sizeof(PackSceneRec)), static_cast<u32>(pscenes.size())});
   secs.push_back({pack_section::BLOB, cooked.blob, static_cast<u32>(cooked.blob.size())});
   secs.push_back({pack_section::TEXR, bytesOf(cooked.textures.data(), cooked.textures.size() * sizeof(PackTexRec)), static_cast<u32>(cooked.textures.size())});
   secs.push_back({pack_section::AUDI, bytesOf(cooked.audio.data(), cooked.audio.size() * sizeof(PackAudioRec)), static_cast<u32>(cooked.audio.size())});

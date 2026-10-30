@@ -1,0 +1,13 @@
+{
+ "format": 1,
+ "name": "player_idle",
+ "texture": "00000000-0000-4000-8000-000000000102",
+ "fps": 2,
+ "loop": true,
+ "grid": {
+  "cellW": 32,
+  "cellH": 32,
+  "start": 0,
+  "count": 2
+ }
+}

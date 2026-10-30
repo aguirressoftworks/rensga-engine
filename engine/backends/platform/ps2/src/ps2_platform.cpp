@@ -13,6 +13,7 @@
 #include <fcntl.h>
 #include <kernel.h>
 #include <iopcontrol.h>
+#include <libmc.h>
 #include <libpad.h>
 #include <loadfile.h>
 #include <sifrpc.h>
@@ -121,8 +122,68 @@ double Ps2Platform::timeSeconds() {
 
 // ---- file system -----------------------------------------------------------
 
+// ---- memory card (save:/ on disc boots) ---------------------------------------------------------------------
+// Files live in mc0:/RENSGA/<name>. The modules come from the BIOS ROM (XMCMAN/XMCSERV, else MCMAN/MCSERV), loaded on
+// first use. All libmc calls are asynchronous; mcSync(0, ...) blocks until each one finished. There is no icon.sys, so
+// the browser shows the folder without an icon; the data is complete and readable by the game.
+static bool g_cardTried = false, g_cardReady = false;
+// mcserv takes the IOP's fio open flags, which differ from newlib's O_* values (newlib O_WRONLY == fio read-only).
+constexpr int kMcRead = 0x0001, kMcWrite = 0x0002, kMcCreate = 0x0200;
+
+static bool cardInit() {
+  if (g_cardTried) return g_cardReady;
+  g_cardTried = true;
+  int type = MC_TYPE_XMC;
+  int a = SifLoadModule("rom0:XMCMAN", 0, nullptr);
+  int b = a >= 0 ? SifLoadModule("rom0:XMCSERV", 0, nullptr) : -1;
+  if (a < 0 || b < 0) {
+    type = MC_TYPE_MC;
+    a = SifLoadModule("rom0:MCMAN", 0, nullptr);
+    b = a >= 0 ? SifLoadModule("rom0:MCSERV", 0, nullptr) : -1;
+  }
+  if (a < 0 || b < 0 || mcInit(type) < 0) {
+    RLOG_WARN("fs", "memory card modules not available (mcman=%d mcserv=%d)", a, b);
+    return false;
+  }
+  int ctype = 0, freeKb = 0, format = 0, result = 0;
+  for (int i = 0; i < 2; ++i) {  // the first call after boot reports "card changed"; the second one settles
+    mcGetInfo(0, 0, &ctype, &freeKb, &format);
+    mcSync(0, nullptr, &result);
+  }
+  if (result < -1 || ctype != sceMcTypePS2) {
+    RLOG_WARN("fs", "no usable PS2 memory card in slot 1 (type=%d result=%d)", ctype, result);
+    return false;
+  }
+  if (!format) {
+#ifdef RENSGA_PS2_FORMAT_BLANK_CARD
+    // Emulator sandboxes start with a blank card. Formatting is only compiled in for those test builds: a game never
+    // formats a player's card (an unformatted card is formatted from the BIOS browser).
+    mcFormat(0, 0);
+    mcSync(0, nullptr, &result);
+    mcGetInfo(0, 0, &ctype, &freeKb, &format);
+    mcSync(0, nullptr, &result);
+    RLOG_INFO("fs", "formatted a blank memory card (format=%d free=%d KB)", format, freeKb);
+#else
+    RLOG_WARN("fs", "the memory card in slot 1 is not formatted; saves are off (format it in the BIOS browser)");
+    return false;
+#endif
+  }
+  mcMkDir(0, 0, "RENSGA");
+  mcSync(0, nullptr, &result);  // 0 = created, -4 = exists
+  g_cardReady = true;
+  RLOG_INFO("fs", "memory card ready (%d KB free), saves go to mc0:/RENSGA", freeKb);
+  return true;
+}
+
+static bool cardPath(const char* path, char* out, unsigned outSize) {
+  if (!path || strncmp(path, "save:/", 6) != 0 || strstr(path, "..") || strchr(path + 6, '/')) return false;
+  int n = snprintf(out, outSize, "/RENSGA/%s", path + 6);
+  return n > 0 && static_cast<unsigned>(n) < outSize;
+}
+
 Ps2FileSystem::Ps2FileSystem(Ps2Device device) : device_(device) {
   for (int& fd : fds_) fd = -1;
+  for (bool& m : mcFd_) m = false;
   if (device_ == Ps2Device::Auto) device_ = probeDisc() ? Ps2Device::Disc : Ps2Device::Host;
 }
 
@@ -196,6 +257,23 @@ i32 Ps2FileSystem::openStream(const char* path) {
   char full[256];
   bool isSave;
   if (!resolve(path, full, sizeof(full), isSave)) return -1;
+  if (isSave && device_ == Ps2Device::Disc) {  // memory card
+    if (!cardInit() || !cardPath(path, full, sizeof(full))) return -1;
+    for (int i = 0; i < kStreamSlots; ++i) {
+      if (fds_[i] >= 0) continue;
+      int fd = -1;
+      mcOpen(0, 0, full, kMcRead);
+      mcSync(0, nullptr, &fd);
+      if (fd < 0) {
+        if (fd != -4) RLOG_WARN("fs", "mcOpen %s failed (%d)", full, fd);  // -4: no such file, normal for a first run
+        return -1;
+      }
+      fds_[i] = fd;
+      mcFd_[i] = true;
+      return i + 1;
+    }
+    return -1;
+  }
   for (int i = 0; i < kStreamSlots; ++i) {
     if (fds_[i] >= 0) continue;
     int fd = open(full, O_RDONLY);
@@ -209,18 +287,38 @@ i32 Ps2FileSystem::openStream(const char* path) {
 
 u32 Ps2FileSystem::readStream(i32 h, void* dst, u32 bytes) {
   if (h < 1 || h > kStreamSlots || fds_[h - 1] < 0) return 0;
+  if (mcFd_[h - 1]) {
+    int got = 0;
+    mcRead(fds_[h - 1], dst, static_cast<int>(bytes));
+    mcSync(0, nullptr, &got);
+    if (got <= 0) RLOG_WARN("fs", "mcRead returned %d", got);
+    return got > 0 ? static_cast<u32>(got) : 0;
+  }
   int r = read(fds_[h - 1], dst, bytes);
   return r > 0 ? static_cast<u32>(r) : 0;
 }
 
 bool Ps2FileSystem::seekStream(i32 h, u32 offset) {
   if (h < 1 || h > kStreamSlots || fds_[h - 1] < 0) return false;
+  if (mcFd_[h - 1]) {
+    int pos = -1;
+    mcSeek(fds_[h - 1], static_cast<int>(offset), SEEK_SET);
+    mcSync(0, nullptr, &pos);
+    return pos >= 0;
+  }
   return lseek(fds_[h - 1], static_cast<off_t>(offset), SEEK_SET) >= 0;
 }
 
 void Ps2FileSystem::closeStream(i32 h) {
   if (h < 1 || h > kStreamSlots || fds_[h - 1] < 0) return;
-  close(fds_[h - 1]);
+  if (mcFd_[h - 1]) {
+    int r = 0;
+    mcClose(fds_[h - 1]);
+    mcSync(0, nullptr, &r);
+    mcFd_[h - 1] = false;
+  } else {
+    close(fds_[h - 1]);
+  }
   fds_[h - 1] = -1;
 }
 
@@ -228,6 +326,23 @@ bool Ps2FileSystem::writeFile(const char* path, const void* data, u32 bytes) {
   char full[256];
   bool isSave;
   if (!resolve(path, full, sizeof(full), isSave) || !isSave) return false;
+  if (device_ == Ps2Device::Disc) {  // memory card: replace = delete, then create and write
+    if (!cardInit() || !cardPath(path, full, sizeof(full))) return false;
+    int r = 0, fd = -1;
+    mcDelete(0, 0, full);
+    mcSync(0, nullptr, &r);  // -4 when it did not exist
+    mcOpen(0, 0, full, kMcWrite | kMcCreate);
+    mcSync(0, nullptr, &fd);
+    if (fd < 0) return false;
+    int put = 0;
+    if (bytes) {
+      mcWrite(fd, data, static_cast<int>(bytes));
+      mcSync(0, nullptr, &put);
+    }
+    mcClose(fd);
+    mcSync(0, nullptr, &r);
+    return put == static_cast<int>(bytes);
+  }
   int fd = open(full, O_WRONLY | O_CREAT | O_TRUNC, 0644);
   if (fd < 0) return false;
   int put = bytes ? write(fd, data, bytes) : 0;

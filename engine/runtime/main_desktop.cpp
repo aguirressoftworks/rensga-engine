@@ -1,6 +1,7 @@
 // Desktop player (Linux, Windows, and the Android native library): SDL platform + GL renderer.
-//   rensga_desktop [--pack <game.rpak>] [--frames N] [--screenshot out.png] [--stress-sprites N] [--headless-gl]
+//   rensga_desktop [--pack <game.rpak>] [--scene <name>] [--frames N] [--screenshot out.png] [--stress-sprites N] [--headless-gl]
 // Without --pack it loads data:/game.rpak next to the executable (the APK assets on Android).
+// --scene <name> start in this scene of the pack (default: the first). Saves go to the SDL pref folder (save:/).
 // --frames N      stop after N frames (default: run until the window closes)
 // --screenshot    write the virtual-resolution image of the last frame as a PNG (glReadPixels of the FBO)
 // --stress-sprites N  no pack: N moving sprites (2D stress test), frame times in the heartbeat lines
@@ -187,15 +188,17 @@ void splitPath(const char* path, char* dir, size_t dirSize, const char** base) {
 int main(int argc, char** argv) {
   const char* packPath = nullptr;
   const char* shotPath = nullptr;
+  const char* startScene = nullptr;
   u32 maxFrames = 0, stressCount = 0;
   for (int i = 1; i < argc; ++i) {
     if (!strcmp(argv[i], "--pack") && i + 1 < argc) packPath = argv[++i];
+    else if (!strcmp(argv[i], "--scene") && i + 1 < argc) startScene = argv[++i];
     else if (!strcmp(argv[i], "--frames") && i + 1 < argc) maxFrames = static_cast<u32>(atoi(argv[++i]));
     else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) shotPath = argv[++i];
     else if (!strcmp(argv[i], "--stress-sprites") && i + 1 < argc) stressCount = static_cast<u32>(atoi(argv[++i]));
     else if (!strcmp(argv[i], "--headless-gl")) {}
     else {
-      fprintf(stderr, "usage: rensga_desktop [--pack game.rpak] [--frames N] [--screenshot out.png] [--stress-sprites N] [--headless-gl]\n");
+      fprintf(stderr, "usage: rensga_desktop [--pack game.rpak] [--scene name] [--frames N] [--screenshot out.png] [--stress-sprites N] [--headless-gl]\n");
       return 1;
     }
   }
@@ -230,6 +233,8 @@ int main(int argc, char** argv) {
     if (bp) { snprintf(dir, sizeof(dir), "%s", bp); SDL_free(bp); }
   }
   static SdlFileSystem fs(dir);
+  static FileSystemSaveStore saves(fs);
+  Save::use(&saves);
 
   Arena arena;
   if (!arena.create(MemoryConfig::fromRamBudget(24u * 1024 * 1024).arenaBytes)) {
@@ -258,7 +263,14 @@ int main(int argc, char** argv) {
     const PackConsoleTarget* ct = view.records<PackConsoleTarget>(pack_section::CTGT);
     if (ct && ct->width && ct->height) { vw = ct->width; vh = ct->height; }
     if (!renderer.init(vw, vh)) return 3;
-    if (!world.loadPack(view, &loaded)) {
+    u32 sceneIndex = 0;
+    if (startScene) {
+      SceneManager::bind(&view, 0);
+      const i32 si = SceneManager::sceneIndexByName(startScene);
+      if (si < 0) { RLOG_ERROR("game", "rensga: no scene named %s in the pack", startScene); return 3; }
+      sceneIndex = static_cast<u32>(si);
+    }
+    if (!world.loadPack(view, &loaded, sceneIndex)) {
       RLOG_ERROR("game", "rensga: cannot load pack %s", packFile);
       return 3;
     }
@@ -273,6 +285,8 @@ int main(int argc, char** argv) {
       packTex[i] = renderer.uploadTexture(d);
     }
     if (as.textureCount) RLOG_INFO("game", "rensga: uploaded %u textures", as.textureCount);
+    GfxAssets::bind(&view, &loaded.assets, packTex, as.textureCount);  // 2D components resolve textures here
+    SceneManager::bind(&view, sceneIndex);
     u32 pickups = 0;
     world.forEach<MeshRenderer>([&](MeshRenderer& mr) {
       GameObject* go = mr.gameObject();
@@ -280,7 +294,6 @@ int main(int argc, char** argv) {
     });
     RLOG_INFO("game", "rensga: scene loaded objects=%u pickups=%u", world.objectCount(), pickups);
   }
-  (void)packTex;
 
   GameLoop loop;
   loop.init(world);

@@ -8,7 +8,7 @@ namespace rensga {
 // Piecewise-constant gamepad script: the last step with frame <= current frame applies.
 class InputScript {
  public:
-  static constexpr u32 kMaxSteps = 256;
+  static constexpr u32 kMaxSteps = 2048;
   struct Step { u32 frame; Scalar x, y; u32 buttons; };
   enum Button : u32 { South = 1, East = 2, West = 4, North = 8, L = 16, R = 32, Start = 64, Select = 128,
                       Up = 256, Down = 512, Left = 1024, Right = 2048 };

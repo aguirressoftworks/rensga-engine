@@ -36,6 +36,8 @@ constexpr u32 AUDI = makeFourCC('A', 'U', 'D', 'I');  // PackAudioRec[count]
 constexpr u32 TMAP = makeFourCC('T', 'M', 'A', 'P');  // PackTilemapRec[count]
 constexpr u32 ANIM = makeFourCC('A', 'N', 'I', 'M');  // PackAnimRec[count] (one sprite clip each)
 constexpr u32 FONT = makeFourCC('F', 'O', 'N', 'T');  // PackFontRec[count]
+// F2.05: scene list. OBJS/XFRM/COMP hold the objects of every scene, one contiguous block per scene.
+constexpr u32 SCNE = makeFourCC('S', 'C', 'N', 'E');  // PackSceneRec[count], in build-settings order
 }  // namespace pack_section
 
 struct PackHeader {
@@ -216,6 +218,17 @@ struct PackFontRec {
   u8 advance[kPackFontMaxChars];  // pixels to move after each glyph; index = char - firstChar
 };
 static_assert(sizeof(PackFontRec) == 16 + 4 + 12 + 128, "PackFontRec layout");
+
+// SCNE record: scene `i` owns OBJS[firstObject, firstObject + objectCount). COMP objectIndex and MESH objectIndex
+// stay global (index into OBJS); parentIndex too. Packs without SCNE hold a single scene = all objects.
+struct PackSceneRec {
+  Guid guid;
+  u32 nameStr;  // byte offset in STRS (file name without extension)
+  u32 firstObject;
+  u32 objectCount;
+  u32 reserved;
+};
+static_assert(sizeof(PackSceneRec) == 32, "PackSceneRec is 32 bytes");
 
 // Typed pointers into a v2 pack's asset sections. Valid while the pack memory lives.
 struct PackAssets {

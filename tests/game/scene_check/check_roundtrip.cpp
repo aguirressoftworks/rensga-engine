@@ -19,7 +19,7 @@ static void scramble(const TypeInfo& t, void* obj, int seed) {
     switch (f.type) {
       case FieldType::Scalar: *reinterpret_cast<Scalar*>(p) = 0.25f * k + 1.5f; break;
       case FieldType::I32: *reinterpret_cast<i32*>(p) = 3 * (seed + static_cast<int>(i)) - 7; break;
-      case FieldType::Bool: *reinterpret_cast<bool*>(p) = ((seed + static_cast<int>(i)) & 1) == 0; break;
+      case FieldType::Bool: *reinterpret_cast<bool*>(p) = !*reinterpret_cast<bool*>(p); break;  // always differs from the default
       case FieldType::Vector3: *reinterpret_cast<Vector3*>(p) = Vector3(k, -k * 0.5f, k * 0.125f); break;
       case FieldType::Quaternion: *reinterpret_cast<Quaternion*>(p) = Quaternion(0.5f, -0.5f, 0.5f, 0.5f); break;
       case FieldType::Color32:

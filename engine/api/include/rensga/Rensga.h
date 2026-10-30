@@ -5,10 +5,13 @@
 //   hierarchy, Translate, Rotate, LookAt), Instantiate / Destroy, Application, Time::deltaTime() / fixedDeltaTime(), Input::GetAxis / GetButton /
 //   GetButtonDown by action name, Debug::Log, Ref<T>, and the REFLECT / SERIALIZE_FIELD / RANGE /
 //   HEADER macros. Game code uses Scalar, never float.
+//   F2.05 gameplay: SpriteRenderer, SpriteAnimator, Tilemap, TilemapCollider, BoxCollider2D (Move), UIText,
+//   UIImage, UIButton (OnUIClick), SceneManager::LoadScene, Save::SaveFile / LoadFile / SaveInt / LoadInt.
 #pragma once
 #include "rensga/core/application.h"
 #include "rensga/core/components.h"
 #include "rensga/core/debug.h"
+#include "rensga/core/gameplay.h"
 #include "rensga/core/guid.h"
 #include "rensga/core/input.h"
 #include "rensga/core/loop.h"
@@ -16,6 +19,8 @@
 #include "rensga/core/object.h"
 #include "rensga/core/ref.h"
 #include "rensga/core/reflect.h"
+#include "rensga/core/save.h"
+#include "rensga/core/scene_manager.h"
 #include "rensga/core/time.h"
 #include "rensga/core/world.h"
 

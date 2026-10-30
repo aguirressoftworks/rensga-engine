@@ -139,9 +139,15 @@ class World {
   void refreshEnabled(GameObject* go, bool recursive);
   // Calls OnTriggerEnter on every behaviour attached to `self`.
   void sendTriggerEnter(GameObject* self, GameObject* other);
+  // Calls OnUIClick on every behaviour attached to `self`.
+  void sendUIClick(GameObject* self);
 
   // ---- pack loading (MVP-27)
-  bool loadPack(const PackView& pack, LoadedPack* out);
+  // `sceneIndex` picks one scene of a multi-scene pack (SCNE section); a pack without SCNE has one scene.
+  // After the world started, the loaded objects wake up (Awake/OnEnable) before this returns.
+  bool loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex = 0);
+  // Destroys every object now (scene change). Pools keep their capacity.
+  void destroyAllImmediate();
 
   Arena& arena() { return *arena_; }
 

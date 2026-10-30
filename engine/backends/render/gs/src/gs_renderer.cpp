@@ -45,6 +45,11 @@ static inline u64 gsRgbaq(u32 rgba) {
   return GS_SETREG_RGBAQ(gsColor(rgba & 0xFF), gsColor((rgba >> 8) & 0xFF), gsColor((rgba >> 16) & 0xFF), gsAlpha(rgba >> 24), 0x00);
 }
 
+// Untextured primitives are not modulated: colors are used as they are (only alpha maps 0..255 -> 0..128).
+static inline u64 gsRgbaqFlat(u32 rgba) {
+  return GS_SETREG_RGBAQ(rgba & 0xFF, (rgba >> 8) & 0xFF, (rgba >> 16) & 0xFF, gsAlpha(rgba >> 24), 0x00);
+}
+
 static int cmpOrder(const void* a, const void* b) {
   u64 x = static_cast<const GsRenderer::Command*>(a)->order, y = static_cast<const GsRenderer::Command*>(b)->order;
   return x < y ? -1 : (x > y ? 1 : 0);
@@ -239,7 +244,7 @@ void GsRenderer::endFrame() {
     const Command& c = g_cmds[i];
     const float x1 = c.dx * sx, y1 = c.dy * sy, x2 = (c.dx + c.dw) * sx, y2 = (c.dy + c.dh) * sy;
     if (c.tex == 0) {
-      gsKit_prim_sprite(g, x1, y1, x2, y2, 0, gsRgbaq(c.color));
+      gsKit_prim_sprite(g, x1, y1, x2, y2, 0, gsRgbaqFlat(c.color));
       ++frame_.rects;
     } else {
       Tex& t = g_texStore[c.tex - 1];

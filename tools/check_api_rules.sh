@@ -11,7 +11,7 @@ strip() { sed -E 's://.*$::'; }
 while IFS= read -r f; do
   hits=$(strip < "$f" | grep -nE '\b(float|double)\b' || true)
   if [ -n "$hits" ]; then echo "$f: float/double in a game script (use Scalar):" >&2; echo "$hits" >&2; rc=1; fi
-done < <(find "$root/templates" -path '*Assets/Scripts/*' \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null)
+done < <(find "$root/templates" "$root/samples" -path '*Assets/Scripts/*' \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null)
 
 while IFS= read -r f; do
   hits=$(strip < "$f" | grep -nE '\b(throw|try|catch)\b' | grep -v '"' || true)

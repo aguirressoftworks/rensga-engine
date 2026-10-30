@@ -6,6 +6,7 @@ B="$CI_OUT/linux-host"
 cd "$REPO"
 step "linux-host build"; cmake --preset linux-host -B "$B" >/dev/null; cmake --build "$B" -j"$JOBS"
 step "ctest"; ctest --test-dir "$B" --output-on-failure
+# ctest above includes alloc_check_linux (headless + desktop player allocs=0) and determinism_linux_trace.
 step "check_editor_core"; tools/check_editor_core.sh
 step "hello under xvfb"
 out="$(xvfb-run -a "$B/engine/runtime/rensga_hello" --frames 130 2>&1)"; echo "$out"

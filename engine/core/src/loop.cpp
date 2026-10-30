@@ -1,6 +1,8 @@
 #include "rensga/core/loop.h"
 
 #include "rensga/core/components.h"
+#include "rensga/core/gameplay.h"
+#include "rensga/core/scene_manager.h"
 #include "rensga/core/input.h"
 #include "rensga/core/time.h"
 
@@ -29,15 +31,18 @@ bool GameLoop::frame(Scalar realDt, const VirtualGamepad& pad) {
     TimeInternal::beginFixedStep(config_.fixedDelta);
     world_->fixedUpdate();
     if (hook_) hook_(*world_, config_.fixedDelta, hookUser_);
+    Gameplay2D::fixedStep(*world_);
     accumulator_ -= config_.fixedDelta;
     ++steps;
     ++fixedSteps_;
   }
   if (steps == config_.maxStepsPerFrame && accumulator_ >= config_.fixedDelta) accumulator_ = 0;
   TimeInternal::setInterpolation(accumulator_ / config_.fixedDelta);
+  UI::update(*world_);
   world_->update();
   world_->lateUpdate();
   world_->flushDestroyed();
+  SceneManager::processPending(*world_);  // scene changes happen at the end of the frame
   ++frames_;
   heap::noteFrameDone();
   return FrameHeapGuard::end();
@@ -113,6 +118,7 @@ void renderWorld(World& world, IRenderer& renderer, Color32 clear) {
     u32 sortKey = key > 16777215.0f ? 16777215u : static_cast<u32>(key);
     renderer.drawMesh(mr.meshIndex, w, sortKey);
   });
+  renderGameplay2D(world, renderer);  // sprites, tilemaps and UI draw after the 3D pass
   if (g_overlayHook) g_overlayHook(renderer);
   renderer.endFrame();
 }

@@ -36,12 +36,23 @@ build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after
 xvfb-run -a -s "-screen 0 1600x900x24" build/host/editor/app/rensga-editor --project templates/psp --screenshot out.png [--screenshot-frames N] [--select <object>] [--ui-event click|rclick|move:x,y|script:Name|focus|create:cube|select:Name|addscript:Name|save ...]   # editor PNG, never opens a window on the desktop
 xvfb-run -a build/host/engine/runtime/rensga_desktop --stress-sprites 1000 --frames 300 --screenshot out.png   # desktop GL player (or --pack <game.rpak>); exits 4 if alloc-check allocs != 0
 tools/emulators/pcsx2_boot.sh build/ci/ps2/rensga.iso --frames 120 --log /abs/log.txt [--shot out.png]   # PS2 boot in PCSX2 (local only, BIOS referenced in place via ~/.config/rensga/emulators.json)
+# 2D gameplay sample (samples/platformer2d, PS2 profile 640x448): its scripts are compiled into a project build tree.
+#   cmake --preset linux-host -B build/sample -DRENSGA_PROJECT_DIR=$PWD/samples/platformer2d && cmake --build build/sample -j4 --target rensga_desktop rensga-cooker
+#   build/sample/tools/cooker/rensga-cooker cook --project samples/platformer2d --target ps2 --force
+#   xvfb-run -a build/sample/engine/runtime/rensga_desktop --pack samples/platformer2d/Library/Cooked/ps2/game.rpak --scene Room --frames 120 --screenshot room.png
+#   RENSGA_PS2_PROJECT=samples/platformer2d RENSGA_PS2_PACK=samples/platformer2d/Library/Cooked/ps2/game.rpak tools/ci/ps2.sh   # ISO; then pcsx2_boot.sh
 tools/install_git_hooks.sh                                                # pre-commit guard: refuses BIOS/ROM dumps
 tools/emulators/screenshot.sh                       # PPSSPP screenshot into docs/rensga-engine/mvp/ (needs a prior cook)
 tools/check_editor_core.sh                                                # editor/core must not name a console
 tools/check_api_rules.sh                                                  # API design rules (docs/rensga-engine/api-rules.md)
 cmake --preset psp|windows|android|ps2 -B build/<x>                       # cross builds; run via tools/docker/{psp,windows,android,ps2}.sh (pinned images, sg docker fallback)
-tools/ci/run_local.sh                                                     # every CI job locally (linux-host, psp + headless + GPU check, windows, android, ps2 + ISO)
+tools/ci/run_local.sh                                                     # every CI job locally (linux_host psp determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check); exit 77 = skipped
+tools/ci/determinism.sh                                                   # same walk.json on Linux and PSP: state hashes must match (DET_TRACE=1 compares every frame)
+tools/ci/windows_run.sh                                                   # Windows build under wine + Xvfb, checks the alloc-check line
+tools/ci/android_device.sh                                                # install + run on an adb phone; prints "built, not run" without one
+tools/ci/ps2_check.sh                                                     # PS2 ISO in PCSX2, alloc-check line (LOCAL ONLY, needs your BIOS in emulators.json)
+# every runtime main prints "rensga: alloc-check frames=<N> allocs=<K>" (K must be 0) and "rensga: frame <n>" every 60 frames
+# heavy jobs on a small machine: wrap in flock /tmp/rensga-heavy.lock, nice -n 19, RENSGA_JOBS=2
 ```
 
 Docs:

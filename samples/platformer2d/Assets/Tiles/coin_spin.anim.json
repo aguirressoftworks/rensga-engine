@@ -1,0 +1,13 @@
+{
+ "format": 1,
+ "name": "coin_spin",
+ "texture": "00000000-0000-4000-8000-000000000103",
+ "fps": 8,
+ "loop": true,
+ "grid": {
+  "cellW": 16,
+  "cellH": 16,
+  "start": 0,
+  "count": 4
+ }
+}

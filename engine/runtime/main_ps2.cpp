@@ -7,11 +7,20 @@
 //   RENSGA_PS2_CHECK_FRAMES=N         log "rensga: alloc-check frames=N allocs=K" once at frame N (contract 7), default 300
 //   RENSGA_PS2_SHOT_FRAME=N           at frame N dump both frame buffers to host:rensga_fb0.raw / fb1.raw (PCSX2 capture)
 //   RENSGA_EXIT_AFTER_FRAMES=N        leave the main loop after N frames (CI)
+//   RENSGA_PS2_SAVE_SELFTEST=1        game mode: at frame 20 write save:/selftest, read it back and log "rensga: save selftest"
+//   RENSGA_PS2_AUTOSTART=<scene>      game mode: at frame 30 load this scene (the PCSX2 sandbox has no controller input)
+// Game mode (F2.05): a pack with tilemaps or sprite clips is played as a 2D game: every TEXR is uploaded, the GameLoop
+// runs the scene scripts and renderWorld draws tilemaps, sprites and UI. Saves go to save:/ (memory card, see Ps2FileSystem).
 // Heartbeats ("rensga: frame <n> ...") go to the log every 60 frames (contract 8).
 #include <stdio.h>
 #include <string.h>
 
+#include "rensga/Physics.h"
 #include "rensga/core/application.h"
+#include "rensga/core/gameplay.h"
+#include "rensga/core/input.h"
+#include "rensga/core/save.h"
+#include "rensga/core/scene_manager.h"
 #include "rensga/core/backends.h"
 #include "rensga/core/log.h"
 #include "rensga/core/loop.h"
@@ -131,12 +140,29 @@ int main() {
   static PackView view;
   const char* packPath = fs.device() == Ps2Device::Disc ? "data:/game.rpk" : "data:/game.rpak";
   u32 sprite = 0, fontTex = 0;
+  static u32 packTex[GfxAssets::kMaxTextures] = {};
+  bool gameMode = false;
   Rect spriteSrc(0, 0, 32, 32);
   Span<const u8> bytes = fs.readFile(packPath, arena);
   if (bytes && view.open(bytes.data, bytes.size, packPath) && world.loadPack(view, &loaded)) {
     RLOG_INFO("game", "rensga: pack %s objects=%u textures=%u fonts=%u", packPath, world.objectCount(), loaded.assets.textureCount,
               loaded.assets.fontCount);
-    if (loaded.assets.textureCount > 0) {
+    gameMode = loaded.assets.tilemapCount > 0 || loaded.assets.animCount > 0;
+    if (gameMode) {
+      const PackAssets& as = loaded.assets;
+      for (u32 i = 0; i < as.textureCount && i < GfxAssets::kMaxTextures; ++i) {
+        const PackTexRec& t = as.textures[i];
+        TextureDesc d;
+        d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
+        d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
+        packTex[i] = renderer.uploadTexture(d);
+        if (!packTex[i]) RLOG_ERROR("game", "texture %u upload failed", i);
+      }
+      GfxAssets::bind(&view, &loaded.assets, packTex, as.textureCount);
+      SceneManager::bind(&view, 0);
+      Input::loadActions(view, loaded.inputs, loaded.inputCount);
+      RLOG_INFO("game", "rensga: game mode scene=%s scenes=%u", SceneManager::activeSceneName(), SceneManager::sceneCount());
+    } else if (loaded.assets.textureCount > 0) {
       const PackTexRec& t = loaded.assets.textures[0];
       TextureDesc d;
       d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
@@ -161,7 +187,9 @@ int main() {
   }
   if (!sprite || !fontTex) RLOG_ERROR("game", "texture upload failed sprite=%u font=%u", sprite, fontTex);
 
-  const u32 stress = RENSGA_PS2_STRESS_SPRITES < kMaxStress ? RENSGA_PS2_STRESS_SPRITES : kMaxStress;
+  static FileSystemSaveStore saves(fs);
+  Save::use(&saves);
+  const u32 stress = gameMode ? 0 : RENSGA_PS2_STRESS_SPRITES < kMaxStress ? RENSGA_PS2_STRESS_SPRITES : kMaxStress;
   Random::InitState(12345);
   const Scalar W = static_cast<Scalar>(renderer.width()), H = static_cast<Scalar>(renderer.height());
   for (u32 i = 0; i < stress; ++i) {
@@ -179,6 +207,7 @@ int main() {
 
   static GameLoop loop;
   loop.init(world, LoopConfig::forRefreshHz(video.pal ? 50 : 60));
+  loop.setFixedStepHook(physics::fixedStep, nullptr);
 
   RLOG_INFO("game", "rensga: stress sprites=%u virtual=%ux%u", stress, renderer.width(), renderer.height());
   double last = platform.timeSeconds(), windowStart = last;
@@ -190,6 +219,9 @@ int main() {
     loop.frame(static_cast<Scalar>(now - last), pad);
     last = now;
 
+    if (gameMode) {
+      renderWorld(world, renderer, Color32(28, 26, 22, 255));
+    } else {
     renderer.beginFrame(Color32(28, 26, 22, 255));
     for (u32 i = 0; i < stress; ++i) {
       Sprite& s = g_sprites[i];
@@ -204,6 +236,7 @@ int main() {
     snprintf(hud, sizeof(hud), "%u:%u", frame, stress);
     renderer.drawText(fontTex, g_font, 4, 2, hud, Color32(255, 255, 255, 255), 101);
     renderer.endFrame();
+    }
     ++frame;
 
     if (frame % 60 == 0) {
@@ -213,6 +246,17 @@ int main() {
       RLOG_INFO("game", "rensga: frame %u ms=%.2f cpu_ms=%.2f sprites=%u glyphs=%u dropped=%u uploads=%u wraps=%u vram=%uKB", frame,
                 dt * 1000.0 / 60.0, st.cpuMicros / 1000.0, st.sprites, st.glyphs, st.dropped, st.uploads, st.ringWraps, st.vramUsed / 1024);
     }
+#ifdef RENSGA_PS2_SAVE_SELFTEST
+    if (gameMode && frame == 20) {
+      const i32 old = Save::LoadInt("selftest", -1);
+      const bool wrote = Save::SaveInt("selftest", static_cast<i32>(frame) + 1000);
+      RLOG_INFO("game", "rensga: save selftest previous=%d wrote=%d readback=%d", static_cast<int>(old), wrote ? 1 : 0,
+                static_cast<int>(Save::LoadInt("selftest", -1)));
+    }
+#endif
+#ifdef RENSGA_PS2_AUTOSTART
+    if (gameMode && frame == 30) SceneManager::LoadScene(RENSGA_PS2_AUTOSTART);
+#endif
     if (frame == RENSGA_PS2_CHECK_FRAMES) heap::logAllocCheck();
 #ifdef RENSGA_PS2_SHOT_FRAME
     if (frame == RENSGA_PS2_SHOT_FRAME) renderer.dumpFrameBuffers("host:rensga_fb");
