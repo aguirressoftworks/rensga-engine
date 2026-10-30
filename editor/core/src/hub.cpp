@@ -30,6 +30,7 @@ void HubSettings::load(const fs::path& h) {
   home = h;
   projectsPath = home / "RensgaProjects";
   lastOpened.clear();
+  modulePaths.clear();
   json j;
   if (readJson(file(), j) && j.is_object()) {
     std::string p = j.value("projectsPath", "");
@@ -37,6 +38,9 @@ void HubSettings::load(const fs::path& h) {
     if (j.contains("lastOpened") && j["lastOpened"].is_object())
       for (auto it = j["lastOpened"].begin(); it != j["lastOpened"].end(); ++it)
         if (it.value().is_number_integer()) lastOpened[it.key()] = it.value().get<long long>();
+    if (j.contains("modulePaths") && j["modulePaths"].is_object())
+      for (auto it = j["modulePaths"].begin(); it != j["modulePaths"].end(); ++it)
+        if (it.value().is_string()) modulePaths[it.key()] = it.value().get<std::string>();
   }
   std::error_code ec;
   fs::create_directories(projectsPath, ec);
@@ -50,6 +54,8 @@ bool HubSettings::save() const {
   j["projectsPath"] = projectsPath.string();
   j["lastOpened"] = json::object();
   for (const auto& kv : lastOpened) j["lastOpened"][kv.first] = kv.second;
+  j["modulePaths"] = json::object();
+  for (const auto& kv : modulePaths) j["modulePaths"][kv.first] = kv.second;
   std::ofstream f(file());
   if (!f) return false;
   f << j.dump(2) << "\n";

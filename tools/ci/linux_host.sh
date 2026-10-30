@@ -12,6 +12,12 @@ step "F2 checks registered"
 for t in touch_pad_logic touch_sdl_events hot_reload_desktop audio_sdl_disk audio_stress_desktop rensga_cooker_tests; do
   ctest --test-dir "$B" -N | grep -q " $t\$" || { echo "ctest: $t is not registered" >&2; exit 1; }
 done
+# Build support modules (no Docker for users) and the ISO writer: tests use temp RENSGA_HOME + file:// fixtures, never the network.
+step "module + iso tests registered"
+for t in rensga_modules_tests iso_tests; do
+  ctest --test-dir "$B" -N | grep -q " $t\$" || { echo "ctest: $t is not registered" >&2; exit 1; }
+done
+[ -x "$B/tools/modules/rensga-modules" ] || { echo "linux-host: rensga-modules was not built" >&2; exit 1; }
 # F3 exercises (ctest -L f3_exercises, run by the ctest above): every roadmap exercise stays registered.
 step "F3 exercises registered"
 for t in exercise_scene_roundtrip exercise_hot_reload exercise_play_revert exercise_door exercise_input_desktop exercise_patrol editor_assets_ui; do

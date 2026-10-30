@@ -14,6 +14,7 @@ struct HubSettings {
   std::filesystem::path home;           // RENSGA_HOME (or the user's home): settings and the default projects path live under it
   std::filesystem::path projectsPath;   // where the picker looks
   std::map<std::string, long long> lastOpened;  // project dir -> unix time
+  std::map<std::string, std::string> modulePaths;  // manual build support modules: module id -> folder the user located
 
   std::filesystem::path file() const { return home / ".config" / "rensga" / "settings.json"; }
   static std::filesystem::path resolveHome(const std::string& override_);  // override, else $RENSGA_HOME, else $HOME

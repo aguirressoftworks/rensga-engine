@@ -1,0 +1,35 @@
+name: rensga-modules
+description: Install Rensga build support modules (the same pinned native toolchains users install from the Hub) with the host CLI built by the linux-host job.
+inputs:
+  modules:
+    description: Space separated module ids (for example "psp-build ps2-build").
+    required: true
+  accept-licenses:
+    description: "Set to true to pass --accept-licenses (needed by modules with a license gate, such as android-build)."
+    required: false
+    default: "false"
+runs:
+  using: composite
+  steps:
+    # The CLI is built once by the linux-host job and shared as an artifact (relative paths inside the tarball).
+    - uses: actions/download-artifact@v4
+      with:
+        name: rensga-host-cli
+        path: ${{ runner.temp }}/host-cli
+    - shell: bash
+      run: tar xzf "${{ runner.temp }}/host-cli/host-cli.tgz" -C "$GITHUB_WORKSPACE"
+    # Downloads only: archives are verified by sha256 on install, so a stale cache cannot change what gets installed.
+    - uses: actions/cache@v4
+      with:
+        path: ${{ env.RENSGA_HOME }}/modules/downloads
+        key: modules-downloads-${{ hashFiles('tools/modules/manifest.d/*.json') }}
+        restore-keys: modules-downloads-
+    - shell: bash
+      env:
+        MODULES: ${{ inputs.modules }}
+        ACCEPT: ${{ inputs.accept-licenses }}
+      run: |
+        set -eu
+        flags=""; [ "$ACCEPT" = true ] && flags="--accept-licenses"
+        "$GITHUB_WORKSPACE/build/ci/linux-host/tools/modules/rensga-modules" install $MODULES $flags
+        "$GITHUB_WORKSPACE/build/ci/linux-host/tools/modules/rensga-modules" doctor

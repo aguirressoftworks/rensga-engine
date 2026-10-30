@@ -37,7 +37,7 @@
     },
     {
       "name": "windows",
-      "displayName": "Windows x64 cross-build: MinGW-w64 + SDL2, run inside tools/docker/windows.sh",
+      "displayName": "Windows x64 cross-build: llvm-mingw + SDL2 from the windows-build module (or MinGW-w64 in tools/docker/windows.sh)",
       "inherits": "base",
       "generator": "Unix Makefiles",
       "toolchainFile": "${sourceDir}/cmake/toolchains/mingw-w64.cmake",
@@ -45,7 +45,7 @@
     },
     {
       "name": "android",
-      "displayName": "Android arm64: NDK + SDL2 libmain.so; the APK comes from tools/android (Gradle), run inside tools/docker/android.sh",
+      "displayName": "Android arm64: NDK + SDL2 libmain.so; the APK comes from tools/android (Gradle) with the android-build module (tools/ci/android.sh)",
       "inherits": "base",
       "generator": "Unix Makefiles",
       "toolchainFile": "$env{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake",

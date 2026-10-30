@@ -1,0 +1,141 @@
+# Builds the build support modules that upstream does not ship for a host, and releases them next to our manifests.
+#   * pspdev for windows-x86_64 (psp-build, host "unpublished" until this runs and the manifest gets the printed url/sha256/size)
+#   * PCSX2 portable build repacked from .7z to .zip (unmodified binaries + license + source link) so the module installer
+#     only needs tar/bsdtar (Windows 10+ ships tar.exe that reads zip, tar.gz; it cannot read 7z)
+# Run by hand (workflow_dispatch) or by pushing a tag "toolchains-<id>-<version>", for example toolchains-psp-build-20261001.
+# Output: a GitHub release "toolchains-<id>-<version>" with the archive and a .sha256 file. The job summary prints the manifest
+# snippet (url, sha256, size) to paste into tools/modules/manifest.d/<id>.json; nothing edits the repository.
+#
+# RISKS (pspdev on Windows):
+#   * pspdev/pspdev v20261001 only builds on macOS and Linux upstream (compilation.yml matrix). We run the same build-all.sh in
+#     MSYS2 MINGW64 on windows-latest. It uses autotools, meson and POSIX tools; some packages (psp-packages, ps-packages) may
+#     need patches or fail under MinGW. If a step fails, read its log, fix upstream or pin a patch here. The job is not part of
+#     ci.yml, so a failure never blocks a normal push.
+#   * A full build takes 1.5 to 3 hours and about 6 GB of disk. GitHub caps a job at 6 hours.
+#   * The archive holds MinGW-built tools (.exe) that need the MSYS2 runtime DLLs next to them; the "bundle DLLs" step copies
+#     the ones found with ldd. Check the result on a clean Windows machine before releasing it to users.
+#   * Fallback if MSYS2 cannot build it: cross-compile with mingw-w64 on ubuntu (Canadian cross: --host=x86_64-w64-mingw32,
+#     --target=mipsallegrex-psp-elf). That needs per-package work in pspdev's scripts and is not wired here.
+name: toolchains
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: Module to build
+        type: choice
+        options: [psp-build-windows, pcsx2-windows]
+        default: psp-build-windows
+      version:
+        description: "Upstream tag or version (psp-build: pspdev tag, for example v20261001; pcsx2: for example v2.8.2)"
+        required: true
+        default: v20261001
+  push:
+    tags: ["toolchains-*"]
+permissions:
+  contents: write
+env:
+  # Tag push: toolchains-<id>-<version>. Manual run: inputs.
+  MODULE: ${{ github.event_name == 'workflow_dispatch' && inputs.module || (contains(github.ref_name, 'pcsx2') && 'pcsx2-windows' || 'psp-build-windows') }}
+  VERSION: ${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}
+jobs:
+  psp-build-windows:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.module == 'psp-build-windows' || startsWith(github.ref_name, 'toolchains-psp-build-') }}
+    runs-on: windows-latest
+    timeout-minutes: 350
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Work out the pspdev tag
+        shell: bash
+        run: |
+          set -eu
+          if [ -n "$VERSION" ]; then tag="$VERSION"; else tag="v${GITHUB_REF_NAME##*-}"; fi
+          echo "PSPDEV_TAG=$tag" >> "$GITHUB_ENV"
+          echo "RELEASE=toolchains-psp-build-${tag#v}" >> "$GITHUB_ENV"
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            base-devel git wget zip unzip texinfo bison flex gettext patch
+            mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja mingw-w64-x86_64-meson
+            mingw-w64-x86_64-gmp mingw-w64-x86_64-mpfr mingw-w64-x86_64-mpc mingw-w64-x86_64-libusb
+            mingw-w64-x86_64-readline mingw-w64-x86_64-curl mingw-w64-x86_64-openssl mingw-w64-x86_64-libarchive
+            mingw-w64-x86_64-ncurses mingw-w64-x86_64-zlib mingw-w64-x86_64-pkgconf
+      - name: Fetch pspdev at the pinned tag
+        run: |
+          git clone --depth 1 --branch "$PSPDEV_TAG" https://github.com/pspdev/pspdev.git src
+      - name: Build (upstream build-all.sh, unmodified)
+        working-directory: src
+        run: |
+          export PSPDEV="$PWD/pspdev"
+          export PATH="$PATH:$PSPDEV/bin"
+          ./build-all.sh
+      - name: Bundle DLLs
+        working-directory: src
+        run: |
+          # copy the MinGW/MSYS2 runtime DLLs every pspdev .exe needs next to it
+          for exe in pspdev/bin/*.exe; do
+            ldd "$exe" 2>/dev/null | awk '/\/mingw64\/bin\//{print $3}' | while read -r dll; do cp -n "$dll" pspdev/bin/; done
+          done
+      - name: Smoke test
+        working-directory: src
+        run: |
+          export PSPDEV="$PWD/pspdev"; export PATH="$PSPDEV/bin:$PATH"
+          psp-gcc --version
+      - name: Pack (zip, root folder "pspdev" so the manifest uses strip 1)
+        working-directory: src
+        run: |
+          zip -qr "../pspdev-windows-x86_64.zip" pspdev
+          cd ..; sha256sum pspdev-windows-x86_64.zip | tee pspdev-windows-x86_64.zip.sha256
+      - name: Release and print the manifest snippet
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          gh release view "$RELEASE" >/dev/null 2>&1 || gh release create "$RELEASE" --title "$RELEASE" \
+            --notes "pspdev $PSPDEV_TAG built from the unmodified upstream scripts for Windows x86_64 (MSYS2 MINGW64). Licenses of each component are inside the archive. Source: https://github.com/pspdev/pspdev/tree/$PSPDEV_TAG"
+          gh release upload "$RELEASE" pspdev-windows-x86_64.zip pspdev-windows-x86_64.zip.sha256 --clobber
+          sha="$(cut -d' ' -f1 pspdev-windows-x86_64.zip.sha256)"; size="$(stat -c %s pspdev-windows-x86_64.zip)"
+          {
+            echo "### psp-build, windows-x86_64"
+            echo "Paste into tools/modules/manifest.d/psp-build.json under hosts:"
+            echo '```json'
+            echo "\"windows-x86_64\": { \"status\": \"available\", \"url\": \"https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE}/pspdev-windows-x86_64.zip\", \"sha256\": \"$sha\", \"size\": $size, \"archive\": \"zip\", \"strip\": 1 }"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  pcsx2-windows:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.module == 'pcsx2-windows' || startsWith(github.ref_name, 'toolchains-pcsx2-') }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Repack the official portable build as .zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if [ -n "$VERSION" ]; then tag="$VERSION"; else tag="v${GITHUB_REF_NAME##*-}"; fi
+          echo "release: toolchains-pcsx2-${tag#v}"
+          sudo apt-get update && sudo apt-get install -y p7zip-full zip
+          mkdir up pkg
+          curl -fsSL -o up/pcsx2.7z "https://github.com/PCSX2/pcsx2/releases/download/$tag/pcsx2-$tag-windows-x64-Qt.7z"
+          7z x -y -opkg/pcsx2 up/pcsx2.7z >/dev/null
+          # GPL-3.0: the binaries stay unmodified; add the license and the source link next to them.
+          curl -fsSL -o pkg/pcsx2/LICENSE.txt https://raw.githubusercontent.com/PCSX2/pcsx2/$tag/COPYING.GPLv3
+          printf 'PCSX2 %s, unmodified official portable build repacked from .7z to .zip by Rensga.\nSource code: https://github.com/PCSX2/pcsx2/tree/%s\nRensga starts PCSX2 as a separate process only. No BIOS is included: you must supply your own dump.\n' "$tag" "$tag" > pkg/pcsx2/SOURCE.txt
+          (cd pkg && zip -qr ../pcsx2-windows-x64.zip pcsx2)
+          sha256sum pcsx2-windows-x64.zip | tee pcsx2-windows-x64.zip.sha256
+          rel="toolchains-pcsx2-${tag#v}"
+          gh release view "$rel" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$rel" -R "$GITHUB_REPOSITORY" --title "$rel" \
+            --notes "PCSX2 $tag Windows x64, repacked as zip, unmodified. License: GPL-3.0. Source: https://github.com/PCSX2/pcsx2/tree/$tag"
+          gh release upload "$rel" pcsx2-windows-x64.zip pcsx2-windows-x64.zip.sha256 -R "$GITHUB_REPOSITORY" --clobber
+          sha="$(cut -d' ' -f1 pcsx2-windows-x64.zip.sha256)"; size="$(stat -c %s pcsx2-windows-x64.zip)"
+          {
+            echo "### pcsx2, windows-x86_64"
+            echo "Paste into tools/modules/manifest.d/pcsx2.json under hosts:"
+            echo '```json'
+            echo "\"windows-x86_64\": { \"status\": \"available\", \"url\": \"https://github.com/${GITHUB_REPOSITORY}/releases/download/$rel/pcsx2-windows-x64.zip\", \"sha256\": \"$sha\", \"size\": $size, \"archive\": \"zip\", \"strip\": 1 }"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"

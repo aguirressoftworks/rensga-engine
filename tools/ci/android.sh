@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # CI job android: build the debug APK (NDK + SDLActivity + libmain.so = the engine player) through tools/android (Gradle). Build only.
+# Toolchain: the android-build module (native, default; rensga modules install android-build) or Docker (RENSGA_TOOLCHAIN=docker).
 # The APK carries the cooked pack of the sample project as assets/game.rpak. Env: RENSGA_ANDROID_PROJECT=<project dir> (default
 # samples/platformer2d; its scripts are compiled into the player), RENSGA_ANDROID_PACK=<game.rpak> (default <project>/Library/Cooked/ps2/game.rpak;
 # cook it first: build/<x>/tools/cooker/rensga-cooker cook --project samples/platformer2d --target ps2).
@@ -20,6 +21,17 @@ rm -rf tools/android/build/assets; mkdir -p tools/android/build/assets
 cp "$PACK" tools/android/build/assets/game.rpak
 [ -f "$(dirname "$PACK")/music.wav" ] && cp "$(dirname "$PACK")/music.wav" tools/android/build/assets/music.wav
 reflect_prescan "$REPO/tools/android/build/reflect" "$PROJ"
-RENSGA_PROJECT_DIR="$PROJ" tools/docker/android.sh tools/android/build.sh
+. "$REPO/tools/modules/toolchain_env.sh"
+export GRADLE_USER_HOME="${GRADLE_USER_HOME:-$REPO/build/gradle-cache}"; mkdir -p "$GRADLE_USER_HOME"
+if ! rensga_tc_setup android-build android; then
+  # Locally the Android SDK license is the user's to accept, so a missing module is a skip; in CI it is a failure.
+  if [ -z "${CI:-}" ]; then
+    echo "android: SKIP, android-build is not installed. It needs Google's Android SDK license: run rensga modules install android-build (it asks), then re-run." >&2
+    exit 77
+  fi
+  exit 1
+fi
+step "android toolchain: $RENSGA_TOOLCHAIN_BACKEND"
+RENSGA_PROJECT_DIR="$PROJ" rensga_tc tools/android/build.sh
 mkdir -p "$CI_OUT/android"; cp tools/android/app/build/outputs/apk/debug/app-debug.apk "$CI_OUT/android/rensga-player.apk"
 unzip -l "$CI_OUT/android/rensga-player.apk" | grep -E 'lib/arm64-v8a/libmain.so|assets/game.rpak'

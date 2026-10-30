@@ -1,0 +1,45 @@
+{
+  "id": "android-build",
+  "name": "Android Build Support",
+  "kind": "toolchain",
+  "target": "android",
+  "version": "1",
+  "requires": ["build-tools"],
+  "license": "GPL-2.0 with Classpath exception (Temurin JDK 17), Apache-2.0 (Gradle, Android cmdline-tools sources), zlib (SDL2). Android SDK, NDK and platform components are Google's and need the Android SDK license.",
+  "source": "https://github.com/adoptium/temurin17-binaries ; https://services.gradle.org/distributions/ ; https://developer.android.com/studio#command-line-tools-only ; https://github.com/libsdl-org/SDL (release-2.30.8)",
+  "notice": "Eclipse Temurin JDK 17 (Adoptium), Gradle 8.5, SDL2 2.30.8 and the Android command-line tools 11076708 are unmodified upstream archives downloaded from their owners. After you accept the Android SDK license (https://developer.android.com/studio/terms) this module runs Google's sdkmanager to download platform android-34, build-tools 34.0.0, NDK 26.1.10909125 and CMake 3.22.1 from Google. Rensga never redistributes Google's files.",
+  "hosts": {
+    "linux-x86_64": {
+      "status": "available",
+      "parts": [
+        {"url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.21_9.tar.gz", "sha256": "8b9b611d917e3dfd8419d3566b5949226f69b052fed7e109c1368add1dfe8711", "size": 193594705, "archive": "tar.gz", "strip": 1, "dest": "jdk"},
+        {"url": "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip", "sha256": "2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258", "size": 153607504, "archive": "zip", "strip": 0, "dest": "cmdline-tools"},
+        {"url": "https://services.gradle.org/distributions/gradle-8.5-bin.zip", "sha256": "9d926787066a081739e8200858338b4a69e837c3a821a33aca9db09dd4a41026", "size": 132519731, "archive": "zip", "strip": 1, "dest": "gradle"},
+        {"url": "https://github.com/libsdl-org/SDL/releases/download/release-2.30.8/SDL2-2.30.8.tar.gz", "sha256": "380c295ea76b9bd72d90075793971c8bcb232ba0a69a9b14da4ae8f603350058", "size": 7679689, "archive": "tar.gz", "strip": 1, "dest": "SDL2"}
+      ]
+    },
+    "windows-x86_64": {
+      "status": "available",
+      "note": "Windows paths are untested. The Temurin 17 Windows zip on GitHub is 17.0.9+9.1 (later builds are not published there).",
+      "parts": [
+        {"url": "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9.1/OpenJDK17U-jdk_x64_windows_hotspot_17.0.9_9.zip", "sha256": "d1b2bb5a074ba33a0cf4e84aa558f7a563b827f999a71c8e47bdb0dd02af6b9c", "size": 189935512, "archive": "zip", "strip": 1, "dest": "jdk"},
+        {"url": "https://dl.google.com/android/repository/commandlinetools-win-11076708_latest.zip", "sha256": "4d6931209eebb1bfb7c7e8b240a6a3cb3ab24479ea294f3539429574b1eec862", "size": 153583359, "archive": "zip", "strip": 0, "dest": "cmdline-tools"},
+        {"url": "https://services.gradle.org/distributions/gradle-8.5-bin.zip", "sha256": "9d926787066a081739e8200858338b4a69e837c3a821a33aca9db09dd4a41026", "size": 132519731, "archive": "zip", "strip": 1, "dest": "gradle"},
+        {"url": "https://github.com/libsdl-org/SDL/releases/download/release-2.30.8/SDL2-2.30.8.tar.gz", "sha256": "380c295ea76b9bd72d90075793971c8bcb232ba0a69a9b14da4ae8f603350058", "size": 7679689, "archive": "tar.gz", "strip": 1, "dest": "SDL2"}
+      ]
+    }
+  },
+  "env": {
+    "JAVA_HOME": "{root}/jdk",
+    "ANDROID_HOME": "{root}/sdk",
+    "ANDROID_SDK_ROOT": "{root}/sdk",
+    "ANDROID_NDK_HOME": "{root}/sdk/ndk/26.1.10909125",
+    "SDL2_ROOT": "{root}/SDL2",
+    "RENSGA_ANDROID_CMAKE_DIR": "{root:build-tools}"
+  },
+  "path": ["{root}/jdk/bin", "{root}/gradle/bin", "{root}/cmdline-tools/cmdline-tools/bin"],
+  "postInstall": [
+    {"argv": ["sh", "-c", "mkdir -p \"$ANDROID_HOME\" && (yes | sdkmanager --sdk_root=\"$ANDROID_HOME\" --licenses >/dev/null || true) && sdkmanager --sdk_root=\"$ANDROID_HOME\" \"platforms;android-34\" \"build-tools;34.0.0\" \"ndk;26.1.10909125\" \"cmake;3.22.1\"" ], "license": "android-sdk"}
+  ],
+  "check": ["java", "-version"]
+}

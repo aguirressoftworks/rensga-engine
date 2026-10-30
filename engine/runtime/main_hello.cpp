@@ -86,6 +86,9 @@ int main(int argc, char** argv) {
   }
   if (maxFrames != 0) heap::logAllocCheck();
   RLOG_INFO("hello", "rensga hello: done frames=%u", static_cast<unsigned>(frame));
+#if !defined(RENSGA_PLATFORM_PS2)
+  renderer.shutdown();  // GL objects go before the context
+#endif
   platform.shutdown();
   return 0;
 }

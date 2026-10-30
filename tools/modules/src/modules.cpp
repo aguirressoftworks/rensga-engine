@@ -63,6 +63,7 @@ ArchivePart parsePart(const json& j) {
   p.archive = str(j, "archive");
   if (p.archive.empty()) p.archive = guessArchive(p.url);
   p.dest = str(j, "dest");
+  p.filename = str(j, "filename");
   p.size = j.value("size", uint64_t(0));
   p.strip = j.value("strip", 0);
   return p;
@@ -555,6 +556,15 @@ Result ModuleManager::installOne(const Module& m, const ProgressFn& progress, co
     fs::path x = tmp / ("x" + std::to_string(i));
     fs::create_directories(x, ec);
     report("extract", 0, 0, baseName(p.url));
+    if (p.archive == "file") {   // a single prebuilt file (for example an AppImage): copy it in place, no unpacking
+      fs::path dst = (p.dest.empty() || p.dest == "." ? stage : stage / p.dest);
+      fs::create_directories(dst, ec);
+      dst /= p.filename.empty() ? baseName(p.url) : p.filename;
+      fs::copy_file(archives[i], dst, fs::copy_options::overwrite_existing, ec);
+      if (ec) { cleanup(); return fail("cannot copy " + baseName(p.url) + " into the module: " + ec.message()); }
+      fs::permissions(dst, fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec, fs::perm_options::add, ec);
+      continue;
+    }
     std::vector<std::string> argv;
     fs::path cwd;
     if (p.archive == "zip") {
@@ -566,8 +576,10 @@ Result ModuleManager::installOne(const Module& m, const ProgressFn& progress, co
       else if (!findInPath("cmake").empty()) { argv = {"cmake", "-E", "tar", "xf", archives[i].string()}; cwd = x; }
       else { cleanup(); return fail("cannot unpack a .zip: install unzip or bsdtar (libarchive)"); }
 #endif
+    } else if (p.archive == "7z" && !findInPath("bsdtar").empty()) {
+      argv = {"bsdtar", "-xf", archives[i].string(), "-C", x.string()};
     } else {
-      argv = {"tar", "-xf", archives[i].string(), "-C", x.string()};
+      argv = {"tar", "-xf", archives[i].string(), "-C", x.string()};   // Windows tar.exe is bsdtar and reads 7z too
     }
     std::string out;
     int rc = runTool(argv, {}, cwd, out, cancel, {});

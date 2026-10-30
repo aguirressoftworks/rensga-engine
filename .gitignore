@@ -30,3 +30,4 @@ pcsx2-sandbox/
 # platform/emulator sandboxes (local only; never commit BIOS or emulator configs)
 build/pcsx2/
 *.bios
+__pycache__/

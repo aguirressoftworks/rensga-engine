@@ -46,7 +46,7 @@ We ship the manifest, not the toolchains: archives come from their upstream rele
 * `status`: `available` (download it), `unpublished` (we build it in our CI, not released yet: the Hub and CLI say so
   plainly), `manual` (the user installs it and points the editor at it; `note` says how).
   A host that is missing from `hosts` gets "no build for <host>".
-* `archive`: `tar.gz`, `tar.xz` or `zip` (guessed from the url when left out). `strip` drops that many leading
+* `archive`: `tar.gz`, `tar.xz`, `zip`, `7z` (needs bsdtar on Linux) or `file` (one prebuilt file, such as an AppImage, copied to `<dest>/<filename>` and made executable) (guessed from the url when left out). `strip` drops that many leading
   directories after unpacking (each must hold exactly one directory). `size` is bytes, for progress only.
 * **Several archives per host:** instead of the inline `url`/`sha256`/... put `"parts": [ {url, sha256, size, archive, strip, dest}, ... ]`.
   Each part is unpacked into `<root>/<dest>` (default the root); directories merge, a file clash fails the install.

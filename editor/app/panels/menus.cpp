@@ -7,6 +7,7 @@
 
 #include "app.h"
 #include "panels/asset_ui.h"
+#include "panels/modules.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -88,9 +89,11 @@ void drawMenuBar(App& a) {
     if (ImGui::MenuItem("Reset Layout")) a.resetLayout = true;
     ImGui::Separator();
     ImGui::MenuItem("VRAM Map", nullptr, &assetUi().showVram, a.loaded);
+    if (ImGui::MenuItem("Build Support Modules...")) openModulesFromHub(a);
     ImGui::EndMenu();
   }
   if (ImGui::BeginMenu("Help")) {
+    if (ImGui::MenuItem("Build Support Modules...")) openModulesFromHub(a);
     if (ImGui::MenuItem("About Rensga Engine")) a.openAbout = true;
     ImGui::EndMenu();
   }

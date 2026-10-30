@@ -143,13 +143,14 @@ int main() {
 #ifdef RENSGA_EXIT_AFTER_FRAMES
     if (frame >= RENSGA_EXIT_AFTER_FRAMES) break;  // screenshot/CI builds (PPSSPPHeadless needs a clean exit)
 #endif
-    if (frame % 60 == 0) RLOG_INFO("game", "rensga: frame %u", frame);
+    if (frame == 600) heap::logAllocCheck();  // dev builds run on until the editor stops them: log the alloc-check once (like the desktop player)
+    if (frame % 60 == 0) RLOG_INFO("game", "rensga: frame %u", static_cast<unsigned>(frame));
   }
 #ifdef RENSGA_EXIT_AFTER_FRAMES
   dumpFrameBmp();
 #endif
   heap::logAllocCheck();
-  RLOG_INFO("game", "rensga: quit after %u frames", frame);
+  RLOG_INFO("game", "rensga: quit after %u frames", static_cast<unsigned>(frame));
   log::flushAll();
   world.shutdown();
   platform.shutdown();

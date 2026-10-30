@@ -14,6 +14,20 @@ using pipeline::Status;
 std::string PpssppLauncher::findExecutable() {
   if (const char* e = std::getenv("RENSGA_PPSSPP"); e && *e) return e;
   std::error_code ec;
+  // The "ppsspp" emulator module (Windows download) in the modules dir.
+  {
+    fs::path mods;
+    if (const char* h = std::getenv("RENSGA_HOME"); h && *h) mods = fs::path(h) / "modules";
+    else if (const char* la = std::getenv("LOCALAPPDATA"); la && *la) mods = fs::path(la) / "Rensga" / "modules";
+    else if (const char* x = std::getenv("XDG_DATA_HOME"); x && *x) mods = fs::path(x) / "rensga" / "modules";
+    else if (const char* home = std::getenv("HOME"); home && *home) mods = fs::path(home) / ".local" / "share" / "rensga" / "modules";
+    for (fs::directory_iterator it(mods, ec), end; !ec && it != end; it.increment(ec)) {
+      const std::string n = it->path().filename().string();
+      if (n.rfind("ppsspp-", 0) != 0) continue;
+      for (const char* exe : {"PPSSPPWindows64.exe", "PPSSPPSDL"})
+        if (fs::exists(it->path() / exe, ec)) return (it->path() / exe).string();
+    }
+  }
   fs::path vendored = fs::path(RENSGA_SOURCE_DIR) / "third_party" / "emulators" / "ppsspp" / "PPSSPPSDL";
   if (fs::exists(vendored, ec)) return vendored.string();
   if (const char* path = std::getenv("PATH")) {
@@ -29,6 +43,9 @@ std::string PpssppLauncher::findExecutable() {
       pos = end + 1;
     }
   }
+  // Flatpak export (the Linux "manual" install of the ppsspp module).
+  fs::path fp = "/var/lib/flatpak/exports/bin/org.ppsspp.PPSSPP";
+  if (fs::exists(fp, ec)) return fp.string();
   return {};
 }
 

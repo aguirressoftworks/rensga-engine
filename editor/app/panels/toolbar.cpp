@@ -2,6 +2,7 @@
 #include <imgui_internal.h>
 
 #include "app.h"
+#include "modules.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -19,6 +20,8 @@ void doPlay(App& a) {
 void doPlayConsole(App& a) {
   if (!a.loaded) { EditorLog::instance().error("play: no project loaded"); return; }
   if (a.target.empty()) { EditorLog::instance().error("play: the project's target (" + a.project.target + ") has no editor module; console run is not available"); return; }
+  // The target's build support module must be installed: otherwise ask (Install now?) and continue after the install.
+  if (!gateTargetModule(a, a.target, AfterModule::PlayConsole)) return;
   if (a.scripts.enabled) {  // changed scripts must be compiled in first; the restart that follows resumes the Play
     ScriptSync sync = scriptsSync(a);
     if (sync == ScriptSync::Building) {

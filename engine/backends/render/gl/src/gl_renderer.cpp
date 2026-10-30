@@ -160,8 +160,11 @@ void main(){ o = vec4(texture(uTex, vUV).rgb, 1.0); })";
 
 }  // namespace
 
-GlRenderer::~GlRenderer() {
+GlRenderer::~GlRenderer() { shutdown(); }
+
+void GlRenderer::shutdown() {
   if (!ready_) return;
+  ready_ = false;
   destroyTarget();
   for (u32 i = 0; i < texCount_; ++i) gl.DeleteTextures(1, &tex_[i].id);
   gl.DeleteBuffers(1, &vboMesh_);

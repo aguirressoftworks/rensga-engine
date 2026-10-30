@@ -7,6 +7,7 @@
 #   --log FILE   keep the captured console log (default build/pcsx2/last.log; give an absolute path)
 #   --sw         use PCSX2's software renderer (Renderer = 13, closest to a real GS); same as env PCSX2_RENDERER=software
 #   --shot FILE  also save a PNG of the emulator window once the success heartbeat is seen (ImageMagick `import`)
+# PCSX2 comes from the pcsx2 module (tools/emulators/pcsx2_bin.sh), $RENSGA_PCSX2, or PATH.
 # Exit: 0 heartbeat seen, 1 timeout/no heartbeat, 2 setup error.
 # How it works:
 #   * WAYLAND_DISPLAY is unset and Qt/SDL are forced to X11 (xcb), otherwise Qt picks Wayland and opens a real window.
@@ -32,7 +33,8 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$IMG" ] && [ -f "$IMG" ] || { echo "usage: $0 <elf-or-iso> [--frames N] [--timeout S] [--log out.txt]" >&2; exit 2; }
 IMG="$(readlink -f "$IMG")"
-command -v pcsx2-qt >/dev/null || { echo "pcsx2-qt not installed" >&2; exit 2; }
+PCSX2="$("$REPO/tools/emulators/pcsx2_bin.sh")" || { echo "PCSX2 not installed. Run: rensga modules install pcsx2 (or set RENSGA_PCSX2=<path>)" >&2; exit 2; }
+export APPIMAGE_EXTRACT_AND_RUN=1   # the portable build is an AppImage; do not require FUSE
 command -v Xvfb >/dev/null || { echo "Xvfb not installed" >&2; exit 2; }
 
 CFG="$HOME/.config/rensga/emulators.json"
@@ -85,7 +87,7 @@ for _ in $(seq 50); do [ -s "$W/display" ] && break; sleep 0.2; done
 DSP=":$(tr -d '[:space:]' < "$W/display")"
 # Mesa software WSI: Xvfb has no DRI3, so Vulkan presentation (needed even by the Software renderer) only works this way.
 ( cd "$HOSTROOT" && env -u WAYLAND_DISPLAY MESA_VK_WSI_DEBUG=sw DISPLAY="$DSP" LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe XDG_CONFIG_HOME="$XDG" XDG_DATA_HOME="$XDG/data" XDG_CACHE_HOME="$XDG/cache" QT_QPA_PLATFORM=xcb SDL_VIDEODRIVER=x11 \
-  timeout "$((TMO + 10))" pcsx2-qt "${ARGS[@]}" >>"$LOG" 2>&1 ) &
+  timeout "$((TMO + 10))" "$PCSX2" "${ARGS[@]}" >>"$LOG" 2>&1 ) &
 RUN=$!
 rc=1; end=$((SECONDS + TMO))
 while [ $SECONDS -lt $end ] && kill -0 $RUN 2>/dev/null; do

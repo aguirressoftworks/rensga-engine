@@ -11,6 +11,7 @@
 #include <ctime>
 
 #include "app.h"
+#include "modules.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -266,6 +267,15 @@ void drawPicker(App& a) {
   const bool hasSel = h.sel >= 0;
   if (hasSel ? ImGui::Button("Create Project", ImVec2(160, 34)) : primaryButton("Create Project", ImVec2(160, 34))) h.openCreate = true;
   ImGui::Spacing();
+  // Projects | Modules tabs (Unity Hub style). The Modules tab replaces the project list and the Open button.
+  if (drawHubTabs(a, 52)) {
+    ImGui::Spacing();
+    ImGui::SameLine(ImGui::GetWindowWidth() - 28 - 90);
+    if (ImGui::Button("Quit", ImVec2(90, 32))) a.quitRequested = true;
+    ImGui::End();
+    ImGui::PopStyleVar(3);
+    return;
+  }
   ImGui::PushFont(a.fonts.uiBold, 17);
   ImGui::PushStyleColor(ImGuiCol_Text, brandRamp("cerrado.300"));
   ImGui::TextUnformatted("Projects");
@@ -447,6 +457,20 @@ void drawCreateDialogs(App& a) {
     }
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
+    if (h.api >= 0) {   // the target's build support module is missing: say so, project creation still works
+      std::string miss = missingModuleLine(a, h.data.apis[h.api].id);
+      if (!miss.empty()) {
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Text, brandToken("warn"));
+        ImGui::TextUnformatted("Warning:");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 400);
+        ImGui::TextUnformatted(miss.c_str());
+        ImGui::PopTextWrapPos();
+        if (ImGui::SmallButton("Open Hub > Modules")) { openModulesFromHub(a); ImGui::CloseCurrentPopup(); }
+      }
+    }
     if (!h.createError.empty()) {
       ImGui::Spacing();
       ImGui::PushStyleColor(ImGuiCol_Text, brandToken("danger"));

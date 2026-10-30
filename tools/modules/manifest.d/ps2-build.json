@@ -1,0 +1,32 @@
+{
+  "id": "ps2-build",
+  "name": "PS2 Build Support",
+  "kind": "toolchain",
+  "target": "ps2",
+  "version": "2.0.0",
+  "requires": ["build-tools"],
+  "license": "GPL-3.0-or-later with GCC runtime exception, AFL-2.0 (PS2SDK), MIT (gsKit, ps2gl port)",
+  "source": "https://github.com/ps2dev/ps2dev (release v2.0.0; sources of every component are linked from that repository)",
+  "notice": "ps2dev toolchain v2.0.0 (EE/IOP GCC, binutils, PS2SDK, gsKit, SDL2 port), unmodified official release archive. Runs as separate processes. The bootable ISO is written by Rensga's own rensga-iso, so no extra tool is needed. Licenses of each component are inside the archive.",
+  "hosts": {
+    "linux-x86_64": {
+      "status": "available",
+      "url": "https://github.com/ps2dev/ps2dev/releases/download/v2.0.0/ps2dev-ubuntu-latest.tar.gz",
+      "sha256": "c8e5dedccf62084d476894e88cd0451b57f1ed288e741eb3c1263010aaffc028",
+      "size": 266096645,
+      "archive": "tar.gz",
+      "strip": 1
+    },
+    "windows-x86_64": {
+      "status": "available",
+      "url": "https://github.com/ps2dev/ps2dev/releases/download/v2.0.0/ps2dev-windows-latest.tar.gz",
+      "sha256": "bab98ee210c62aa3bd98d9bdda2af3f92a628e6e3d63e4b52f243ae56e3eb4ce",
+      "size": 272189050,
+      "archive": "tar.gz",
+      "strip": 1
+    }
+  },
+  "env": {"PS2DEV": "{root}", "PS2SDK": "{root}/ps2sdk", "GSKIT": "{root}/gsKit"},
+  "path": ["{root}/bin", "{root}/ee/bin", "{root}/iop/bin", "{root}/dvp/bin", "{root}/ps2sdk/bin"],
+  "check": ["mips64r5900el-ps2-elf-gcc", "--version"]
+}

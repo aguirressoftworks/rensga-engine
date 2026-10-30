@@ -9,13 +9,15 @@ FRAMES="${DET_FRAMES:-400}"; TRACE="${DET_TRACE:-0}"; OBJF="${DET_OBJ_FRAME:--1}
 CLI="$CI_OUT/linux-host/tools/cli/rensga"; HEAD="$CI_OUT/linux-host/engine/runtime/rensga_headless"
 step "host build"; cmake --preset linux-host -B "$CI_OUT/linux-host" >/dev/null
 cmake --build "$CI_OUT/linux-host" -j"$JOBS" --target rensga rensga_headless
+. "$REPO/tools/modules/toolchain_env.sh" psp-build psp || exit 1
+GEN=(); [ "$RENSGA_TOOLCHAIN_BACKEND" = native ] && GEN=(-G Ninja)
 PROJ="$REPO/templates/psp"; B="$CI_OUT/psp"; ROOT="$CI_OUT/psp-sim-root"; INPUT="$REPO/tests/determinism/walk.json"
 step "cook"; "$CLI" cook "$PROJ" >/dev/null
 PACK="$PROJ/Library/Cooked/psp/game.rpak"
 step "psp sim build"
 reflect_prescan "$B/reflect" "$PROJ"
-tools/docker/psp.sh cmake --preset psp -B "$B" -DRENSGA_REFLECT_DIR="$B/reflect" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_GENERATED_DIR="$PROJ/Library/Generated/psp" -DRENSGA_EXIT_AFTER_FRAMES=240 >/dev/null
-tools/docker/psp.sh cmake --build "$B" --target rensga_sim -j"$JOBS"
+rensga_tc cmake --preset psp "${GEN[@]}" -B "$B" -DRENSGA_REFLECT_DIR="$B/reflect" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_GENERATED_DIR="$PROJ/Library/Generated/psp" -DRENSGA_EXIT_AFTER_FRAMES=240 >/dev/null
+rensga_tc cmake --build "$B" --target rensga_sim -j"$JOBS"
 
 run_psp() { # <trace> <objframe> <outlog>
   rm -rf "$ROOT"; mkdir -p "$ROOT"

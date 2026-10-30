@@ -1,0 +1,28 @@
+{
+  "id": "ppsspp",
+  "name": "PPSSPP (PSP emulator)",
+  "kind": "emulator",
+  "target": "psp",
+  "version": "1.20.4",
+  "requires": [],
+  "license": "GPL-2.0-or-later",
+  "source": "https://github.com/hrydgard/ppsspp (release v1.20.4, source tarball ppsspp-1.20.4.tar.xz)",
+  "notice": "PPSSPP 1.20.4, unmodified official release. Started only as a separate process, never linked. Its license is inside the archive and at https://github.com/hrydgard/ppsspp/blob/master/LICENSE.TXT",
+  "hosts": {
+    "linux-x86_64": {
+      "status": "manual",
+      "note": "install your distribution package (pacman -S ppsspp, apt install ppsspp) or the Flatpak org.ppsspp.PPSSPP; the editor finds PPSSPPSDL, ppsspp or the Flatpak export on its own, or set RENSGA_PPSSPP. Official portable build: PPSSPP-v1.20.4-anylinux-x86_64.AppImage (sha256 661c098e6b7f7610171a57b7c533ce8bba6f2312b71e76d61e850461973eba21) from https://github.com/hrydgard/ppsspp/releases/tag/v1.20.4"
+    },
+    "windows-x86_64": {
+      "status": "available",
+      "url": "https://github.com/hrydgard/ppsspp/releases/download/v1.20.4/PPSSPP-v1.20.4-Windows-x64.zip",
+      "sha256": "fbc9cd2f5131b159a92424e5c458c35ce43ba603cdded64dfc98e4bd4f17ff93",
+      "size": 20390334,
+      "archive": "zip",
+      "strip": 0
+    }
+  },
+  "env": {"RENSGA_PPSSPP": "{root}/PPSSPPWindows64.exe"},
+  "path": [],
+  "check": []
+}

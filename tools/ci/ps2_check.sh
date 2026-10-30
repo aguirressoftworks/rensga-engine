@@ -6,11 +6,11 @@
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$REPO"
-command -v pcsx2-qt >/dev/null || { echo "ps2_check: pcsx2-qt not installed, skipped"; exit 77; }
+"$REPO/tools/emulators/pcsx2_bin.sh" >/dev/null || { echo "ps2_check: PCSX2 not installed (rensga modules install pcsx2), skipped"; exit 77; }
 CFGJ="$HOME/.config/rensga/emulators.json"
 [ -f "$CFGJ" ] || ls "$HOME/.config/PCSX2/bios/"*.bin >/dev/null 2>&1 || { echo "ps2_check: no PS2 BIOS configured, skipped"; exit 77; }
 [ "${SKIP_BUILD:-0}" = 1 ] || "$REPO/tools/ci/ps2.sh" || exit 1
-ISO="$CI_OUT/ps2/rensga.iso"; LOG="$REPO/build/pcsx2/alloc.log"; mkdir -p "$REPO/build/pcsx2"
+ISO="${RENSGA_PS2_BUILD:-$CI_OUT/ps2}/rensga.iso"; LOG="$REPO/build/pcsx2/alloc.log"; mkdir -p "$REPO/build/pcsx2"
 "$REPO/tools/emulators/pcsx2_boot.sh" "$ISO" --frames 360 --timeout 150 --log "$LOG" || { echo "ps2_check: boot failed" >&2; exit 1; }
 line="$(grep -a -oE 'rensga: alloc-check frames=[0-9]+ allocs=[0-9]+' "$LOG" | tail -1)"
 echo "ps2: ${line:-<no alloc-check line>}"

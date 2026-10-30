@@ -24,7 +24,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..57) done after the review, 13/13 tests |
 | F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 4.8% — closed (all tasks and gates) |
 | F2 · Shared core | 9.2% | 13.9% | 4.99% ticked + 4.16% half ticked (◐ F2.01, F2.02, F2.05, G1: Android run deferred) — API 1-3, Engine 3 and Engine 4 done and accepted; Engine 1, 2 and 5 are built and tested on the host and PS2 and wait only for the Android phone run (`tools/ci/android_device.sh`); gates: G2 met, G1 met except Android (built, not run) |
-| F3 · Editor core | 10.4% | 24.3% | 0% ticked + 9.14% half ticked (◐ F3.01-F3.07: all built and tested on the host, 52/52 ctest; console and CI checks not run, Docker unavailable in that session; F3.08 build support modules will let the checks run without Docker); gates G1-G3 met, G4 open |
+| F3 · Editor core | 10.4% | 24.3% | 9.14% ticked (F3.01-F3.07 done: 57/57 ctest, console and CI checks passed natively without Docker); F3.08 half ticked (see its note); all four gates met |
 | F4 · 2D slice everywhere + PSP base | 7.9% | 32.2% | 0% |
 | F5 · PSP track | 16.2% | 48.4% | 0% |
 | F6 · Full editor and API | 16.0% | 64.4% | 0% |
@@ -32,7 +32,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | F8 · PS2 track | 7.3% | 74.0% | 0% |
 | F9 · PSX track | 23.9% | 97.9% | 0% |
 | F10 · Ship 1.0 | 2.1% | 100.0% | 0% |
-| **Step 2 total** | **100%** | | **9.77%** |
+| **Step 2 total** | **100%** | | **18.9%** |
 
 ---
 
@@ -40,7 +40,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 
 ### Goal
 
-On Linux, both of these build the PSP template project inside the pinned pspdev Docker image (MVP shortcut: **F3.08** replaces Docker with native build support modules) and boot it in the bundled, pinned PPSSPP:
+On Linux, both of these build the PSP template project with the pinned native psp-build support module (MVP-era shortcut was a Docker image; **F3.08** replaced it, users never need Docker) and boot it in the bundled, pinned PPSSPP:
 
 - `rensga play --target psp templates/psp`
 - **Play** in the minimal editor
@@ -203,7 +203,7 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | Create C++ Script | `editor/core/script_assets` | fixed template, `Assets/Scripts/<Name>.cpp`; builds and hot reloads on creation | **F6.03**&nbsp;Editor 9 (templates) |
 | Script drag-and-drop | `editor/app/panels` | done in F3.01 and F3.02: `RENSGA_ASSET_GUID` payload, Project to Hierarchy, Scene view and Inspector | done |
 | Template project | `templates/psp` | test level and controller | **F7.04**&nbsp;PSP Template 3 |
-| Console and cross toolchains | `tools/docker/*.sh`, `tools/pipeline` Compile stage, `editor/targets/psp` (`dockerRun`), `tools/ci/*.sh`, `.github/workflows/ci.yml` | pinned Docker images; users and CI need Docker | **F3.08**&nbsp;Editor 11.5 (native build support modules from the Hub or `rensga modules`; CI installs the same modules; Docker stays an optional contributor backend, `RENSGA_TOOLCHAIN=docker`) |
+| Console and cross toolchains | `tools/docker/*.sh`, `tools/pipeline` Compile stage, `editor/targets/psp` (`dockerRun`), `tools/ci/*.sh`, `.github/workflows/ci.yml` | MVP: pinned Docker images (users and CI needed Docker). F3.08: pinned native build support modules, Docker only as optional contributor backend | **F3.08**&nbsp;Editor 11.5 (native build support modules from the Hub or `rensga modules`; CI installs the same modules; Docker stays an optional contributor backend, `RENSGA_TOOLCHAIN=docker`) |
 | CMake presets | `CMakePresets.json` | `linux-host`, `psp`, `windows`, `android`, `ps2` enabled (cross builds run in pinned Docker images via `tools/docker/*.sh` today; native build support modules replace this in **F3.08**, Docker stays an optional contributor backend); `psx` declared | done in F1.01 (module toolchains: **F3.08**; psx: **F9**) |
 
 Recorded deviations:
@@ -290,21 +290,22 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga
 
 Roadmaps: [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
-- ◐ **F3.01** Editor 2 · Scene, hierarchy and inspector — gameObjects, Transforms, gizmos · `1.66%` 🔶 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (Docker was unavailable in this session; F3.08 build support modules remove the Docker need; then run tools/ci/run_local.sh).*
-  - Evidence: `rensga_sceneedit_tests`, `editor_scene_ui`, `editor_callbacks_ui`, `exercise_patrol`. Not run: PSP/PS2/Windows/Android compile of the Gizmos no-op branch and reflect metadata.
-- ◐ **F3.02** Editor 3 · Asset database and project window — .meta files, importers, VRAM map · `1.66%` 🔶 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (Docker was unavailable in this session; F3.08 build support modules remove the Docker need; then run tools/ci/run_local.sh).*
-  - Evidence: `rensga_asset_tests`, `editor_assets_ui` (dropped PNG, ps2 override clut8 to clut4). Not run: PS2 VRAM on a console.
-- ◐ **F3.03** Editor 4 · C++ scripting workflow — behaviours, hot reload, compile errors · `2.08%` 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (Docker was unavailable in this session; F3.08 build support modules remove the Docker need; then run tools/ci/run_local.sh).*
-  - Evidence: `editor_script_build_ui` (frames keep advancing during a build, error file:line), `exercise_hot_reload`, `editor_play_hot_reload`, `rensga_editor_tests` game module tests. Not run: Windows build of the module loader.
-- ◐ **F3.04** Editor 5 · Play mode and Game view — play, pause, step, revert, profile previews · `1.25%` 🔶 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (Docker was unavailable in this session; F3.08 build support modules remove the Docker need; then run tools/ci/run_local.sh).*
-  - Evidence: `editor_play_psp`, `editor_play_platformer`, `exercise_play_revert`. Known gap: no audio in editor play. Not run: `editor --play` through the emulator pipeline (needs the F3.08 PSP module or Docker).
-- ◐ **F3.05** API 4 · Coroutines, Invoke and events — waiting over time, C# events, UnityEvent · `1.04%` 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (Docker was unavailable in this session; F3.08 build support modules remove the Docker need; then run tools/ci/run_local.sh).*
-  - Evidence: `rensga_core_tests` coroutine tests (allocs=0), `rensga_cooker_tests` door/UnityEvent, `exercise_door`. Not run: PSP/PS2 builds.
-- ◐ **F3.06** API 5 · Input — axes, buttons, actions, rumble · `0.62%` 🔶 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (Docker was unavailable in this session; F3.08 build support modules remove the Docker need; then run tools/ci/run_local.sh).*
-  - Evidence: `rensga_core_tests` input tests, `pad_psp_map`, `pad_sdl_events`, `input_cook`, `exercise_input_desktop`. Not run: PS2 libpad rumble, PSP pad on PPSSPP.
-- ◐ **F3.07** API 11 · Editor-facing attributes — serializeField, Range, RequireComponent · `0.83%` 🟡 *Attention: everything is done and tested on the host; console/CI checks not run (Docker was unavailable in this session; F3.08 build support modules remove the Docker need; then run tools/ci/run_local.sh).*
-  - Evidence: `rensga_inspector_tests`, `rensga_strip_tests`, `reflect_scan_codegen`. Not run: cross builds of the new `Behaviour` virtuals.
-- [ ] **F3.08** Editor 11.5 · Build support modules — native toolchains and emulators from the Hub, no Docker · `1.25%`
+- [x] **F3.01** Editor 2 · Scene, hierarchy and inspector — gameObjects, Transforms, gizmos · `1.66%`
+  - Evidence: `rensga_sceneedit_tests`, `editor_scene_ui`, `editor_callbacks_ui`, `exercise_patrol`. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
+- [x] **F3.02** Editor 3 · Asset database and project window — .meta files, importers, VRAM map · `1.66%`
+  - Evidence: `rensga_asset_tests`, `editor_assets_ui` (dropped PNG, ps2 override clut8 to clut4). Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
+- [x] **F3.03** Editor 4 · C++ scripting workflow — behaviours, hot reload, compile errors · `2.08%`
+  - Evidence: `editor_script_build_ui` (frames keep advancing during a build, error file:line), `exercise_hot_reload`, `editor_play_hot_reload`, `rensga_editor_tests` game module tests. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
+- [x] **F3.04** Editor 5 · Play mode and Game view — play, pause, step, revert, profile previews · `1.25%`
+  - Evidence: `editor_play_psp`, `editor_play_platformer`, `exercise_play_revert`. Known gap: no audio in editor play. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
+- [x] **F3.05** API 4 · Coroutines, Invoke and events — waiting over time, C# events, UnityEvent · `1.04%`
+  - Evidence: `rensga_core_tests` coroutine tests (allocs=0), `rensga_cooker_tests` door/UnityEvent, `exercise_door`. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
+- [x] **F3.06** API 5 · Input — axes, buttons, actions, rumble · `0.62%`
+  - Evidence: `rensga_core_tests` input tests, `pad_psp_map`, `pad_sdl_events`, `input_cook`, `exercise_input_desktop`. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
+- [x] **F3.07** API 11 · Editor-facing attributes — serializeField, Range, RequireComponent · `0.83%`
+  - Evidence: `rensga_inspector_tests`, `rensga_strip_tests`, `reflect_scan_codegen`. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
+- ◐ **F3.08** Editor 11.5 · Build support modules — native toolchains and emulators from the Hub, no Docker · `1.25%` 🟡 *Attention: Windows-hosted PSP toolchain is built by .github/workflows/toolchains.yml, not published yet; android-build was never installed or run (installing it means accepting Google's Android SDK license, which only the user may do: `rensga modules install android-build --accept-licenses`, then `RENSGA_TOOLCHAIN=native tools/ci/android.sh`); the PPSSPP Linux entry is `manual`; Windows-host installs and the Windows postInstall (`sh -c`) are untested.*
+  - Evidence: psp-build, ps2-build, windows-build, build-tools installed from the catalog; `run_local.sh` natively passed linux_host, psp, editor_tour, determinism, psp_gpu_check, windows, windows_run, ps2, ps2_check, android_device ("built, not run"); android SKIPPED with the clear "android-build is not installed, it needs Google's Android SDK license" message (exit 77; in CI it fails instead); 57/57 ctest incl. `editor_modules_ui` (Hub screenshots).
   - Done when: every console and cross build runs from pinned, sha256-verified native toolchain archives installed per user (Hub > Modules or `rensga modules install <id>`; catalog `tools/modules/manifest.d/`), the pipeline, the editor TargetModules and `tools/ci/*.sh` resolve toolchains through one runner (`RENSGA_TOOLCHAIN=auto|native|docker`), CI installs the same modules, and Docker is only an optional contributor backend. Windows archives we build ourselves stay "unpublished" until `.github/workflows/toolchains.yml` releases them.
 
 **Gates**
@@ -315,7 +316,8 @@ Roadmaps: [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga
   - Evidence: `rensga_inspector_tests` (`test_inspector_model.cpp`): every edit path undone and redone, JSON identical; `editor_inspector_ui`.
 - [x] **F3.G3** The Play dropdown's "Play in editor" works and Stop restores the scene.
   - Evidence: `editor_play_psp`, `editor_play_platformer`, `exercise_play_revert` (Stop restores the scene), `rensga_editor_tests` session tests.
-- [ ] **F3.G4** A machine without Docker installs PSP build support from the Hub or CLI, builds the PSP template and plays it in PPSSPP.
+- [x] **F3.G4** A machine without Docker installs PSP build support from the Hub or CLI, builds the PSP template and plays it in PPSSPP.
+  - Evidence: fresh `RENSGA_HOME`, Docker permission denied: `rensga modules install psp-build build-tools`, `rensga build --target psp templates/psp` (EBOOT.PBP 597962 bytes), `rensga play --target psp` with `RENSGA_TOOLCHAIN=auto` ran to quit-after with heartbeats. Hub screenshots: `build/nm-accept0/tests/editor/modules_ui/` (`ctest editor_modules_ui`).
 
 ### F4 · 2D slice everywhere + PSP base — 7.9% (cumulative 32.2%)
 

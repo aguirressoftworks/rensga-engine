@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# CI job psp: cook templates/psp with the host CLI (builds it if needed), build the PSP ELF in the pspdev image
+# CI job psp: cook templates/psp with the host CLI (builds it if needed), build the PSP ELF with the PSP Build Support module (native; Docker only as contributor fallback)
 # (exits after 240 frames), boot it in PPSSPPHeadless (software renderer) and require the boot log line.
 set -eu
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -9,11 +9,13 @@ if [ ! -x "$CLI" ]; then
   step "host CLI"; cmake --preset linux-host -B "$CI_OUT/linux-host" >/dev/null; cmake --build "$CI_OUT/linux-host" -j"$JOBS" --target rensga
 fi
 PROJ="$REPO/templates/psp"; B="$CI_OUT/psp"; ROOT="$CI_OUT/psp-root"
+. "$REPO/tools/modules/toolchain_env.sh" psp-build psp || exit 1
+GEN=(); [ "$RENSGA_TOOLCHAIN_BACKEND" = native ] && GEN=(-G Ninja)
 step "cook"; "$CLI" cook "$PROJ"
 step "psp build"
 reflect_prescan "$B/reflect" "$PROJ"
-tools/docker/psp.sh cmake --preset psp -B "$B" -DRENSGA_REFLECT_DIR="$B/reflect" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_GENERATED_DIR="$PROJ/Library/Generated/psp" -DRENSGA_EXIT_AFTER_FRAMES=240 >/dev/null
-tools/docker/psp.sh cmake --build "$B" --target rensga_game -j"$JOBS"
+rensga_tc cmake --preset psp "${GEN[@]}" -B "$B" -DRENSGA_REFLECT_DIR="$B/reflect" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_GENERATED_DIR="$PROJ/Library/Generated/psp" -DRENSGA_EXIT_AFTER_FRAMES=240 >/dev/null
+rensga_tc cmake --build "$B" --target rensga_game -j"$JOBS"
 rm -rf "$ROOT"; mkdir -p "$ROOT"; cp "$B/engine/runtime/rensga_game.elf" "$PROJ/Library/Cooked/psp/game.rpak" "$ROOT/"
 step "headless boot smoke test"
 log="$(cd "$ROOT" && timeout -s KILL 90 xvfb-run -a PPSSPPHeadless "$ROOT/rensga_game.elf" -r "$ROOT" --graphics=software --timeout=60 2>&1 || true)"

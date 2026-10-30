@@ -19,6 +19,7 @@ class GlRenderer : public IRenderer {
   static constexpr u32 kMaxTextures = 256;
 
   ~GlRenderer() override;
+  void shutdown();  // frees GL objects; call before the platform destroys the context (static renderers)
   bool init(u32 width, u32 height) override;  // width x height = the virtual resolution
   void setMeshes(const MeshTable& table) override;
   void beginFrame(Color32 clear) override;

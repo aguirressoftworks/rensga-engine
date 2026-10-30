@@ -31,13 +31,15 @@ build/host/tools/cli/rensga modules list [--json]                         # modu
 build/host/tools/cli/rensga modules install psp-build [--accept-licenses] # download, verify sha256, extract, check; also remove|verify|path <id>
 build/host/tools/cli/rensga modules env psp-build --shell sh              # env vars + PATH for a module (sh|cmd|json); tools/modules/toolchain_env.sh <id> evals it
 build/host/tools/cli/rensga modules doctor [--json]                       # what is installed, what is missing, whether Docker is usable
+# Hub modules --ui-event verbs (editor screenshots, tests/editor/modules_ui_check.sh): modules | modhub[:off] | modselect:<id> | modinstall:<id> | modaccept:<module or license id> | modremove:<id> | modverify:<id> | modlocate:<id>|<dir> | modstate[:<id>] | modwait | playconsole | modgate:<target> | moddialoginstall | moddialogcancel
+# test env: RENSGA_MODULE_CATALOG=<dir> (fixture catalog), RENSGA_EDITOR_TEST_MODULE_DELAY_MS=<ms> (slows install progress for screenshots)
 RENSGA_TOOLCHAIN=auto|native|docker                                       # auto (default) = native module, else Docker if usable, else a clear "install it" error
 export RENSGA_HOME=$PWD/build/rensga-home                                 # dev: shared module install inside the repo (gitignored); tests use their own temp RENSGA_HOME and file:// fixtures, never the network
 cmake --preset linux-host -B build/host && cmake --build build/host -j4   # tests, cooker, pipeline, CLI, editor, headless sim
 ctest --test-dir build/host                                               # all tests
 build/host/tools/cli/rensga cook templates/psp                            # cook + budget check
 build/host/engine/runtime/rensga_headless --pack templates/psp/Library/Cooked/psp/game.rpak --frames 400 --hash
-xvfb-run -a build/host/tools/cli/rensga play --target psp templates/psp --json --quit-after 25   # dev build in Docker, boots in PPSSPP
+xvfb-run -a build/host/tools/cli/rensga play --target psp templates/psp --json --quit-after 25   # dev build with the native psp-build module, boots in PPSSPP
 build/host/tools/cli/rensga build --target psp templates/psp              # release: EBOOT.PBP in Library/Build/psp-release/
 build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after 30]   # --play runs the emulator pipeline (exits 1 if it fails); project scripts build into <project>/Library/ScriptAssemblies and hot-reload in the background on change (--no-auto-rebuild turns it off)
 xvfb-run -a -s "-screen 0 1600x900x24" build/host/editor/app/rensga-editor --project templates/psp --screenshot out.png [--screenshot-frames N] [--select <object>] [--ui-event click|rclick|move:x,y|script:Name|focus|create:cube|select:Name|addscript:Name|save ...]   # editor PNG, never opens a window on the desktop
@@ -48,7 +50,7 @@ ctest --test-dir build/host -R "inspector"                                 # ins
 xvfb-run -a build/host/engine/runtime/rensga_desktop --stress-sprites 1000 --frames 300 --screenshot out.png   # desktop GL player (or --pack <game.rpak>); exits 4 if alloc-check allocs != 0
 # F3.04 Play in editor (Play dropdown default; --play still runs the emulator pipeline) --ui-event verbs: openscene:<scene name> | showgame | playedit | pause | resume | pausetoggle | step[:N] (exactly N fixed frames, pauses first) | playwait:N (hold the queue until N game frames ran) | playkeys:<SDL key names,comma> (Game view input, `none` clears) | playset:<object>|<component index>|<field>|<json> | playmove:<object>|x,y,z | playdump:<object>[|<component>|<field>] (prints runtime values) | stopedit (prints `play-check: ... identical=1 dirty=0 undo=N`)
 #   tests/editor/play_ui_check.sh <editor> <project> <scene> <object> <keys> <component|field|json> <workdir>   # Play, pause, step, edit, Stop, scene file byte-identical (ctest editor_play_psp, editor_play_platformer)
-tools/emulators/pcsx2_boot.sh build/ci/ps2/rensga.iso --frames 120 --log /abs/log.txt [--shot out.png]   # PS2 boot in PCSX2 (local only, BIOS referenced in place via ~/.config/rensga/emulators.json)
+tools/emulators/pcsx2_boot.sh build/ci/ps2/rensga.iso --frames 120 --log /abs/log.txt [--shot out.png]   # PS2 boot in PCSX2 (local only; PCSX2 from `rensga modules install pcsx2` or RENSGA_PCSX2, BIOS referenced in place via ~/.config/rensga/emulators.json)
 # F3.01 scene verbs for --ui-event (hierarchy edits, 2D mode, ID-buffer picking; output lines start with "scene:"): new:<name>[|<parent>] | selectmany:A,B | selectadd:A | reparent:A,B|<parent or empty>[|<before>] | dup | del | copy | paste | undo | redo | setpos:<name>|x,y,z | reload | savecopy:<file> | mode:2d|3d | framesel | pickobj:<name> | boxsel:x0,y0,x1,y1[,add] | dumpsel | dumptree | gizmos
 # 2D gameplay sample (samples/platformer2d, PS2 profile 640x448): its scripts are compiled into a project build tree.
 #   cmake --preset linux-host -B build/sample -DRENSGA_PROJECT_DIR=$PWD/samples/platformer2d && cmake --build build/sample -j4 --target rensga_desktop rensga-cooker
@@ -57,14 +59,14 @@ tools/emulators/pcsx2_boot.sh build/ci/ps2/rensga.iso --frames 120 --log /abs/lo
 #   RENSGA_PS2_PROJECT=samples/platformer2d RENSGA_PS2_PACK=samples/platformer2d/Library/Cooked/ps2/game.rpak tools/ci/ps2.sh   # ISO; then pcsx2_boot.sh
 # F3 exercises (samples/editor_tour, see its README): one ctest each, driven by --ui-event under xvfb, screenshots in the build dir
 #   ctest --test-dir build/host -L f3_exercises --output-on-failure      # scene_roundtrip hot_reload play_revert door patrol input_desktop + editor_assets_ui
-#   tools/ci/editor_tour.sh                                                # console side: rensga play/build --target psp on samples/editor_tour (docker + PPSSPP, exit 77 without)
+#   tools/ci/editor_tour.sh                                                # console side: rensga play/build --target psp on samples/editor_tour (native psp-build module + PPSSPP, exit 77 without)
 build/host/tools/iso/rensga-iso -o out.iso -V VOLID [--order A,B] <dir>   # ISO 9660 writer (no xorriso); --list image.iso reads one back; ctest -R iso
 tools/install_git_hooks.sh                                                # pre-commit guard: refuses BIOS/ROM dumps
 tools/emulators/screenshot.sh                       # PPSSPP screenshot into docs/rensga-engine/mvp/ (needs a prior cook)
 tools/check_editor_core.sh                                                # editor/core must not name a console
 tools/check_api_rules.sh                                                  # API design rules (docs/rensga-engine/api-rules.md)
 cmake --preset psp|windows|android|ps2 -B build/<x>                       # cross builds; run through the native modules (tools/modules/toolchain_env.sh <id>); tools/docker/{psp,windows,android,ps2}.sh is the optional contributor backend (RENSGA_TOOLCHAIN=docker)
-tools/ci/run_local.sh                                                     # every CI job locally (linux_host psp determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check); exit 77 = skipped
+tools/ci/run_local.sh                                                     # every CI job locally, native modules first (RENSGA_TOOLCHAIN=native, shared RENSGA_HOME=build/rensga-home; flags --install installs the modules the jobs need, --docker uses the contributor images); same jobs as .github/workflows/ci.yml, which installs the same modules with the CLI and never uses Docker; modules upstream lacks for Windows are built by .github/workflows/toolchains.yml (manual or tag toolchains-<id>-<version>); RENSGA_CI_OUT overrides build/ci; exit 77 = skipped
 ctest --test-dir build/host -R "touch_|hot_reload|audio_stress|audio_sdl"                    # F2 host checks: touch pad + SDL finger events, desktop pack hot reload, audio-stress on SDL disk audio (skip with 77 without xvfb or a cooked pack)
 build/host/tests/cooker/rensga_cooker_tests assets_cook_cache                              # per-asset cook cache (Library/Cache/<target>/; prints `cook: cooked <a>, cached <b>`)
 SDL_AUDIODRIVER=disk SDL_DISKAUDIOFILE=/tmp/a.raw xvfb-run -a build/host/engine/runtime/rensga_desktop --pack <game.rpak> --audio-stress --frames 300   # 16 voices + music, logs mix_us and underruns

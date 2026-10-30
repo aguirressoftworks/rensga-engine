@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # PSP GPU-renderer check (the MVP black-screen bug class): run the PSP ELF in PPSSPPHeadless --graphics=gles under xvfb
 # and fail on any "Unknown syscall" in the full emulator log. Builds the ELF via tools/ci/psp.sh when missing.
-# Exit 77 (ctest SKIP_RETURN_CODE) when Docker or PPSSPPHeadless / xvfb-run are unavailable.
+# Exit 77 (ctest SKIP_RETURN_CODE) when the PSP Build Support module (or Docker fallback) or PPSSPPHeadless / xvfb-run are unavailable.
 set -eu
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$REPO"
 for t in PPSSPPHeadless xvfb-run; do command -v $t >/dev/null || { echo "skip: $t not installed"; exit 77; }; done
-tools/docker/psp.sh true || { echo "skip: docker not usable"; exit 77; }
+. "$REPO/tools/modules/toolchain_env.sh" psp-build psp || { echo "skip: PSP Build Support module not installed (rensga modules install psp-build)"; exit 77; }
 ROOT="$CI_OUT/psp-root"
 [ -f "$ROOT/rensga_game.elf" ] || tools/ci/psp.sh
 rm -f "$ROOT/rensga_shot.bmp"

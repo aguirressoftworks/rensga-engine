@@ -17,6 +17,7 @@ namespace modules {
 // One downloadable archive. A host entry holds one (inline) or several ("parts"), each unpacked into <root>/<dest>.
 struct ArchivePart {
   std::string url, sha256, archive;  // archive: tar.gz | tar.xz | zip (empty = guessed from the url)
+  std::string filename;              // archive "file": the downloaded file is copied to <dest>/<filename> and made executable
   std::string dest;                  // sub-directory of the module root ("" = the root)
   uint64_t size = 0;                 // bytes, for progress; 0 = unknown
   int strip = 0;                     // leading directories dropped after unpacking

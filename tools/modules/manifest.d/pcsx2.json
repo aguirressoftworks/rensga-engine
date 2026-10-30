@@ -1,0 +1,34 @@
+{
+  "id": "pcsx2",
+  "name": "PCSX2 (PS2 emulator)",
+  "kind": "emulator",
+  "target": "ps2",
+  "version": "2.8.2",
+  "requires": [],
+  "license": "GPL-3.0-or-later",
+  "source": "https://github.com/PCSX2/pcsx2 (tag v2.8.2)",
+  "notice": "PCSX2 v2.8.2 official portable release, unmodified, run only as a separate process. It needs a PS2 BIOS dump that you supply yourself; Rensga never ships or downloads one. Windows: install it yourself (see the host note); Rensga does not repack it.",
+  "hosts": {
+    "linux-x86_64": {
+      "status": "available",
+      "url": "https://github.com/PCSX2/pcsx2/releases/download/v2.8.2/pcsx2-v2.8.2-linux-appimage-x64-Qt.AppImage",
+      "sha256": "0c46bb6a88aa2782b10853a7b07cf3387ba99cbef2b966372cd2315b8571abea",
+      "size": 60119544,
+      "archive": "file",
+      "filename": "pcsx2-qt",
+      "dest": "bin"
+    },
+    "windows-x86_64": {
+      "status": "manual",
+      "note": "Download the portable pcsx2-v2.8.2-windows-x64-Qt.7z from https://github.com/PCSX2/pcsx2/releases/tag/v2.8.2, unpack it anywhere and point the editor (or ~/.config/rensga/emulators.json pcsx2.exe) at pcsx2-qt.exe."
+    }
+  },
+  "env": {
+    "RENSGA_PCSX2": "{root}/bin/pcsx2-qt"
+  },
+  "path": [],
+  "check": [
+    "{root}/bin/pcsx2-qt",
+    "--appimage-version"
+  ]
+}

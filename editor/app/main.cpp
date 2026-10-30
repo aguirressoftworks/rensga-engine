@@ -26,6 +26,7 @@
 #include "app.h"
 #include "panels/drawers/drawers.h"
 #include "panels/asset_ui.h"
+#include "panels/modules.h"
 #include "rensga/editor/editor_log.h"
 #include "rensga/editor/game_module.h"
 
@@ -122,6 +123,7 @@ int main(int argc, char** argv) {
     }
   }
   const bool shotMode = !shotFile.empty();
+  modulesUi().noPrompt = autoPlay;  // --play: no dialog, the pipeline reports a missing module and exits 1
 
   App app;
   EditorLog& log = EditorLog::instance();
@@ -209,6 +211,7 @@ int main(int argc, char** argv) {
       if (ev.type == SDL_WINDOWEVENT && ev.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) scriptsOnFocus(app);
     }
     tickScripts(app);
+    tickModules(app);
     double t = static_cast<double>(SDL_GetPerformanceCounter() - start) / freq;
     if (autoPlay && !playTriggered && t > 0.3) {
       playTriggered = true;
@@ -273,7 +276,7 @@ int main(int argc, char** argv) {
     applyPlayTint(app);
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame();
-    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx])) {
+    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx]) && !modulesUiHolds(app, uiEvents[evIdx])) {
       const std::string& e = uiEvents[evIdx++];
       evNext = frame + 6;
       float x = 0, y = 0;
@@ -281,6 +284,7 @@ int main(int argc, char** argv) {
       const std::string act = e.substr(0, c), arg = c == std::string::npos ? std::string() : e.substr(c + 1);
       // test hooks that run the same code paths as the UI
       if (hubHook(app, act, arg)) {}
+      else if (modulesHook(app, act, arg)) {}                                  // Hub > Modules: modules, modinstall, modaccept, modremove, playconsole, ...
       else if (playUiHook(app, act, arg)) {}                                   // F3.04: playedit, pause, step, stopedit, playset, ...
       else if (inspectorHook(app, act, arg)) {}                                 // F3.01: multiselect, addcomp, setfield, undo, ...
       else if (sceneUiHook(app, act, arg)) {}                                  // F3.01: new, selectmany, reparent, pickobj, ...
@@ -330,7 +334,7 @@ int main(int argc, char** argv) {
       drawConsole(app);
       drawDialogs(app);
     }
-    if (app.hub.mode != Mode::Splash) drawCreateDialogs(app);
+    if (app.hub.mode != Mode::Splash) { drawCreateDialogs(app); if (app.hub.mode == Mode::Editor) drawModulesWindow(app); drawModuleDialogs(app); }
     if (shotMode && !focusName.empty() && frame == shotFrames / 2) ImGui::SetWindowFocus(focusName.c_str());
     if (ImGuiWindow* nw = ImGui::GetCurrentContext()->NavWindow) {
       static const char* const kPanels[] = {"Hierarchy", "Inspector", "Project", "Console", "Scene", "Game"};

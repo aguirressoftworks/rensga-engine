@@ -3,7 +3,7 @@
 # "rensga: alloc-check frames=<N> allocs=0". Needs tools/ci/windows.sh to have run. Exit 77 when wine/xvfb/exe/pack is missing.
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-cd "$REPO"
+cd "$REPO"  # native llvm-mingw build is static; only SDL2.dll is needed next to the exe
 D="$CI_OUT/windows/engine/runtime"; PACK="$REPO/templates/psp/Library/Cooked/psp/game.rpak"
 command -v wine >/dev/null && command -v xvfb-run >/dev/null || { echo "windows_run: wine/xvfb-run missing, skipped"; exit 77; }
 [ -f "$D/rensga_desktop.exe" ] && [ -f "$PACK" ] || { echo "windows_run: build windows + cook first, skipped"; exit 77; }
