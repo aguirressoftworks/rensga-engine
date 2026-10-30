@@ -10,12 +10,13 @@ TEST(gameplay_pack_has_two_scenes_and_assets) {
   CHECK(!pack.empty());
   Game g;
   CHECK(g.boot(pack, tempDir("scenes")));
-  CHECK_EQ(SceneManager::sceneCount(), 2u);
+  CHECK_EQ(SceneManager::sceneCount(), 3u);
   CHECK_EQ(strcmp(SceneManager::sceneName(0), "Title"), 0);
   CHECK_EQ(strcmp(SceneManager::sceneName(1), "Room"), 0);
+  CHECK_EQ(strcmp(SceneManager::sceneName(2), "RoomBot"), 0);
   CHECK_EQ(SceneManager::sceneIndexByName("Room"), 1);
   CHECK_EQ(g.loaded.assets.tilemapCount, 1u);
-  CHECK_EQ(g.loaded.assets.animCount, 4u);
+  CHECK_EQ(g.loaded.assets.animCount, 9u);
   // Scene 0 only: the title objects, no player.
   CHECK(GameObject::Find("StartButton") != nullptr);
   CHECK(GameObject::Find("Player") == nullptr);
@@ -73,10 +74,11 @@ TEST(gameplay_tilemap_collision_and_ground_check) {
   Move2DResult r = box->Move(-1000.0f, 0);
   CHECK(r.hitLeft);
   CHECK_NEAR(box->bounds().x, 32.0f, 0.05f);
-  // Walking right stops at the first stair block (column 2, x = 64).
-  r = box->Move(2000.0f, 0);
+  // Walking right climbs the hill, crosses the floor and stops at the first stair block (column 34, x = 1088).
+  for (int i = 0; i < 300 && !r.hitRight; ++i) { r = box->Move(8.0f, 0); box->Move(0, 16.0f); }
   CHECK(r.hitRight);
-  CHECK_NEAR(box->bounds().x + box->bounds().width, 64.0f, 0.05f);
+  CHECK_NEAR(box->bounds().x + box->bounds().width, 1088.0f, 0.05f);
+  r = box->Move(0, 500.0f);
   // Falling a long way never tunnels through the floor.
   r = box->Move(0, 500.0f);
   CHECK(r.hitDown);
@@ -129,14 +131,14 @@ TEST(gameplay_coin_trigger_collects_once) {
   CHECK(g.boot(cookSample(), tempDir("coin"), 1));
   g.run(2);
   GameObject* player = GameObject::Find("Player");
-  GameObject* coin = GameObject::Find("Coin2");  // on the floor at (230, 392)
+  GameObject* coin = GameObject::Find("Coin1");  // on the floor at (168, 392)
   CHECK(player && coin);
   if (!player || !coin) return;
-  player->transform.setPosition(Vector3(220, 384, 0));
+  player->transform.setPosition(Vector3(160, 384, 0));
   CHECK_EQ(GameState::coins, 0);
   g.run(3);
   CHECK_EQ(GameState::coins, 1);
-  CHECK(GameObject::Find("Coin2") == nullptr);
+  CHECK(GameObject::Find("Coin1") == nullptr);
   g.run(5);
   CHECK_EQ(GameState::coins, 1);
 }

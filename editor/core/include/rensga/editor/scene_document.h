@@ -42,6 +42,9 @@ class SceneDocument {
   bool setTransform(const std::string& guid, const float pos[3], const float rot[4], const float scale[3]);
   bool setWorldMatrix(const std::string& guid, const double world[16]);  // converts to local through the parent chain
   bool setActive(const std::string& guid, bool active);
+  // Tag and layer are written only when they differ from the defaults ("" and 0), so old scene files stay byte-identical.
+  bool setTag(const std::string& guid, const std::string& tag);
+  bool setLayer(const std::string& guid, int layer);
   bool setField(const std::string& guid, int component, const std::string& field, const nlohmann::json& value);
   bool addComponent(const std::string& guid, const std::string& type, const nlohmann::json& fields = nlohmann::json::object());
   bool removeComponent(const std::string& guid, int component);

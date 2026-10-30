@@ -298,7 +298,7 @@ int main(int argc, char** argv) {
     RLOG_INFO("game", "rensga: stress sprites=%u", g_spriteCount);
   } else {
     Span<const u8> bytes = fs.readFile(packFile, arena);
-    if (!bytes || !view.open(bytes.data, bytes.size)) {
+    if (!bytes || !view.open(bytes.data, bytes.size, packFile)) {
       RLOG_ERROR("game", "rensga: cannot read pack %s", packFile);
       return 3;
     }

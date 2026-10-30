@@ -3,7 +3,7 @@
  "guid": "00000000-0000-4000-8000-000000000302",
  "objects": [
   {
-   "guid": "00000000-0000-4000-8000-000000000207",
+   "guid": "00000000-0000-4000-8000-000000000401",
    "name": "Tilemap",
    "parent": null,
    "active": true,
@@ -42,13 +42,13 @@
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-000000000208",
+   "guid": "00000000-0000-4000-8000-000000000402",
    "name": "Player",
    "parent": null,
    "active": true,
    "transform": {
     "position": [
-     34,
+     64,
      384,
      0
     ],
@@ -97,10 +97,54 @@
     }
    ],
    "prefab": null,
-   "tag": "Player"
+   "tag": "Player",
+   "layer": 1
   },
   {
-   "guid": "00000000-0000-4000-8000-000000000209",
+   "guid": "00000000-0000-4000-8000-000000000403",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera2D",
+     "fields": {
+      "target": "00000000-0000-4000-8000-000000000402",
+      "targetOffsetX": 16,
+      "targetOffsetY": 16,
+      "deadZoneW": 64,
+      "deadZoneH": 48,
+      "useBounds": true,
+      "boundsX": 0,
+      "boundsY": 0,
+      "boundsW": 1280,
+      "boundsH": 448,
+      "pixelSnap": true
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000404",
    "name": "HudCoins",
    "parent": null,
    "active": true,
@@ -140,8 +184,8 @@
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-00000000020a",
-   "name": "HudBest",
+   "guid": "00000000-0000-4000-8000-000000000405",
+   "name": "HudHp",
    "parent": null,
    "active": true,
    "transform": {
@@ -169,6 +213,46 @@
       "x": 16,
       "y": 52,
       "color": [
+       255,
+       120,
+       120,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000406",
+   "name": "HudBest",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "x": 16,
+      "y": 64,
+      "color": [
        200,
        200,
        200,
@@ -180,7 +264,7 @@
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-00000000020b",
+   "guid": "00000000-0000-4000-8000-000000000407",
    "name": "HudMessage",
    "parent": null,
    "active": true,
@@ -206,7 +290,7 @@
     {
      "type": "UIText",
      "fields": {
-      "x": 200,
+      "x": 208,
       "y": 210,
       "color": [
        255,
@@ -221,7 +305,7 @@
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-00000000020c",
+   "guid": "00000000-0000-4000-8000-000000000408",
    "name": "HudPanel",
    "parent": null,
    "active": true,
@@ -250,7 +334,7 @@
       "x": 8,
       "y": 34,
       "w": 152,
-      "h": 32,
+      "h": 44,
       "color": [
        0,
        0,
@@ -264,7 +348,7 @@
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-00000000020d",
+   "guid": "00000000-0000-4000-8000-000000000409",
    "name": "Hud",
    "parent": null,
    "active": true,
@@ -295,13 +379,129 @@
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-00000000020e",
+   "guid": "00000000-0000-4000-8000-00000000040a",
    "name": "Coin1",
    "parent": null,
    "active": true,
    "transform": {
     "position": [
-     136,
+     168,
+     392,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000040b",
+   "name": "Coin2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     360,
+     328,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000040c",
+   "name": "Coin3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     600,
      296,
      0
     ],
@@ -349,187 +549,17 @@
     }
    ],
    "prefab": null,
-   "tag": "Coin"
+   "tag": "Coin",
+   "layer": 3
   },
   {
-   "guid": "00000000-0000-4000-8000-00000000020f",
-   "name": "Coin2",
-   "parent": null,
-   "active": true,
-   "transform": {
-    "position": [
-     230,
-     392,
-     0
-    ],
-    "rotation": [
-     0,
-     0,
-     0,
-     1
-    ],
-    "scale": [
-     1,
-     1,
-     1
-    ]
-   },
-   "components": [
-    {
-     "type": "SpriteRenderer",
-     "fields": {
-      "texture": "00000000-0000-4000-8000-000000000103",
-      "srcX": 0,
-      "srcY": 0,
-      "srcW": 16,
-      "srcH": 16,
-      "sortingOrder": 3
-     }
-    },
-    {
-     "type": "SpriteAnimator",
-     "fields": {
-      "clip": "00000000-0000-4000-8000-000000000124"
-     }
-    },
-    {
-     "type": "BoxCollider2D",
-     "fields": {
-      "sizeX": 16,
-      "sizeY": 16,
-      "isTrigger": true
-     }
-    },
-    {
-     "type": "Coin",
-     "fields": {}
-    }
-   ],
-   "prefab": null,
-   "tag": "Coin"
-  },
-  {
-   "guid": "00000000-0000-4000-8000-000000000210",
-   "name": "Coin3",
-   "parent": null,
-   "active": true,
-   "transform": {
-    "position": [
-     300,
-     392,
-     0
-    ],
-    "rotation": [
-     0,
-     0,
-     0,
-     1
-    ],
-    "scale": [
-     1,
-     1,
-     1
-    ]
-   },
-   "components": [
-    {
-     "type": "SpriteRenderer",
-     "fields": {
-      "texture": "00000000-0000-4000-8000-000000000103",
-      "srcX": 0,
-      "srcY": 0,
-      "srcW": 16,
-      "srcH": 16,
-      "sortingOrder": 3
-     }
-    },
-    {
-     "type": "SpriteAnimator",
-     "fields": {
-      "clip": "00000000-0000-4000-8000-000000000124"
-     }
-    },
-    {
-     "type": "BoxCollider2D",
-     "fields": {
-      "sizeX": 16,
-      "sizeY": 16,
-      "isTrigger": true
-     }
-    },
-    {
-     "type": "Coin",
-     "fields": {}
-    }
-   ],
-   "prefab": null,
-   "tag": "Coin"
-  },
-  {
-   "guid": "00000000-0000-4000-8000-000000000211",
+   "guid": "00000000-0000-4000-8000-00000000040d",
    "name": "Coin4",
    "parent": null,
    "active": true,
    "transform": {
     "position": [
-     456,
-     264,
-     0
-    ],
-    "rotation": [
-     0,
-     0,
-     0,
-     1
-    ],
-    "scale": [
-     1,
-     1,
-     1
-    ]
-   },
-   "components": [
-    {
-     "type": "SpriteRenderer",
-     "fields": {
-      "texture": "00000000-0000-4000-8000-000000000103",
-      "srcX": 0,
-      "srcY": 0,
-      "srcW": 16,
-      "srcH": 16,
-      "sortingOrder": 3
-     }
-    },
-    {
-     "type": "SpriteAnimator",
-     "fields": {
-      "clip": "00000000-0000-4000-8000-000000000124"
-     }
-    },
-    {
-     "type": "BoxCollider2D",
-     "fields": {
-      "sizeX": 16,
-      "sizeY": 16,
-      "isTrigger": true
-     }
-    },
-    {
-     "type": "Coin",
-     "fields": {}
-    }
-   ],
-   "prefab": null,
-   "tag": "Coin"
-  },
-  {
-   "guid": "00000000-0000-4000-8000-000000000212",
-   "name": "Coin5",
-   "parent": null,
-   "active": true,
-   "transform": {
-    "position": [
-     520,
+     760,
      232,
      0
     ],
@@ -577,7 +607,366 @@
     }
    ],
    "prefab": null,
-   "tag": "Coin"
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000040e",
+   "name": "Coin5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     846,
+     392,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000040f",
+   "name": "Coin6",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1000,
+     392,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000410",
+   "name": "Coin7",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1192,
+     296,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000411",
+   "name": "SavePoint",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     880,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000105",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 2
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000128"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 8,
+      "offsetY": 0,
+      "sizeX": 16,
+      "sizeY": 32,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "SavePoint",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "SavePoint",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000412",
+   "name": "Walker1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     560,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000104",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 4
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000125"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 4,
+      "offsetY": 12,
+      "sizeX": 24,
+      "sizeY": 20
+     }
+    },
+    {
+     "type": "Walker",
+     "fields": {
+      "patrolMinX": 480,
+      "patrolMaxX": 736
+     }
+    }
+   ],
+   "prefab": null,
+   "tag": "Enemy",
+   "layer": 2
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000413",
+   "name": "Hopper1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1000,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000104",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 4
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000126"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 4,
+      "offsetY": 12,
+      "sizeX": 24,
+      "sizeY": 20
+     }
+    },
+    {
+     "type": "Hopper",
+     "fields": {
+      "patrolMinX": 928,
+      "patrolMaxX": 1080
+     }
+    }
+   ],
+   "prefab": null,
+   "tag": "Enemy",
+   "layer": 2
   }
  ]
 }

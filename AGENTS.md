@@ -47,6 +47,13 @@ tools/check_editor_core.sh                                                # edit
 tools/check_api_rules.sh                                                  # API design rules (docs/rensga-engine/api-rules.md)
 cmake --preset psp|windows|android|ps2 -B build/<x>                       # cross builds; run via tools/docker/{psp,windows,android,ps2}.sh (pinned images, sg docker fallback)
 tools/ci/run_local.sh                                                     # every CI job locally (linux_host psp determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check); exit 77 = skipped
+ctest --test-dir build/host -R "touch_|hot_reload|audio_stress|audio_sdl"                    # F2 host checks: touch pad + SDL finger events, desktop pack hot reload, audio-stress on SDL disk audio (skip with 77 without xvfb or a cooked pack)
+build/host/tests/cooker/rensga_cooker_tests assets_cook_cache                              # per-asset cook cache (Library/Cache/<target>/; prints `cook: cooked <a>, cached <b>`)
+SDL_AUDIODRIVER=disk SDL_DISKAUDIOFILE=/tmp/a.raw xvfb-run -a build/host/engine/runtime/rensga_desktop --pack <game.rpak> --audio-stress --frames 300   # 16 voices + music, logs mix_us and underruns
+cmake --preset ps2 -B build/ps2 -DRENSGA_PS2_VRAM_STRESS=ON                                # PS2 VRAM stress (24 textures); run the ISO with tools/emulators/pcsx2_boot.sh, PS2-local only
+cmake --preset linux-host -B build/sample -DRENSGA_PROJECT_DIR=$PWD/samples/platformer2d   # sample build: platformer2d scripts in player/cooker (samples/platformer2d/tools/make_sample.py regenerates its assets)
+tools/ci/android.sh                                                        # builds build/ci/android/rensga-player.apk (needs a cooked samples/platformer2d ps2 pack)
+tools/android/run_device_check.sh                                          # install + run the APK on a USB phone via adb (LOCAL ONLY, never in CI)
 tools/ci/determinism.sh                                                   # same walk.json on Linux and PSP: state hashes must match (DET_TRACE=1 compares every frame)
 tools/ci/windows_run.sh                                                   # Windows build under wine + Xvfb, checks the alloc-check line
 tools/ci/android_device.sh                                                # install + run on an adb phone; prints "built, not run" without one

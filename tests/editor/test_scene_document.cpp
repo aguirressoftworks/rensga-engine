@@ -214,3 +214,28 @@ TEST(scene_doc_template_edit_save_reload) {
   CHECK_NEAR(e.find(pick)->position[2], 6.0, 1e-5);
   CHECK(e.find(cube) != nullptr);
 }
+
+TEST(scene_doc_tag_layer_roundtrip) {
+  SceneDocument d;
+  std::string err;
+  fs::path out = tmpDir("taglayer") / "TestLevel.scene";
+  fs::copy_file(templateScene(), out);
+  CHECK(d.load(out, err));
+  const std::string g = d.scene().objects[0].guid;
+  CHECK(d.find(g)->tag.empty());
+  CHECK_EQ(d.find(g)->layer, 0);
+  CHECK(d.setTag(g, "Player"));
+  CHECK(d.setLayer(g, 3));
+  CHECK(d.save(err));
+  SceneDocument d2;
+  CHECK(d2.load(out, err));
+  CHECK(d2.find(g)->tag == "Player");
+  CHECK_EQ(d2.find(g)->layer, 3);
+  // back to the defaults: keys are omitted again, the file equals the template
+  CHECK(d2.setTag(g, ""));
+  CHECK(d2.setLayer(g, 0));
+  CHECK(d2.save(err));
+  CHECK(slurp(out) == slurp(templateScene()));
+  CHECK(d2.undo());
+  CHECK_EQ(d2.find(g)->layer, 3);
+}

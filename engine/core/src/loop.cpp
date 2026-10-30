@@ -1,4 +1,5 @@
 #include "rensga/core/loop.h"
+#include "rensga/core/application.h"
 
 #include "rensga/core/components.h"
 #include "rensga/core/gameplay.h"
@@ -51,7 +52,7 @@ bool GameLoop::frame(Scalar realDt, const VirtualGamepad& pad) {
 void GameLoop::run(IPlatform& platform, IRenderer* renderer, u32 maxFrames) {
   double last = platform.timeSeconds();
   VirtualGamepad pad;
-  while (!platform.shouldQuit()) {
+  while (!platform.shouldQuit() && !Application::quitRequested()) {
     double now = platform.timeSeconds();
     platform.pollInput(pad);
     frame(static_cast<Scalar>(now - last), pad);

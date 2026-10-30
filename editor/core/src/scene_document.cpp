@@ -326,6 +326,26 @@ bool SceneDocument::setActive(const std::string& guid, bool active) {
   return true;
 }
 
+bool SceneDocument::setTag(const std::string& guid, const std::string& tag) {
+  ordered_json* o = findJson(guid);
+  if (!o) return false;
+  if (o->value("tag", "") == tag) return true;
+  pushUndo();
+  if (tag.empty()) o->erase("tag"); else (*o)["tag"] = tag;
+  changed();
+  return true;
+}
+
+bool SceneDocument::setLayer(const std::string& guid, int layer) {
+  ordered_json* o = findJson(guid);
+  if (!o) return false;
+  if (o->value("layer", 0) == layer) return true;
+  pushUndo();
+  if (layer == 0) o->erase("layer"); else (*o)["layer"] = layer;
+  changed();
+  return true;
+}
+
 bool SceneDocument::setField(const std::string& guid, int component, const std::string& field, const json& value) {
   ordered_json* o = findJson(guid);
   if (!o || !o->contains("components") || component < 0 || component >= static_cast<int>((*o)["components"].size()))

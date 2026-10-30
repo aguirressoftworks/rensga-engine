@@ -6,6 +6,13 @@ B="$CI_OUT/linux-host"
 cd "$REPO"
 step "linux-host build"; cmake --preset linux-host -B "$B" >/dev/null; cmake --build "$B" -j"$JOBS"
 step "ctest"; ctest --test-dir "$B" --output-on-failure
+# F2 host checks must stay registered (a missing CMake guard would silently drop them): touch (logic + SDL events), desktop pack hot
+# reload, per-asset cook cache (inside rensga_cooker_tests), desktop --audio-stress with SDL_AUDIODRIVER=disk (non-silent).
+step "F2 checks registered"
+for t in touch_pad_logic touch_sdl_events hot_reload_desktop audio_sdl_disk audio_stress_desktop rensga_cooker_tests; do
+  ctest --test-dir "$B" -N | grep -q " $t\$" || { echo "ctest: $t is not registered" >&2; exit 1; }
+done
+"$B/tests/cooker/rensga_cooker_tests" assets_cook_cache_reuses_unchanged_assets
 # ctest above includes alloc_check_linux (headless + desktop player allocs=0) and determinism_linux_trace.
 step "check_editor_core"; tools/check_editor_core.sh
 step "hello under xvfb"

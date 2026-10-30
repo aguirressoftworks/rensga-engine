@@ -65,6 +65,7 @@ static void dumpFrameBmp() {
 
 int main() {
   pspInstallLogSinks();
+  Application::setPlatform(RuntimePlatform::Psp);
   RLOG_INFO("game", "rensga: boot");
 
   PspPlatform platform;
@@ -93,7 +94,7 @@ int main() {
   PackView view;
   bool havePack = false;
   Span<const u8> bytes = fs.readFile("game.rpak", arena);
-  if (bytes && view.open(bytes.data, bytes.size) && world.loadPack(view, &loaded)) {
+  if (bytes && view.open(bytes.data, bytes.size, "game.rpak") && world.loadPack(view, &loaded)) {
     havePack = true;
     Input::loadActions(view, loaded.inputs, loaded.inputCount);
     renderer.setMeshes(loaded.meshes);
@@ -127,7 +128,7 @@ int main() {
   double last = platform.timeSeconds();
   VirtualGamepad pad;
   u32 frame = 0;
-  while (!platform.shouldQuit()) {
+  while (!platform.shouldQuit() && !Application::quitRequested()) {
     double now = platform.timeSeconds();
     platform.pollInput(pad);
     loop.frame(static_cast<Scalar>(now - last), pad);

@@ -250,5 +250,25 @@ TEST(pack_load_roundtrip_and_version_refusal) {
 
   h->version = 99;  // another version is refused with a log line
   PackView bad;
-  CHECK(!bad.open(buf, off));
+  struct Cap { bool sawName = false; } cap;
+  CallbackSink sink([](const LogRecord& r, void* u) { if (strstr(r.message, "level1.rpak") && strstr(r.message, "version")) static_cast<Cap*>(u)->sawName = true; }, &cap);
+  log::addSink(&sink);
+  CHECK(!bad.open(buf, off, "level1.rpak"));
+  log::removeSink(&sink);
+  CHECK(cap.sawName);  // the error line names the file
+}
+
+TEST(loop_stops_when_application_quits) {
+  Fixture f;
+  struct QuitAfter : NullPlatform {
+    u32 n = 0;
+    void pollInput(VirtualGamepad& pad) override { pad = scripted; if (++n == 5) Application::Quit(); }
+  } platform;  // never asks to quit itself
+  GameLoop loop;
+  loop.init(f.world);
+  Application::reset();
+  loop.run(platform, nullptr);
+  CHECK_EQ(loop.frameCount(), 5u);
+  CHECK(Application::quitRequested());
+  Application::reset();
 }

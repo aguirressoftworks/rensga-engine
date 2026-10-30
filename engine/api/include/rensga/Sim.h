@@ -35,7 +35,14 @@ struct SimResult {
 };
 // Runs `frames` frames of the real loop (fixed 1/60 s real time, physics hook installed), logging
 // "rensga: frame <n>" every 60 frames. `input` may be null.
-SimResult runSim(World& world, u32 frames, const InputScript* input, u32 initialPickups);
+// `trace` (optional) adds per-frame state hashes and a per-object bit dump (determinism diagnostics):
+//   "rensga: trace f=<n> h=<hex>"                     one line per frame
+//   "rensga: obj f=<n> i=<idx> <name> <pos/rot bits>"  one line per live object, only for frame `objFrame`
+struct SimTraceOptions {
+  bool trace = false;
+  i64 objFrame = -1;  // dump every object's bits after this frame (-1 = never)
+};
+SimResult runSim(World& world, u32 frames, const InputScript* input, u32 initialPickups, const SimTraceOptions* trace = nullptr);
 
 // Registers the template InputActions (Move/Jump/CameraLeft/CameraRight) in code.
 void defineDefaultInput();

@@ -17,6 +17,8 @@ struct SceneComponent {
 struct SceneObject {
   std::string guid, name, parentGuid;  // parentGuid empty = root
   bool active = true;
+  std::string tag;  // "" = Untagged; omitted from the scene file when empty
+  int layer = 0;    // omitted from the scene file when 0
   float position[3] = {0, 0, 0};
   float rotation[4] = {0, 0, 0, 1};
   float scale[3] = {1, 1, 1};

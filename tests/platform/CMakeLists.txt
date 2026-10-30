@@ -18,5 +18,6 @@ endif()
 if(TARGET rensga_desktop)
   add_test(NAME hot_reload_desktop COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/hot_reload.sh $<TARGET_FILE:rensga_desktop>
            ${RENSGA_PROJECT_DIR}/Library/Cooked/psp/game.rpak)  # the pack of the project whose scripts are linked in
-  set_tests_properties(hot_reload_desktop PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 90 LABELS "slow;gl")
+  set_tests_properties(hot_reload_desktop PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 90 LABELS "slow;gl"
+                      DEPENDS pipeline_cooked_pack_pickup)  # DEPENDS matches by test name across directories; no if(TEST) guard
 endif()

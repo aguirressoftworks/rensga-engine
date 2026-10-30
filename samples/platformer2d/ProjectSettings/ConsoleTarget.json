@@ -34,8 +34,13 @@
   "UIText",
   "UIImage",
   "UIButton",
+  "Camera2D",
   "PlayerController2D",
   "Coin",
+  "Walker",
+  "Hopper",
+  "SavePoint",
+  "AutoPilot",
   "HudController",
   "TitleMenu",
   "TitleScreen"

@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "rensga/platform/psp.h"
-#include "sim_trace.h"
+#include "rensga/Sim.h"
 
 PSP_MODULE_INFO("rensga_sim", PSP_MODULE_USER, 1, 0);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER | PSP_THREAD_ATTR_VFPU);
@@ -16,6 +16,7 @@ using namespace rensga;
 
 int main() {
   pspInstallLogSinks();
+  Application::setPlatform(RuntimePlatform::Psp);
   RLOG_INFO("game", "rensga: boot");
   PspPlatform platform;
   PspFileSystem fs;
@@ -51,7 +52,7 @@ int main() {
   Span<const u8> bytes = fs.readFile("game.rpak", arena);
   PackView view;
   LoadedPack loaded;
-  if (!bytes || !view.open(bytes.data, bytes.size) || !world.loadPack(view, &loaded)) {
+  if (!bytes || !view.open(bytes.data, bytes.size, "host0:/game.rpak") || !world.loadPack(view, &loaded)) {
     RLOG_ERROR("game", "rensga: cannot load host0:/game.rpak");
     return 3;
   }
@@ -59,7 +60,7 @@ int main() {
   const u32 pickups = liveCount(world, "Pickup");
   RLOG_INFO("game", "rensga: scene loaded objects=%u pickups=%u", static_cast<unsigned>(world.objectCount()), static_cast<unsigned>(pickups));
 
-  SimResult r = runSimTraced(world, frames, haveInput ? &script : nullptr, pickups, topt);
+  SimResult r = runSim(world, frames, haveInput ? &script : nullptr, pickups, &topt);
   heap::logAllocCheck();
   RLOG_INFO("game", "rensga: hash %08x", static_cast<unsigned>(r.hash));
   log::flushAll();

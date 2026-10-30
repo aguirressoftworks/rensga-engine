@@ -124,7 +124,9 @@ u32 stateHash(World& world, u32 initialPickups) {
   return h;
 }
 
-SimResult runSim(World& world, u32 frames, const InputScript* input, u32 initialPickups) {
+static unsigned bitsOf(float f) { u32 u; memcpy(&u, &f, 4); return static_cast<unsigned>(u); }
+
+SimResult runSim(World& world, u32 frames, const InputScript* input, u32 initialPickups, const SimTraceOptions* trace) {
   physics::resetTriggerMemory();
   Gameplay2D::resetTriggerMemory();
   Input::update(VirtualGamepad());
@@ -138,6 +140,17 @@ SimResult runSim(World& world, u32 frames, const InputScript* input, u32 initial
     if (input) input->apply(f, pad);
     if (!loop.frame(1.0f / 60.0f, pad)) RLOG_ERROR("game", "rensga: heap allocation during frame %u", f);
     if (loop.frameCount() % 60 == 0) RLOG_INFO("game", "rensga: frame %u", static_cast<u32>(loop.frameCount()));
+    if (trace && trace->trace) RLOG_INFO("game", "rensga: trace f=%u h=%08x", static_cast<unsigned>(f), static_cast<unsigned>(stateHash(world, initialPickups)));
+    if (trace && trace->objFrame == static_cast<i64>(f)) {
+      for (u32 i = 0; i < world.objectHighWater(); ++i) {
+        GameObject* go = world.objectAt(i);
+        if (!go) continue;
+        Vector3 p = go->transform.position();
+        Quaternion q = go->transform.rotation();
+        RLOG_INFO("game", "rensga: obj f=%u i=%u %s p=%08x,%08x,%08x q=%08x,%08x,%08x,%08x", static_cast<unsigned>(f),
+                  static_cast<unsigned>(i), go->name, bitsOf(p.x), bitsOf(p.y), bitsOf(p.z), bitsOf(q.x), bitsOf(q.y), bitsOf(q.z), bitsOf(q.w));
+      }
+    }
   }
   r.frames = frames;
   r.hash = stateHash(world, initialPickups);

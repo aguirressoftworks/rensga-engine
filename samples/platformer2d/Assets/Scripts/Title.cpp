@@ -19,6 +19,9 @@ struct TitleScreen : Behaviour {
     GameObject* hint = GameObject::Find("TitleHint");
     UIText* t = hint ? hint->GetComponent<UIText>() : nullptr;
     if (t) t->SetInt("BEST SCORE ", GameState::best);
+    GameObject* hint2 = GameObject::Find("TitleSaved");
+    UIText* t2 = hint2 ? hint2->GetComponent<UIText>() : nullptr;
+    if (t2) t2->SetInt("SAVED COINS ", Save::LoadInt("coins", 0));
   }
 };
 

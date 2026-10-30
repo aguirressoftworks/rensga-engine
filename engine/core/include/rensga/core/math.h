@@ -94,6 +94,9 @@ inline Scalar SmoothDamp(Scalar current, Scalar target, Scalar& currentVelocity,
 inline Scalar SmoothDamp(Scalar current, Scalar target, Scalar& currentVelocity, Scalar smoothTime, Scalar deltaTime) {
   return SmoothDamp(current, target, currentVelocity, smoothTime, Infinity, deltaTime);
 }
+// Unity's Mathf.PerlinNoise: 2D gradient noise, 0..1 (0.5 on integer lattice points), tiles every 256 cells.
+// Deterministic: fixed permutation table, + - * only (no libm), see math.cpp.
+Scalar PerlinNoise(Scalar x, Scalar y);
 }  // namespace Mathf
 
 struct Vector2 {

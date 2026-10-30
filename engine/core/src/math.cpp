@@ -154,4 +154,37 @@ Matrix4 Matrix4::inverse() const {
   return r;
 }
 
+// ---- Mathf::PerlinNoise ------------------------------------------------------------------------------------
+namespace {
+// Ken Perlin's reference permutation (public domain), 8 gradient directions.
+const u8 kPerm[256] = {151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190,6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168,68,175,74,165,71,134,139,48,27,166,77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54,65,25,63,161,1,216,80,73,209,76,132,187,208,89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186,3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42,223,183,170,213,119,248,152,2,44,154,163,70,221,153,101,155,167,43,172,9,129,22,39,253,19,98,108,110,79,113,224,232,178,185,112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241,81,51,145,235,249,14,239,107,49,192,214,31,181,199,106,157,184,84,204,176,115,121,50,45,127,4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180};
+inline Scalar perlinFade(Scalar t) { return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f); }
+inline Scalar perlinGrad(u32 h, Scalar dx, Scalar dy) {
+  switch (h & 7) {
+    case 0: return dx + dy;
+    case 1: return -dx + dy;
+    case 2: return dx - dy;
+    case 3: return -dx - dy;
+    case 4: return dx;
+    case 5: return -dx;
+    case 6: return dy;
+    default: return -dy;
+  }
+}
+inline u32 perlinHash(i32 a, i32 b) { return kPerm[(kPerm[a & 255] + static_cast<u32>(b)) & 255]; }
+}  // namespace
+
+Scalar Mathf::PerlinNoise(Scalar x, Scalar y) {
+  const Scalar fx = Mathf::Floor(x), fy = Mathf::Floor(y);
+  const Scalar xf = x - fx, yf = y - fy;
+  const i32 xi = static_cast<i32>(fx) & 255, yi = static_cast<i32>(fy) & 255;
+  const Scalar n00 = perlinGrad(perlinHash(xi, yi), xf, yf);
+  const Scalar n10 = perlinGrad(perlinHash(xi + 1, yi), xf - 1.0f, yf);
+  const Scalar n01 = perlinGrad(perlinHash(xi, yi + 1), xf, yf - 1.0f);
+  const Scalar n11 = perlinGrad(perlinHash(xi + 1, yi + 1), xf - 1.0f, yf - 1.0f);
+  const Scalar u = perlinFade(xf), v = perlinFade(yf);
+  const Scalar a = n00 + (n10 - n00) * u, b = n01 + (n11 - n01) * u;
+  return Mathf::Clamp01(0.5f + 0.5f * (a + (b - a) * v));
+}
+
 }  // namespace rensga

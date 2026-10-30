@@ -32,6 +32,8 @@ Scene parseScene(const json& sj) {
     o.name = oj.value("name", "");
     if (oj.contains("parent") && oj["parent"].is_string()) o.parentGuid = oj["parent"].get<std::string>();
     o.active = oj.value("active", true);
+    o.tag = oj.value("tag", "");
+    o.layer = oj.value("layer", 0);
     if (oj.contains("transform")) {
       readArr(oj["transform"], "position", o.position);
       readArr(oj["transform"], "rotation", o.rotation);

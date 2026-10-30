@@ -209,3 +209,17 @@ TEST(mathu_random_deterministic) {
     CHECK(Random::insideUnitCircle().sqrMagnitude() <= 1.0f);
   }
 }
+
+// Golden values from an independent double-precision reference of the same algorithm (Perlin's permutation, 8 gradients).
+TEST(mathu_perlin_noise_golden) {
+  struct G { float x, y, v; };
+  const G g[] = {{0, 0, 0.5f}, {0.5f, 0.5f, 0.25f}, {1.25f, 3.75f, 0.550042f}, {-2.3f, 4.1f, 0.398253f}, {10.7f, -8.2f, 0.720218f},
+                 {100.123f, 200.456f, 0.311356f}, {0.1f, 0.9f, 0.449971f}, {-0.5f, -0.5f, 0.3125f}};
+  for (const G& c : g) CHECK(Mathf::Abs(Mathf::PerlinNoise(c.x, c.y) - c.v) < 1e-4f);
+  CHECK_EQ(Mathf::PerlinNoise(3.3f, 7.7f), Mathf::PerlinNoise(3.3f, 7.7f));  // deterministic
+  CHECK(Mathf::Abs(Mathf::PerlinNoise(0.3f, 0.6f) - Mathf::PerlinNoise(256.3f, 0.6f)) < 1e-4f);  // period 256
+  for (int i = 0; i < 2000; ++i) {
+    const float n = Mathf::PerlinNoise(static_cast<float>(i) * 0.0731f - 50.0f, static_cast<float>(i) * 0.1337f);
+    CHECK(n >= 0.0f && n <= 1.0f);
+  }
+}
