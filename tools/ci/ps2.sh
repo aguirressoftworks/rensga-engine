@@ -19,5 +19,5 @@ PACK="${RENSGA_PS2_PACK:-templates/psp/Library/Cooked/psp/game.rpak}"
 # Streamed audio (Streaming/*.wav, copied next to the pack by the cooker) goes on the disc root too.
 STREAMED=""
 if [ -n "$PACK" ]; then for f in "$(dirname "$PACK")"/*.wav; do [ -f "$f" ] && STREAMED="$STREAMED $f"; done; fi
-tools/docker/ps2.sh tools/ps2/make_iso.sh "$B/engine/runtime/rensga_ps2.elf" "$B/rensga.iso" $PACK $STREAMED
+tools/ps2/make_iso.sh "$B/engine/runtime/rensga_ps2.elf" "$B/rensga.iso" $PACK $STREAMED
 ls -la "$B/engine/runtime/rensga_hello.elf" "$B/engine/runtime/rensga_ps2.elf" "$B/rensga.iso"

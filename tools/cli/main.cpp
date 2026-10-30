@@ -12,6 +12,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "modules_cmd.h"
 #include "rensga/pipeline/pipeline.h"
 
 using namespace rensga::pipeline;
@@ -19,6 +20,7 @@ using namespace rensga::pipeline;
 static void usage() {
   std::fprintf(stderr,
                "usage: rensga <validate|cook|build|play> [--target ID] [--json] [--quit-after SECONDS] [project]\n"
+               "       rensga modules <list|install|remove|verify|env|path|doctor> ...   (build support modules)\n"
                "  validate  check the project and its budgets (cooks into the cache)\n"
                "  cook      validate + cook the asset pack\n"
                "  build     release build: cook, compile, package (EBOOT.PBP)\n"
@@ -31,6 +33,7 @@ int main(int argc, char** argv) {
     return argc < 2 ? 2 : 0;
   }
   std::string cmd = argv[1];
+  if (cmd == "modules") return runModulesCommand(argc - 2, argv + 2);
   BuildRequest req;
   bool json = false;
   for (int i = 2; i < argc; ++i) {

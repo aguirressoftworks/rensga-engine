@@ -97,7 +97,7 @@ button.all{font:inherit;font-size:12.5px;padding:5px 11px;border-radius:8px;bord
 <li>Console limits enforced as data at cook time, so a game that builds also fits.</li>
 <li>Identical gameplay across a console build and its PC and Android builds.</li>
 <li>Adding a console means writing a target module, never changing editor core.</li>
-<li>Fully open source, with the three emulators bundled for testing.</li>
+<li>Fully open source, with the three emulators and every console toolchain installable from the Hub as modules, so nobody needs Docker.</li>
 </ol>
 <p><strong>Non-goals</strong></p>
 <ul>
@@ -335,10 +335,11 @@ third_party/emulators/  ppsspp/ pcsx2/ pcsx-redux/ (pinned, with licenses)
 <p><strong>PC enhancements.</strong> PC and Android builds render at the native resolution scaled up by default. Optional enhancements (higher resolution, perspective-correct textures on PSX) are project settings, off by default.</p>
 <h2>Editor</h2>
 <p>The editor is a data editor: every panel views or changes assets through reflection and the undo stack, and it runs on Windows and Linux using Dear ImGui (docking) on SDL2 and OpenGL.</p>
-<p><strong>Panels.</strong> Hierarchy, Scene view with ImGuizmo handles, Game view, Inspector built from reflection, Project window over the asset database, Console, VRAM map, Animation window, Animator graph (imnodes), Profiler, Build Settings, Project Settings and the emulator manager. (Editor 0–13; PSX Editor 2)</p>
+<p><strong>Panels.</strong> Hierarchy, Scene view with ImGuizmo handles, Game view, Inspector built from reflection, Project window over the asset database, Console, VRAM map, Animation window, Animator graph (imnodes), Profiler, Build Settings, Project Settings, the emulator manager and Hub &gt; Modules. (Editor 0–13 and 11.5; PSX Editor 2)</p>
 <p><strong>Two ways to play.</strong> The Play dropdown chooses between Play in editor (a PC preview through the profile's preview shader, with live budget bars) and Play on console (a development build running in the bundled emulator). Stop reverts play-mode changes in the editor preview. (Editor 5; Emulator Play roadmap; PSP Editor 3; PSX Editor 3)</p>
 <p><strong>Scripting workflow.</strong> Create › C++ Script makes a <code>Behaviour</code> from a template. Game code is a separate library that the editor rebuilds and hot-reloads on save by serializing script state, swapping the library and restoring state. Release builds link the same code statically. (Editor 4)</p>
-<p><strong>Build pipeline.</strong> Validate budgets, cook for the target, compile in the console's Docker toolchain, package (BIN/CUE, EBOOT.PBP, ISO, exe, AppImage, APK), then optionally launch. Play skips packaging and boots the executable directly with assets read from the project folder. (Editor 11; Emulator Play 2)</p>
+<p><strong>Build pipeline.</strong> Validate budgets, cook for the target, compile with the target's native toolchain module, package (BIN/CUE, EBOOT.PBP, ISO, exe, AppImage, APK), then optionally launch. If the target's build support module is missing, Play and Build offer to install it (Editor 11.5). Play skips packaging and boots the executable directly with assets read from the project folder. (Editor 11; Emulator Play 2)</p>
+<p><strong>Hub and modules.</strong> The project hub (like Unity Hub) lists projects and has a Modules tab. Each console or cross target is a build support module the user installs per user, with progress, a cancel button and a license prompt before anything that has a license (Google's Android SDK). Missing modules are named in the target's validation message with the install command. No module needs Docker. (Editor 0 and 11.5)</p>
 <p><strong>Templates.</strong> New Project offers PSX, PSP and PS2 templates, each with its ConsoleTarget, a primitive character, a primitive test level and a shared third-person controller script that compiles for both float and fixed-point profiles. (PSX, PSP and PS2 Template roadmaps)</p>
 <p><strong>Extensibility.</strong> Projects add custom inspectors, editor windows and menu items in C++, registered by macro and hot-reloaded with game code. (Editor 13)</p>
 <h2>Scripting API</h2>
@@ -355,18 +356,18 @@ third_party/emulators/  ppsspp/ pcsx2/ pcsx-redux/ (pinned, with licenses)
     }
 };
 </code></pre>
-<p><strong>Design rules.</strong> Unity names are kept (<code>GetComponent</code>, <code>Instantiate</code>, <code>Destroy</code>, <code>Raycast</code>, <code>StartCoroutine</code>). C++ has no properties, so properties become getters and setters. No exceptions, no per-frame allocation. (API 0)</p>
+<p><strong>Design rules.</strong> Unity names are kept (<code>GetComponent</code>, <code>Instantiate</code>, <code>Destroy</code>, <code>Raycast</code>, <code>StartCoroutine</code>). C++ has no properties, so properties become getters and setters. No exceptions, no per-frame allocation. The full rule set is in <a href="../api-rules.md">api-rules.md</a>. (API 0)</p>
 <p><strong>Ref handles.</strong> Scripts hold <code>Ref&lt;T&gt;</code>, a generational handle that reads as null after <code>Destroy</code>, like Unity's fake null, so scripts never touch a dangling pointer. (API 0 and 2)</p>
 <p><strong>Scalar.</strong> Scripts use the <code>Scalar</code> type and the math classes; on PSX they are fixed-point and using <code>float</code> in game code is a compile error with a hint. (PSX API 0–1)</p>
 <p><strong>Data hooks.</strong> Attribute macros (<code>SERIALIZE_FIELD</code>, <code>RANGE</code>, <code>HEADER</code>, <code>TOOLTIP</code>, <code>REQUIRE_COMPONENT</code>) put script fields in the inspector, and serialized events bind script methods to other objects in the editor, so behaviour is tuned as data. (API 4 and 11)</p>
 <p><strong>Coverage.</strong> Math, object model, lifecycle, time, coroutines, input, physics, rendering, animation, audio, scenes, saves, UI, platform and profiling, with per-profile additions: PSP system services and optional ad hoc play; PSX segmented meshes, XA music, memory card saves and optional FMV. (API 1–13; PSP API; PSX API)</p>
 <h2>Toolchains, emulators and testing</h2>
-<p>Every console build runs inside a pinned Docker toolchain and every emulator is a pinned bundled binary, so a project builds and plays the same on every contributor's machine.</p>
+<p>Users never need Docker. Every console and cross build uses a build support module: a pinned, sha256-verified, prebuilt native toolchain archive for the user's host (Linux x86_64 or Windows x86_64, the two hosts the editor runs on). Modules are installed per user from Hub &gt; Modules or with <code>rensga modules install &lt;id&gt;</code>, into a modules folder under the user's data directory. Emulators are modules too, or system installs the user points the editor at. CI installs the same modules, so what we test is what users get.</p>
 <table>
 <thead>
 <tr>
 <th>Target</th>
-<th>Toolchain</th>
+<th>Native toolchain module (hosts)</th>
 <th>Emulator</th>
 <th>BIOS</th>
 <th>Automated boot test</th>
@@ -375,41 +376,59 @@ third_party/emulators/  ppsspp/ pcsx2/ pcsx-redux/ (pinned, with licenses)
 <tbody>
 <tr>
 <td>PSX</td>
-<td>PSn00bSDK (mipsel GCC), mkpsxiso</td>
+<td><code>psx-build</code>: PSn00bSDK + mipsel GCC, mkpsxiso (Linux, Windows)</td>
 <td>PCSX-Redux</td>
-<td>OpenBIOS, bundled</td>
+<td>OpenBIOS</td>
 <td>Public CI</td>
 </tr>
 <tr>
 <td>PSP</td>
-<td>pspdev (psp-gcc), SDL2</td>
+<td><code>psp-build</code>: pspdev, psp-gcc, SDL2 (Linux from upstream releases; Windows built by our CI, shown as unpublished until released)</td>
 <td>PPSSPP</td>
 <td>None needed</td>
 <td>Public CI, headless</td>
 </tr>
 <tr>
 <td>PS2</td>
-<td>ps2dev (EE GCC), PS2SDK, gsKit, ps2gl, SDL2</td>
+<td><code>ps2-build</code>: ps2dev, EE GCC, PS2SDK, gsKit, ps2gl, SDL2 (Linux, Windows); the ISO is written by our own tool</td>
 <td>PCSX2</td>
 <td>User's own dump</td>
 <td>Self-hosted runner with a maintainer's private dump</td>
 </tr>
 <tr>
-<td>PC / Android</td>
-<td>Host compilers, Android NDK via Gradle</td>
+<td>Windows</td>
+<td><code>windows-build</code>: llvm-mingw (ucrt) + SDL2 (Linux, Windows)</td>
+<td>None (Wine in CI)</td>
+<td>None</td>
+<td>Public CI</td>
+</tr>
+<tr>
+<td>Android</td>
+<td><code>android-build</code>: Temurin JDK 17, Android command-line tools, Gradle, then NDK, platform and build-tools via <code>sdkmanager</code></td>
+<td>None</td>
+<td>None</td>
+<td>Public CI (built; device runs are local)</td>
+</tr>
+<tr>
+<td>Linux</td>
+<td>Host compiler plus <code>build-tools</code> (portable CMake and Ninja) when the host lacks them</td>
 <td>None</td>
 <td>None</td>
 <td>Public CI</td>
 </tr>
 </tbody>
 </table>
+<p><strong>Module catalog.</strong> One JSON file per module in <code>tools/modules/manifest.d/</code>: id, version, kind (toolchain, emulator or tools), target, dependencies, license, source link, notice, per-host URL, sha256, size, archive type and status, environment variables and a check command. Status is <code>available</code>, <code>unpublished</code> (we build it in our own CI but have not released it yet; the Hub says so plainly) or <code>manual</code> (the user installs it and points the editor at it). (Editor 11.5)</p>
+<p><strong>Install.</strong> Download with curl into a cache (resumable), verify sha256, extract into a temporary folder, rename into place, then run the module's check command. A failed or cancelled install never leaves a half-installed toolchain. <code>rensga modules</code> has list, install, remove, verify, env, path and doctor.</p>
+<p><strong>Toolchain resolution.</strong> The pipeline picks a backend from <code>RENSGA_TOOLCHAIN</code>: <code>auto</code> (the default) uses the native module if installed, then Docker if it is usable, then stops with "<Module name> is not installed. Install it from Hub &gt; Modules or run: rensga modules install <id>". <code>native</code> and <code>docker</code> force one backend. Docker is an optional contributor backend and is never required.</p>
 <p><strong>Emulator sandboxing.</strong> Each project gets its own emulator config folder and memory card, so play sessions never change the user's personal emulator settings. (Emulator Play 0)</p>
 <p><strong>Test layers.</strong> Unit tests for math and core on every target; API tests run inside the emulators and compared against the PC build of the same profile; template projects boot on every engine change; real-hardware passes before each release. (API 13; PSP API 7; PSX API 7; Template roadmaps)</p>
 <p><strong>Known limits.</strong> OpenBIOS does not handle memory cards yet, so PSX development builds also save to a host file. Public CI cannot boot PS2 builds because the PS2 BIOS cannot be distributed.</p>
 <h2>Open source, licensing and distribution</h2>
 <p>The engine, editor, API, tools and templates are released under the MIT license, so games made with them can use any license their authors choose.</p>
 <ul>
-<li><strong>Bundled emulators.</strong> PCSX2, PPSSPP and PCSX-Redux are GPL programs shipped unmodified as separate executables, each with its license and a link to its source. They are launched as separate processes; loading an emulator core inside the editor (the optional in-view mode) needs a licensing review first.</li>
+<li><strong>Toolchain modules.</strong> The GPL, BSD and MIT toolchains (pspdev, ps2dev, PSn00bSDK, llvm-mingw and others) are shipped unmodified, each with its license notice and a link to its source. They are downloaded on demand from upstream releases or from our own GitHub releases and verified by sha256. The Android SDK and NDK are downloaded from Google after the user accepts Google's license and are never redistributed by us. Docker is optional for contributors, and CI installs the same modules users get.</li>
+<li><strong>Emulator modules.</strong> PCSX2, PPSSPP and PCSX-Redux are GPL programs shipped unmodified as separate executables, each with its license and a link to its source. They are launched as separate processes; loading an emulator core inside the editor (the optional in-view mode) needs a licensing review first.</li>
 <li><strong>Console SDKs.</strong> Games link PSn00bSDK, PSPSDK or PS2SDK; each SDK's license is checked and its notices are included in every package before the first release.</li>
 <li><strong>BIOS.</strong> No Sony BIOS is ever distributed. PSX uses OpenBIOS, PSP needs none, PS2 asks the user for their own dump.</li>
 <li><strong>Trademarks.</strong> Descriptions say a build runs on the console; the Rensga name, the pequi icon and all packages use no Sony marks.</li>
@@ -438,10 +457,10 @@ third_party/emulators/  ppsspp/ pcsx2/ pcsx-redux/ (pinned, with licenses)
 </tr>
 <tr>
 <td>Editor</td>
-<td>0–13 + TargetModule</td>
-<td>~52 wk</td>
+<td>0–13 + TargetModule + 11.5</td>
+<td>~55 wk</td>
 <td>Engine 3</td>
-<td>Shell, reflection, scene, assets, scripting, play mode, prefabs, 2D/3D tools, animation, UI, build, profiler, extensibility</td>
+<td>Shell, reflection, scene, assets, scripting, play mode, prefabs, 2D/3D tools, animation, UI, build, build support modules, profiler, extensibility</td>
 </tr>
 <tr>
 <td>API</td>

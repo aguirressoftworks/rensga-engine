@@ -1,0 +1,28 @@
+{
+  "id": "psp-build",
+  "name": "PSP Build Support",
+  "kind": "toolchain",
+  "target": "psp",
+  "version": "20261001",
+  "requires": ["build-tools"],
+  "license": "GPL-3.0-or-later with GCC runtime exception, BSD-3-Clause (PSPSDK)",
+  "source": "https://github.com/pspdev/pspdev (release v20261001; sources of every component are linked from that repository)",
+  "notice": "pspdev toolchain v20261001 (GCC, binutils, newlib, PSPSDK, SDL2 port), unmodified official release archive. Runs as separate processes. Licenses of each component are inside the archive.",
+  "hosts": {
+    "linux-x86_64": {
+      "status": "available",
+      "url": "https://github.com/pspdev/pspdev/releases/download/v20261001/pspdev-ubuntu-latest-x86_64.tar.gz",
+      "sha256": "a86efe624e770005290919617859e9df24bd8fcd3e364f4587f23ec7364b0acd",
+      "size": 172980272,
+      "archive": "tar.gz",
+      "strip": 1
+    },
+    "windows-x86_64": {
+      "status": "unpublished",
+      "note": "pspdev publishes no Windows archive; our toolchains workflow builds one with MSYS2 and will release it."
+    }
+  },
+  "env": {"PSPDEV": "{root}"},
+  "path": ["{root}/bin"],
+  "check": ["psp-gcc", "--version"]
+}

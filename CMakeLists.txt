@@ -91,8 +91,12 @@ rensga_add_if_present(engine/runtime)
 
 # Host-only tools and editor.
 if(RENSGA_BUILD_TOOLS OR RENSGA_BUILD_EDITOR)
+  rensga_add_if_present(tools/modules)  # build support modules: catalog + installer (before pipeline, which links it)
   rensga_add_if_present(tools/cooker)
   rensga_add_if_present(tools/pipeline)
+endif()
+if(RENSGA_BUILD_TOOLS)
+  rensga_add_if_present(tools/iso)
 endif()
 if(RENSGA_BUILD_EDITOR)
   rensga_add_if_present(editor/core)

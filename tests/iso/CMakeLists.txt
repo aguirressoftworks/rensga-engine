@@ -1,0 +1,10 @@
+if(TARGET rensga_iso)
+  add_executable(rensga_iso_tests ../test_main.cpp iso_tests.cpp)
+  target_link_libraries(rensga_iso_tests PRIVATE rensga_iso)
+  target_include_directories(rensga_iso_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  rensga_host_target(rensga_iso_tests)
+  add_test(NAME iso_tests COMMAND rensga_iso_tests)
+  # Cross-check with 7z (skipped, exit 77, when 7z is not installed).
+  add_test(NAME iso_7z_list COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/check_7z.sh $<TARGET_FILE:rensga-iso>)
+  set_tests_properties(iso_7z_list PROPERTIES SKIP_RETURN_CODE 77)
+endif()

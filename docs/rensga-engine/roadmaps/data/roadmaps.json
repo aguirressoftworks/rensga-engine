@@ -30,11 +30,11 @@
         "title": "Toolchain and build matrix",
         "subtitle": "One CMake repo, four targets, CI green",
         "estimate": "2 wk",
-        "note": "ps2dev Docker image for the EE toolchain, CMake presets per target, SDL2 linked on all four. Output: ELF + ISO for PCSX2, exe, Linux binary, APK. CI builds every target on each push so the PS2 build never silently rots.",
+        "note": "the ps2dev toolchain (installed as a build support module, no Docker needed) for the EE compiler, CMake presets per target, SDL2 linked on all four. Output: ELF + ISO for PCSX2, exe, Linux binary, APK. CI builds every target on each push so the PS2 build never silently rots.",
         "topics": [
           {
             "label": "CMake presets per target",
-            "prompt": "Set up a CMake project with presets for PS2 (ps2dev Docker toolchain), Windows, Linux and Android, all linking SDL2. Show the CMakePresets.json and folder layout"
+            "prompt": "Set up a CMake project with presets for PS2 (native ps2dev toolchain), Windows, Linux and Android, all linking SDL2. Show the CMakePresets.json and folder layout"
           },
           {
             "label": "ELF, ISO and PCSX2 host:",
@@ -46,7 +46,7 @@
           },
           {
             "label": "CI for all targets",
-            "prompt": "Write a GitHub Actions workflow that builds my engine for PS2 using the ps2dev Docker image, plus Windows, Linux and Android, and uploads the artifacts"
+            "prompt": "Write a GitHub Actions workflow that builds my engine for PS2 using the ps2dev toolchain installed from a pinned, checksummed archive, plus Windows, Linux and Android, and uploads the artifacts"
           }
         ],
         "exercises": [
@@ -350,11 +350,11 @@
     "stats": [
       {
         "label": "total",
-        "value": "~52 weeks"
+        "value": "~55 weeks"
       },
       {
         "label": "phases",
-        "value": "14 + 0.5"
+        "value": "14 + 0.5 + 11.5"
       },
       {
         "label": "starts after",
@@ -721,7 +721,7 @@
         "title": "Build pipeline",
         "subtitle": "Build Settings, packaging, Build and Run",
         "estimate": "3 wk",
-        "note": "Build Settings window: scenes in build, target, development flag. One click runs the budget validator, cooks assets for the target, compiles scripts statically into the runtime (Docker toolchains) and outputs the console image, exe, AppImage or APK. Build and Run launches the bundled emulator; an emulator manager shows pinned versions and prompts for the PS2 BIOS.",
+        "note": "Build Settings window: scenes in build, target, development flag. One click runs the budget validator, cooks assets for the target, compiles scripts statically into the runtime (native build support modules, see Editor 11.5) and outputs the console image, exe, AppImage or APK. Build and Run launches the bundled emulator; an emulator manager shows pinned versions and prompts for the PS2 BIOS.",
         "topics": [
           {
             "label": "build pipeline",
@@ -729,7 +729,7 @@
           },
           {
             "label": "console builds from editor",
-            "prompt": "Run the console Docker toolchains from my editor on Windows and Linux to build, with progress and errors in the console"
+            "prompt": "Run the console toolchains installed as native build support modules from my editor on Windows and Linux, with no Docker, to build, with progress and errors in the console"
           },
           {
             "label": "budget validator",
@@ -744,6 +744,38 @@
           {
             "label": "console image and exe from one project",
             "prompt": "Give me an exercise: build the same project to a console image and a Windows exe and play both side by side"
+          }
+        ]
+      },
+      {
+        "number": "11.5",
+        "group": 3,
+        "title": "Build support modules",
+        "subtitle": "Native toolchains and emulators from the Hub, no Docker",
+        "estimate": "3 wk",
+        "note": "Each console and cross build is a build support module: a pinned, sha256-verified, prebuilt native toolchain archive for the user's host (Linux or Windows), installed per user from Hub > Modules or `rensga modules install <id>`. Emulators work the same way where an official portable build exists. The pipeline resolves modules by id, offers to install a missing one when Play or Build is pressed, and asks the user to accept a license before anything with one (Google's Android SDK) is installed. CI installs the same modules. Docker stays an optional contributor backend.",
+        "topics": [
+          {
+            "label": "module catalog and pinning",
+            "prompt": "Design a catalog of build support modules for a game editor: one JSON file per module with id, version, per-host download URL, sha256, size, license, source link, environment variables and a check command. Explain how pinning keeps builds the same on every machine"
+          },
+          {
+            "label": "installer with sha256, cache and atomic install",
+            "prompt": "Write a C++17 module installer that downloads an archive with curl, resumes from a cache, verifies sha256, extracts to a temp folder and renames it into place so a failed install never leaves a half-installed toolchain. Include cancel and progress callbacks"
+          },
+          {
+            "label": "Hub modules UI with license prompts",
+            "prompt": "Design a Hub > Modules window like Unity Hub's: list modules with installed, available, unpublished and manual states, install and remove buttons with progress, and a license prompt that must be accepted before the install runs"
+          },
+          {
+            "label": "building Windows-hosted toolchains in CI",
+            "prompt": "Write a GitHub Actions workflow that builds a cross-compiler toolchain for Windows hosts, packs it as a zip with a license notice and source link, and publishes it as a release asset that a module catalog can pin by sha256"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "PSP without Docker",
+            "prompt": "Give me an exercise: on a clean machine with no Docker, install the PSP build support module from the Hub, then build and play the PSP template in the bundled emulator"
           }
         ]
       },
@@ -1243,11 +1275,11 @@
         "title": "pspdev toolchain and PSP target",
         "subtitle": "Preset, EBOOT.PBP, bundled PPSSPP, CI",
         "estimate": "1.5 wk",
-        "note": "pspdev Docker image, CMake preset for profile psp, SDL2 from psp-pacman. Packaging: ELF to PRX to EBOOT.PBP with PARAM.SFO and ICON0. Run in the bundled PPSSPP; CI boots the build headless as a smoke test.",
+        "note": "pspdev toolchain (the psp-build module, no Docker needed), CMake preset for profile psp, SDL2 from psp-pacman. Packaging: ELF to PRX to EBOOT.PBP with PARAM.SFO and ICON0. Run in the bundled PPSSPP; CI boots the build headless as a smoke test.",
         "topics": [
           {
             "label": "PSP CMake preset",
-            "prompt": "Add a PSP target to my CMake engine using the pspdev Docker image and SDL2 from psp-pacman, with a preset per profile and target"
+            "prompt": "Add a PSP target to my CMake engine using the native pspdev toolchain and SDL2 from psp-pacman, with a preset per profile and target"
           },
           {
             "label": "EBOOT.PBP packaging",
@@ -1622,11 +1654,11 @@
         "title": "Build and Run in PPSSPP",
         "subtitle": "One click to a running EBOOT",
         "estimate": "2 wk",
-        "note": "Build pipeline calls the PSP module: validate, cook, compile in Docker, package EBOOT, launch the bundled PPSSPP pointed at it, and pipe its log into the console. Optional deploy to a real PSP over USB.",
+        "note": "Build pipeline calls the PSP module: validate, cook, compile with the psp-build module, package EBOOT, launch the bundled PPSSPP pointed at it, and pipe its log into the console. Optional deploy to a real PSP over USB.",
         "topics": [
           {
             "label": "PSP Build and Run",
-            "prompt": "Implement Build and Run for PSP in my editor: compile in the pspdev Docker image, package EBOOT, launch bundled PPSSPP and stream logs to the console"
+            "prompt": "Implement Build and Run for PSP in my editor: compile with the native pspdev toolchain from the psp-build module, offer to install it if missing, package EBOOT, launch bundled PPSSPP and stream logs to the console"
           },
           {
             "label": "emulator manager",
@@ -1936,11 +1968,11 @@
         "title": "PSn00bSDK toolchain and PSX target",
         "subtitle": "PS-EXE, BIN/CUE, bundled PCSX-Redux",
         "estimate": "2 wk",
-        "note": "mipsel GCC + PSn00bSDK in a Docker image, CMake preset for profile psx. Output: PS-EXE, then BIN/CUE via mkpsxiso. Runs in the bundled PCSX-Redux with OpenBIOS, so nobody needs a Sony BIOS to test. CI boots it as a smoke test.",
+        "note": "mipsel GCC + PSn00bSDK as a native toolchain module (psx-build, no Docker needed), CMake preset for profile psx. Output: PS-EXE, then BIN/CUE via mkpsxiso. Runs in the bundled PCSX-Redux with OpenBIOS, so nobody needs a Sony BIOS to test. CI boots it as a smoke test.",
         "topics": [
           {
             "label": "PSX CMake preset",
-            "prompt": "Add a PSX target to my CMake engine using PSn00bSDK in Docker, with a preset for profile psx producing a PS-EXE"
+            "prompt": "Add a PSX target to my CMake engine using PSn00bSDK installed as a native toolchain, with a preset for profile psx producing a PS-EXE"
           },
           {
             "label": "BIN/CUE with mkpsxiso",
@@ -2351,11 +2383,11 @@
         "title": "Build and Run in PCSX-Redux",
         "subtitle": "One click to a booting disc image",
         "estimate": "2 wk",
-        "note": "Validate, cook, compile in Docker, build BIN/CUE, launch bundled PCSX-Redux with OpenBIOS (or the user's BIOS if set), stream its TTY output to the console. Optional deploy to real hardware over serial.",
+        "note": "Validate, cook, compile with the psx-build module, build BIN/CUE, launch bundled PCSX-Redux with OpenBIOS (or the user's BIOS if set), stream its TTY output to the console. Optional deploy to real hardware over serial.",
         "topics": [
           {
             "label": "PSX Build and Run",
-            "prompt": "Implement Build and Run for PSX in my editor: compile with PSn00bSDK in Docker, build BIN/CUE, launch PCSX-Redux with OpenBIOS and stream TTY output to the console"
+            "prompt": "Implement Build and Run for PSX in my editor: compile with the native PSn00bSDK toolchain (offer to install it if missing), build BIN/CUE, launch PCSX-Redux with OpenBIOS and stream TTY output to the console"
           },
           {
             "label": "deploy over serial",

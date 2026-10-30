@@ -56,6 +56,7 @@ Planned layout: `engine/{core,api,profiles,backends}`, `editor/{core,targets}`, 
 - Check each console SDK's license (PSn00bSDK, PSPSDK, PS2SDK) and include its notices in every package.
 - Credit ideas or code borrowed from other projects (for example SplashEdit, psxsplash) in the docs and the source.
 - Pin every toolchain and emulator to a version.
+- **[code] Users never need Docker.** Console and cross builds use pinned, sha256-verified native build support modules, installed per user from Hub > Modules or with `rensga modules install <id>`. CI installs the same modules, so what CI tests is what users get. Docker is only an optional contributor backend (`RENSGA_TOOLCHAIN=docker`). A module that ships a GPL tool keeps it unmodified, with its license and source link, and runs it as a separate process. Google's Android SDK files are downloaded from Google after the user accepts its license, never redistributed.
 
 ## 6. Documentation [now]
 

@@ -1,4 +1,4 @@
-// PSP target module: cooker plugin lookup, Docker (pspdev) compile, EBOOT packaging, PPSSPP launcher.
+// PSP target module: cooker plugin lookup, compile with the PSP Build Support module (native; Docker as contributor fallback), EBOOT packaging, PPSSPP launcher.
 #include <fstream>
 #include <sstream>
 
@@ -7,6 +7,7 @@
 #include "rensga/cooker/cooker.h"
 #include "rensga/editor/target_module.h"
 #include "rensga/pipeline/process.h"
+#include "rensga/pipeline/toolchain.h"
 #include "ppsspp_launcher.h"
 
 namespace rensga {
@@ -34,17 +35,35 @@ void note(const EventSink& sink, Stage st, Status s, const std::string& msg) {
   sink(e);
 }
 
-// Runs a command in the pspdev Docker image (tools/docker/psp.sh), streaming output as Progress events.
-bool dockerRun(const BuildContext& ctx, Stage stage, const EventSink& sink, std::vector<std::string> cmd) {
-  ProcessSpec ps;
-  ps.argv.push_back((repoRoot() / "tools" / "docker" / "psp.sh").string());
-  for (auto& c : cmd) ps.argv.push_back(std::move(c));
-  ps.cwd = repoRoot();
-  ps.env.emplace_back("RENSGA_PROJECT_DIR", ctx.project.string());
-  std::string lastLine;
-  int rc = pipeline::runProcess(
-      ps, [&](const std::string& l) { lastLine = l; note(sink, stage, Status::Progress, l); }, ctx.cancel);
-  if (rc != 0) note(sink, stage, Status::Failed, "command failed (exit " + std::to_string(rc) + "): " + ps.argv[1] + " " + (ps.argv.size() > 2 ? ps.argv[2] : ""));
+constexpr const char* kModuleId = "psp-build";
+
+pipeline::ToolchainRunner makeRunner() {
+  return pipeline::ToolchainRunner(kModuleId, repoRoot() / "tools" / "docker" / "psp.sh");
+}
+
+// Picks native module or Docker (RENSGA_TOOLCHAIN=auto|native|docker); fails with how to install the module.
+bool resolveToolchain(pipeline::ToolchainRunner& tr, Stage stage, const EventSink& sink) {
+  std::string err;
+  if (!tr.resolve(err)) {
+    note(sink, stage, Status::Failed, err);
+    return false;
+  }
+  note(sink, stage, Status::Progress, std::string("toolchain: ") + pipeline::toolchainBackendName(tr.backend()) + " (" + kModuleId + ")");
+  return true;
+}
+
+int buildJobs() {
+  const char* j = std::getenv("RENSGA_JOBS");
+  int n = j ? std::atoi(j) : 0;
+  return n > 0 ? n : 4;
+}
+
+// Runs a build tool through the resolved toolchain, streaming output as Progress events.
+bool toolRun(pipeline::ToolchainRunner& tr, const BuildContext& ctx, Stage stage, const EventSink& sink, std::vector<std::string> cmd) {
+  const std::string what = cmd.empty() ? "" : cmd[0] + (cmd.size() > 1 ? " " + cmd[1] : "");
+  ProcessSpec ps = tr.spec(std::move(cmd), repoRoot(), {{"RENSGA_PROJECT_DIR", ctx.project.string()}});
+  int rc = pipeline::runProcess(ps, [&](const std::string& l) { note(sink, stage, Status::Progress, l); }, ctx.cancel);
+  if (rc != 0) note(sink, stage, Status::Failed, "command failed (exit " + std::to_string(rc) + "): " + what);
   return rc == 0;
 }
 
@@ -117,18 +136,24 @@ class PspTargetModule : public TargetModule {
   }
 
   bool compile(const BuildContext& ctx, EventSink sink) override {
-    fs::path cmakeDir = ctx.buildDir.parent_path() / ("cmake-" + ctx.buildDir.filename().string());
-    note(sink, Stage::Compile, Status::Progress, "configuring psp preset in Docker (" + cmakeDir.string() + ")");
+    pipeline::ToolchainRunner tr = makeRunner();
+    if (!resolveToolchain(tr, Stage::Compile, sink)) return false;
+    // Native and Docker builds keep separate CMake trees (generator and toolchain paths differ).
+    const bool native = tr.backend() == pipeline::ToolchainBackend::Native;
+    fs::path cmakeDir = ctx.buildDir.parent_path() / ((native ? "cmake-native-" : "cmake-") + ctx.buildDir.filename().string());
+    note(sink, Stage::Compile, Status::Progress, "configuring psp preset (" + cmakeDir.string() + ")");
     note(sink, Stage::Compile, Status::Progress, "reflection codegen");
     if (!prescanReflection(ctx, sink, cmakeDir / "reflect")) return false;
+    // Native builds use Ninja from the Build Tools module, so the host needs no make.
     std::vector<std::string> cfg = {"cmake", "--preset", "psp", "-B", cmakeDir.string(),
                                     "-DRENSGA_REFLECT_DIR=" + (cmakeDir / "reflect").string(),
                                     "-DRENSGA_PROJECT_DIR=" + ctx.project.string(),
                                     "-DRENSGA_GENERATED_DIR=" + ctx.generatedDir.string(),
                                     std::string("-DRENSGA_PSP_PRX=") + (ctx.release ? "ON" : "OFF")};
-    if (!dockerRun(ctx, Stage::Compile, sink, cfg)) return false;
+    if (native) cfg.insert(cfg.begin() + 5, {"-G", "Ninja"});
+    if (!toolRun(tr, ctx, Stage::Compile, sink, cfg)) return false;
     note(sink, Stage::Compile, Status::Progress, "building rensga_game");
-    if (!dockerRun(ctx, Stage::Compile, sink, {"cmake", "--build", cmakeDir.string(), "--target", "rensga_game", "-j4"}))
+    if (!toolRun(tr, ctx, Stage::Compile, sink, {"cmake", "--build", cmakeDir.string(), "--target", "rensga_game", "-j" + std::to_string(buildJobs())}))
       return false;
 
     std::error_code ec;
@@ -161,12 +186,14 @@ class PspTargetModule : public TargetModule {
       title = nlohmann::json::parse(f).value("name", title);
     } catch (...) {
     }
+    pipeline::ToolchainRunner tr = makeRunner();
+    if (!resolveToolchain(tr, Stage::Package, sink)) return false;
     fs::path icon = fs::path(RENSGA_PSP_ASSETS_DIR) / "ICON0.png";
     fs::path sfo = ctx.buildDir / "PARAM.SFO";
-    if (!dockerRun(ctx, Stage::Package, sink, {"mksfoex", "-d", "MEMSIZE=1", title, sfo.string()})) return false;
+    if (!toolRun(tr, ctx, Stage::Package, sink, {"mksfoex", "-d", "MEMSIZE=1", title, sfo.string()})) return false;
     std::vector<std::string> pack = {"pack-pbp", (ctx.buildDir / "EBOOT.PBP").string(), sfo.string(), icon.string(),
                                      "NULL", "NULL", "NULL", "NULL", (ctx.buildDir / "rensga_game.prx").string(), "NULL"};
-    if (!dockerRun(ctx, Stage::Package, sink, pack)) return false;
+    if (!toolRun(tr, ctx, Stage::Package, sink, pack)) return false;
     return fs::exists(ctx.buildDir / "EBOOT.PBP");
   }
 

@@ -25,7 +25,7 @@ The engine succeeds when a Unity user can create a project from a template, asse
 3. Console limits enforced as data at cook time, so a game that builds also fits.
 4. Identical gameplay across a console build and its PC and Android builds.
 5. Adding a console means writing a target module, never changing editor core.
-6. Fully open source, with the three emulators bundled for testing.
+6. Fully open source, with the three emulators and every console toolchain installable from the Hub as modules, so nobody needs Docker.
 
 **Non-goals**
 
@@ -165,13 +165,15 @@ A project has exactly one profile (PSX, PSP or PS2) and always builds for that c
 
 The editor is a data editor: every panel views or changes assets through reflection and the undo stack, and it runs on Windows and Linux using Dear ImGui (docking) on SDL2 and OpenGL.
 
-**Panels.** Hierarchy, Scene view with ImGuizmo handles, Game view, Inspector built from reflection, Project window over the asset database, Console, VRAM map, Animation window, Animator graph (imnodes), Profiler, Build Settings, Project Settings and the emulator manager. (Editor 0–13; PSX Editor 2)
+**Panels.** Hierarchy, Scene view with ImGuizmo handles, Game view, Inspector built from reflection, Project window over the asset database, Console, VRAM map, Animation window, Animator graph (imnodes), Profiler, Build Settings, Project Settings, the emulator manager and Hub > Modules. (Editor 0–13 and 11.5; PSX Editor 2)
 
 **Two ways to play.** The Play dropdown chooses between Play in editor (a PC preview through the profile's preview shader, with live budget bars) and Play on console (a development build running in the bundled emulator). Stop reverts play-mode changes in the editor preview. (Editor 5; Emulator Play roadmap; PSP Editor 3; PSX Editor 3)
 
 **Scripting workflow.** Create › C++ Script makes a `Behaviour` from a template. Game code is a separate library that the editor rebuilds and hot-reloads on save by serializing script state, swapping the library and restoring state. Release builds link the same code statically. (Editor 4)
 
-**Build pipeline.** Validate budgets, cook for the target, compile in the console's Docker toolchain, package (BIN/CUE, EBOOT.PBP, ISO, exe, AppImage, APK), then optionally launch. Play skips packaging and boots the executable directly with assets read from the project folder. (Editor 11; Emulator Play 2)
+**Build pipeline.** Validate budgets, cook for the target, compile with the target's native toolchain module, package (BIN/CUE, EBOOT.PBP, ISO, exe, AppImage, APK), then optionally launch. If the target's build support module is missing, Play and Build offer to install it (Editor 11.5). Play skips packaging and boots the executable directly with assets read from the project folder. (Editor 11; Emulator Play 2)
+
+**Hub and modules.** The project hub (like Unity Hub) lists projects and has a Modules tab. Each console or cross target is a build support module the user installs per user, with progress, a cancel button and a license prompt before anything that has a license (Google's Android SDK). Missing modules are named in the target's validation message with the install command. No module needs Docker. (Editor 0 and 11.5)
 
 **Templates.** New Project offers PSX, PSP and PS2 templates, each with its ConsoleTarget, a primitive character, a primitive test level and a shared third-person controller script that compiles for both float and fixed-point profiles. (PSX, PSP and PS2 Template roadmaps)
 
@@ -207,14 +209,22 @@ class PlayerController : public Behaviour {
 
 ## Toolchains, emulators and testing
 
-Every console build runs inside a pinned Docker toolchain and every emulator is a pinned bundled binary, so a project builds and plays the same on every contributor's machine.
+Users never need Docker. Every console and cross build uses a build support module: a pinned, sha256-verified, prebuilt native toolchain archive for the user's host (Linux x86_64 or Windows x86_64, the two hosts the editor runs on). Modules are installed per user from Hub > Modules or with `rensga modules install <id>`, into a modules folder under the user's data directory. Emulators are modules too, or system installs the user points the editor at. CI installs the same modules, so what we test is what users get.
 
-| Target | Toolchain | Emulator | BIOS | Automated boot test |
+| Target | Native toolchain module (hosts) | Emulator | BIOS | Automated boot test |
 | --- | --- | --- | --- | --- |
-| PSX | PSn00bSDK (mipsel GCC), mkpsxiso | PCSX-Redux | OpenBIOS, bundled | Public CI |
-| PSP | pspdev (psp-gcc), SDL2 | PPSSPP | None needed | Public CI, headless |
-| PS2 | ps2dev (EE GCC), PS2SDK, gsKit, ps2gl, SDL2 | PCSX2 | User's own dump | Self-hosted runner with a maintainer's private dump |
-| PC / Android | Host compilers, Android NDK via Gradle | None | None | Public CI |
+| PSX | `psx-build`: PSn00bSDK + mipsel GCC, mkpsxiso (Linux, Windows) | PCSX-Redux | OpenBIOS | Public CI |
+| PSP | `psp-build`: pspdev, psp-gcc, SDL2 (Linux from upstream releases; Windows built by our CI, shown as unpublished until released) | PPSSPP | None needed | Public CI, headless |
+| PS2 | `ps2-build`: ps2dev, EE GCC, PS2SDK, gsKit, ps2gl, SDL2 (Linux, Windows); the ISO is written by our own tool | PCSX2 | User's own dump | Self-hosted runner with a maintainer's private dump |
+| Windows | `windows-build`: llvm-mingw (ucrt) + SDL2 (Linux, Windows) | None (Wine in CI) | None | Public CI |
+| Android | `android-build`: Temurin JDK 17, Android command-line tools, Gradle, then NDK, platform and build-tools via `sdkmanager` | None | None | Public CI (built; device runs are local) |
+| Linux | Host compiler plus `build-tools` (portable CMake and Ninja) when the host lacks them | None | None | Public CI |
+
+**Module catalog.** One JSON file per module in `tools/modules/manifest.d/`: id, version, kind (toolchain, emulator or tools), target, dependencies, license, source link, notice, per-host URL, sha256, size, archive type and status, environment variables and a check command. Status is `available`, `unpublished` (we build it in our own CI but have not released it yet; the Hub says so plainly) or `manual` (the user installs it and points the editor at it). (Editor 11.5)
+
+**Install.** Download with curl into a cache (resumable), verify sha256, extract into a temporary folder, rename into place, then run the module's check command. A failed or cancelled install never leaves a half-installed toolchain. `rensga modules` has list, install, remove, verify, env, path and doctor.
+
+**Toolchain resolution.** The pipeline picks a backend from `RENSGA_TOOLCHAIN`: `auto` (the default) uses the native module if installed, then Docker if it is usable, then stops with "<Module name> is not installed. Install it from Hub > Modules or run: rensga modules install <id>". `native` and `docker` force one backend. Docker is an optional contributor backend and is never required.
 
 **Emulator sandboxing.** Each project gets its own emulator config folder and memory card, so play sessions never change the user's personal emulator settings. (Emulator Play 0)
 
@@ -226,7 +236,8 @@ Every console build runs inside a pinned Docker toolchain and every emulator is 
 
 The engine, editor, API, tools and templates are released under the MIT license, so games made with them can use any license their authors choose.
 
-- **Bundled emulators.** PCSX2, PPSSPP and PCSX-Redux are GPL programs shipped unmodified as separate executables, each with its license and a link to its source. They are launched as separate processes; loading an emulator core inside the editor (the optional in-view mode) needs a licensing review first.
+- **Toolchain modules.** The GPL, BSD and MIT toolchains (pspdev, ps2dev, PSn00bSDK, llvm-mingw and others) are shipped unmodified, each with its license notice and a link to its source. They are downloaded on demand from upstream releases or from our own GitHub releases and verified by sha256. The Android SDK and NDK are downloaded from Google after the user accepts Google's license and are never redistributed by us. Docker is optional for contributors, and CI installs the same modules users get.
+- **Emulator modules.** PCSX2, PPSSPP and PCSX-Redux are GPL programs shipped unmodified as separate executables, each with its license and a link to its source. They are launched as separate processes; loading an emulator core inside the editor (the optional in-view mode) needs a licensing review first.
 - **Console SDKs.** Games link PSn00bSDK, PSPSDK or PS2SDK; each SDK's license is checked and its notices are included in every package before the first release.
 - **BIOS.** No Sony BIOS is ever distributed. PSX uses OpenBIOS, PSP needs none, PS2 asks the user for their own dump.
 - **Trademarks.** Descriptions say a build runs on the console; the Rensga name, the pequi icon and all packages use no Sony marks.
@@ -240,7 +251,7 @@ Thirteen roadmaps cover the whole program; most run in parallel once the shared 
 | Roadmap | Phases | Estimate | Starts after | Scope |
 | --- | --- | --- | --- | --- |
 | Engine (shared core + PS2 backend) | 0–9 | ~36 wk | — | Toolchains, core, renderer interface, cooker, audio, gameplay, 2D slice, PS2 3D, ship |
-| Editor | 0–13 + TargetModule | ~52 wk | Engine 3 | Shell, reflection, scene, assets, scripting, play mode, prefabs, 2D/3D tools, animation, UI, build, profiler, extensibility |
+| Editor | 0–13 + TargetModule + 11.5 | ~55 wk | Engine 3 | Shell, reflection, scene, assets, scripting, play mode, prefabs, 2D/3D tools, animation, UI, build, build support modules, profiler, extensibility |
 | API | 0–13 | ~33 wk | Alongside engine and editor | Unity-style C++ API, profile-gated |
 | PSP Engine | 0–8 | ~21 wk | Engine 0–6 | pspdev target, GU backend, cooker plugin, 3D, packaging |
 | PSP Editor | 0–7 | ~13 wk | Editor 0–5 | PSP module, template, import, preview, Build and Run in PPSSPP |

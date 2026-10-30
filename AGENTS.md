@@ -23,9 +23,16 @@ The icon is the `ICON` string in `build.py`. Page CSS and JS are the `CSS` and `
 
 ## Commands
 
-Code (MVP; Docker image via `tools/docker/psp.sh`, PPSSPP via `tools/emulators/fetch_ppsspp.sh`):
+Code (MVP; toolchains via build support modules, `rensga modules install psp-build` (Docker via `tools/docker/psp.sh` is the optional contributor backend), PPSSPP via `tools/emulators/fetch_ppsspp.sh`):
 
 ```bash
+# Build support modules (F3.08; catalog in tools/modules/manifest.d/<id>.json, installed per user in $RENSGA_HOME/modules or ~/.local/share/rensga/modules)
+build/host/tools/cli/rensga modules list [--json]                         # modules, versions, installed state, host availability
+build/host/tools/cli/rensga modules install psp-build [--accept-licenses] # download, verify sha256, extract, check; also remove|verify|path <id>
+build/host/tools/cli/rensga modules env psp-build --shell sh              # env vars + PATH for a module (sh|cmd|json); tools/modules/toolchain_env.sh <id> evals it
+build/host/tools/cli/rensga modules doctor [--json]                       # what is installed, what is missing, whether Docker is usable
+RENSGA_TOOLCHAIN=auto|native|docker                                       # auto (default) = native module, else Docker if usable, else a clear "install it" error
+export RENSGA_HOME=$PWD/build/rensga-home                                 # dev: shared module install inside the repo (gitignored); tests use their own temp RENSGA_HOME and file:// fixtures, never the network
 cmake --preset linux-host -B build/host && cmake --build build/host -j4   # tests, cooker, pipeline, CLI, editor, headless sim
 ctest --test-dir build/host                                               # all tests
 build/host/tools/cli/rensga cook templates/psp                            # cook + budget check
@@ -51,11 +58,12 @@ tools/emulators/pcsx2_boot.sh build/ci/ps2/rensga.iso --frames 120 --log /abs/lo
 # F3 exercises (samples/editor_tour, see its README): one ctest each, driven by --ui-event under xvfb, screenshots in the build dir
 #   ctest --test-dir build/host -L f3_exercises --output-on-failure      # scene_roundtrip hot_reload play_revert door patrol input_desktop + editor_assets_ui
 #   tools/ci/editor_tour.sh                                                # console side: rensga play/build --target psp on samples/editor_tour (docker + PPSSPP, exit 77 without)
+build/host/tools/iso/rensga-iso -o out.iso -V VOLID [--order A,B] <dir>   # ISO 9660 writer (no xorriso); --list image.iso reads one back; ctest -R iso
 tools/install_git_hooks.sh                                                # pre-commit guard: refuses BIOS/ROM dumps
 tools/emulators/screenshot.sh                       # PPSSPP screenshot into docs/rensga-engine/mvp/ (needs a prior cook)
 tools/check_editor_core.sh                                                # editor/core must not name a console
 tools/check_api_rules.sh                                                  # API design rules (docs/rensga-engine/api-rules.md)
-cmake --preset psp|windows|android|ps2 -B build/<x>                       # cross builds; run via tools/docker/{psp,windows,android,ps2}.sh (pinned images, sg docker fallback)
+cmake --preset psp|windows|android|ps2 -B build/<x>                       # cross builds; run through the native modules (tools/modules/toolchain_env.sh <id>); tools/docker/{psp,windows,android,ps2}.sh is the optional contributor backend (RENSGA_TOOLCHAIN=docker)
 tools/ci/run_local.sh                                                     # every CI job locally (linux_host psp determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check); exit 77 = skipped
 ctest --test-dir build/host -R "touch_|hot_reload|audio_stress|audio_sdl"                    # F2 host checks: touch pad + SDL finger events, desktop pack hot reload, audio-stress on SDL disk audio (skip with 77 without xvfb or a cooked pack)
 build/host/tests/cooker/rensga_cooker_tests assets_cook_cache                              # per-asset cook cache (Library/Cache/<target>/; prints `cook: cooked <a>, cached <b>`)
@@ -148,7 +156,7 @@ Search before renumbering: `grep -n "PSX Engine" docs/rensga-engine/design-doc/r
 - One project = one profile, always also built for Windows, Linux and Android.
 - Emulators: PCSX-Redux with OpenBIOS (PSX), PPSSPP (PSP), PCSX2 with the user's own BIOS (PS2). PS2 cannot boot in public CI.
 - The editor runs on Windows and Linux only: Dear ImGui (docking), ImGuizmo, imnodes, SDL2, OpenGL.
-- Console builds run in pinned Docker toolchains.
+- Console and cross builds run in pinned native build support modules (psp-build, ps2-build, windows-build, android-build, ...), installed per user from the Hub or `rensga modules`. Users never need Docker; Docker is an optional contributor backend (`RENSGA_TOOLCHAIN=docker`).
 - Non-goals: C#/.NET, shader graphs, per-pixel lighting, URP/HDRP, DOTS, store integration, shipping any Sony BIOS, an editor on Android or consoles.
 
 ## Task list
@@ -159,7 +167,7 @@ Search before renumbering: `grep -n "PSX Engine" docs/rensga-engine/design-doc/r
 - Tick a task only when its "done when" is fully true. Note partial progress under the task.
 - Never renumber task IDs. Add new tasks at the end of their block.
 - Every MVP shortcut gets a row in the MVP hook register naming the Step 2 task that finishes it. A deviation from the design doc needs its reason there.
-- Step 2 weights are `estimate / 237.5 weeks`, rounded so they sum to exactly 100%. If a roadmap phase is added, removed or re-estimated, update TASKLIST.md in the same change and recompute the weights and the Progress table.
+- Step 2 weights are `estimate / 240.5 weeks`, rounded so they sum to exactly 100%. If a roadmap phase is added, removed or re-estimated, update TASKLIST.md in the same change and recompute the weights and the Progress table.
 - Update the Progress table's Status column when you tick tasks.
 
 ## When code is added
@@ -168,5 +176,5 @@ Follow the planned layout and dependency rules in RULES.md §2 and the design do
 
 ## Environment notes
 
-- Not a git repository yet. Don't run `git init`, commit or push unless asked.
+- This is a git repository (branch `f3`, main branch `main`). Don't commit unless asked, and never push without the user's consent.
 - Python 3 is required for the docs build. `markdown` may not be installed. If it is missing, ask before installing it, or skip `build_doc.py` and say so.

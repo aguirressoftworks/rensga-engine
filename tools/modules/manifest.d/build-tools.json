@@ -1,0 +1,30 @@
+{
+  "id": "build-tools",
+  "name": "Build Tools (CMake and Ninja)",
+  "kind": "tools",
+  "target": null,
+  "version": "3.28.6",
+  "requires": [],
+  "license": "BSD-3-Clause (CMake), Apache-2.0 (Ninja)",
+  "source": "https://github.com/Kitware/CMake and https://github.com/ninja-build/ninja",
+  "notice": "CMake 3.28.6 (Kitware, BSD 3-Clause) and Ninja 1.12.1 (Apache License 2.0), portable official release archives, unmodified. Downloaded from their GitHub releases.",
+  "hosts": {
+    "linux-x86_64": {
+      "status": "available",
+      "parts": [
+        {"url": "https://github.com/Kitware/CMake/releases/download/v3.28.6/cmake-3.28.6-linux-x86_64.tar.gz", "sha256": "931e3c0d546ee03ca72bb147ccd9b49e3b6252f765f66bf21b9d165519940458", "size": 52631175, "archive": "tar.gz", "strip": 1},
+        {"url": "https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip", "sha256": "6f98805688d19672bd699fbbfa2c2cf0fc054ac3df1f0e6a47664d963d530255", "size": 123084, "archive": "zip", "strip": 0, "dest": "bin"}
+      ]
+    },
+    "windows-x86_64": {
+      "status": "available",
+      "parts": [
+        {"url": "https://github.com/Kitware/CMake/releases/download/v3.28.6/cmake-3.28.6-windows-x86_64.zip", "sha256": "a8f2e684ead94a64fd3517a38857a5b3f7f8d68d15c49ca1143d18797eaf9cac", "size": 45149675, "archive": "zip", "strip": 1},
+        {"url": "https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip", "sha256": "f550fec705b6d6ff58f2db3c374c2277a37691678d6aba463adcbb129108467a", "size": 275425, "archive": "zip", "strip": 0, "dest": "bin"}
+      ]
+    }
+  },
+  "env": {},
+  "path": ["{root}/bin"],
+  "check": ["cmake", "--version"]
+}

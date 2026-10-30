@@ -9,6 +9,11 @@ find_package(Threads REQUIRED)
 target_link_libraries(rensga_process PUBLIC Threads::Threads)
 rensga_host_target(rensga_process)
 
+# Where a build tool runs: native build support module, Docker (contributor fallback), or a clear error.
+add_library(rensga_toolchain STATIC src/toolchain.cpp)
+target_link_libraries(rensga_toolchain PUBLIC rensga_pipeline_headers rensga_modules rensga_process)
+rensga_host_target(rensga_toolchain)
+
 add_library(rensga_pipeline STATIC src/pipeline.cpp)
-target_link_libraries(rensga_pipeline PUBLIC rensga_pipeline_headers rensga_cooker_lib rensga_editor_core rensga_process)
+target_link_libraries(rensga_pipeline PUBLIC rensga_pipeline_headers rensga_cooker_lib rensga_editor_core rensga_process rensga_toolchain)
 rensga_host_target(rensga_pipeline)

@@ -1,0 +1,32 @@
+{
+  "id": "psx-build",
+  "name": "PSX Build Support",
+  "kind": "toolchain",
+  "target": "psx",
+  "version": "0.24",
+  "requires": ["build-tools"],
+  "license": "MPL-2.0 (PSn00bSDK), GPL-3.0-or-later with GCC runtime exception (GCC 12.3.0, binutils)",
+  "source": "https://github.com/Lameguy64/PSn00bSDK (tag v0.24; GCC and binutils sources are linked from its toolchain build notes)",
+  "notice": "PSn00bSDK 0.24 release archive, unmodified. It already bundles gcc-mipsel-none-elf 12.3.0. Data only until the PSX target lands (roadmap F9).",
+  "hosts": {
+    "linux-x86_64": {
+      "status": "available",
+      "url": "https://github.com/Lameguy64/PSn00bSDK/releases/download/v0.24/PSn00bSDK-0.24-Linux.zip",
+      "sha256": "5ada7c9478d795b22bde96ee23d6869290c14a740bcde3d57c01c342a26ded35",
+      "size": 79398076,
+      "archive": "zip",
+      "strip": 1
+    },
+    "windows-x86_64": {
+      "status": "available",
+      "url": "https://github.com/Lameguy64/PSn00bSDK/releases/download/v0.24/PSn00bSDK-0.24-win32.zip",
+      "sha256": "13a355afa89ecb2505882388841c42d9d231d40bbbe9ae22eb5e16abe19b2ea7",
+      "size": 75100474,
+      "archive": "zip",
+      "strip": 1
+    }
+  },
+  "env": {"PSN00BSDK_LIBS": "{root}/lib/libpsn00b"},
+  "path": ["{root}/bin"],
+  "check": ["mipsel-none-elf-gcc", "--version"]
+}
