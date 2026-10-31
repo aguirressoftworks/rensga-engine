@@ -327,6 +327,7 @@ int main(int argc, char** argv) {
   log::flushAll();
   audio.shutdown();
   world.shutdown();
+  renderer.shutdown();  // while the GL context exists; the static's destructor runs after it is gone
   platform.shutdown();
   if (allocs != 0 && rc == 0) rc = 4;
   return rc;
