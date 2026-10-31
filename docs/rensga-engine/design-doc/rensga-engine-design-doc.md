@@ -29,7 +29,7 @@ The engine succeeds when a Unity user can create a project from a template, asse
 
 **Non-goals**
 
-- Running C# or .NET. Scripts are C++17.
+- Running C# or .NET. Scripts are C++17, or Blueprint graphs that compile to C++17 (Editor 14, API 14).
 - Modern rendering features the consoles cannot run: shader graphs, per-pixel lighting, URP/HDRP, DOTS.
 - Commercial store integration, licensing servers or paid tiers.
 - Shipping a PS2 BIOS. Users supply their own for PCSX2.
@@ -205,7 +205,9 @@ class PlayerController : public Behaviour {
 
 **Data hooks.** Attribute macros (`SERIALIZE_FIELD`, `RANGE`, `HEADER`, `TOOLTIP`, `REQUIRE_COMPONENT`) put script fields in the inspector, and serialized events bind script methods to other objects in the editor, so behaviour is tuned as data. (API 4 and 11)
 
-**Coverage.** Math, object model, lifecycle, time, coroutines, input, physics, rendering, animation, audio, scenes, saves, UI, platform and profiling, with per-profile additions: PSP system services and optional ad hoc play; PSX segmented meshes, XA music, memory card saves and optional FMV. (API 1–13; PSP API; PSX API)
+**Blueprint visual scripting.** Blueprint is a second scripting language next to C++, not a replacement for it. When creating a project in the Hub, the user picks C++ or Blueprint; the templates ship in both. A Blueprint is a graph asset (event graph, functions, variables) edited with imnodes, like Unreal's Blueprints. It compiles to a C++ script class at build time and takes the same path as hand-written scripts: reflection, cooker, static compile for every console and PC build. Because there is no interpreter or garbage collector at runtime, a Blueprint runs on the PSX's 2 MB with fixed-point `Scalar`, allocates nothing per frame and keeps determinism. Nodes are generated from the reflected API (function reflection), a feature the profile lacks is an error on the node with the compiler's hint, graph variables are reflected fields (inspector, prefab overrides, saves), and Play in editor highlights running nodes and supports breakpoints. An embedded interpreter such as Luau was rejected: its heap and garbage collector break the no-allocation rule and do not fit the PSX. (Editor 14, API 14)
+
+**Coverage.** Math, object model, lifecycle, time, coroutines, input, physics, rendering, animation, audio, scenes, saves, UI, platform and profiling, with per-profile additions: PSP system services and optional ad hoc play; PSX segmented meshes, XA music, memory card saves and optional FMV. (API 1–14; PSP API; PSX API)
 
 ## Toolchains, emulators and testing
 
@@ -251,8 +253,8 @@ Thirteen roadmaps cover the whole program; most run in parallel once the shared 
 | Roadmap | Phases | Estimate | Starts after | Scope |
 | --- | --- | --- | --- | --- |
 | Engine (shared core + PS2 backend) | 0–9 | ~36 wk | — | Toolchains, core, renderer interface, cooker, audio, gameplay, 2D slice, PS2 3D, ship |
-| Editor | 0–13 + TargetModule + 11.5 | ~55 wk | Engine 3 | Shell, reflection, scene, assets, scripting, play mode, prefabs, 2D/3D tools, animation, UI, build, build support modules, profiler, extensibility |
-| API | 0–13 | ~33 wk | Alongside engine and editor | Unity-style C++ API, profile-gated |
+| Editor | 0–14 + TargetModule + 11.5 | ~60 wk | Engine 3 | Shell, reflection, scene, assets, scripting, play mode, prefabs, 2D/3D tools, animation, UI, build, build support modules, profiler, extensibility, Blueprint visual scripting |
+| API | 0–14 | ~37 wk | Alongside engine and editor | Unity-style C++ API, profile-gated; Blueprint compiler to C++ |
 | PSP Engine | 0–8 | ~21 wk | Engine 0–6 | pspdev target, GU backend, cooker plugin, 3D, packaging |
 | PSP Editor | 0–7 | ~13 wk | Editor 0–5 | PSP module, template, import, preview, Build and Run in PPSSPP |
 | PSP API | 0–7 | ~10 wk (+3 optional) | API 0–2 | PSP profile, input, services, optional ad hoc |
@@ -272,6 +274,7 @@ Thirteen roadmaps cover the whole program; most run in parallel once the shared 
 4. PS2 track: gsKit and VU1 work, PCSX2 Build and Run, PS2 template.
 5. PSX track last, once the profile system is proven, with the PSX template.
 6. API phases land alongside the engine systems they wrap throughout.
+7. Blueprint visual scripting last (Editor 14, API 14), once the full API exists: graphs compile to C++, so they work on every profile.
 
 ## Risks and open questions
 

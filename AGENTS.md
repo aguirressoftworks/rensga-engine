@@ -208,6 +208,7 @@ Search before renumbering: `grep -n "PSX Engine" docs/rensga-engine/design-doc/r
 - Emulators: PCSX-Redux with OpenBIOS (PSX), PPSSPP (PSP), PCSX2 with the user's own BIOS (PS2). PS2 cannot boot in public CI.
 - The editor runs on Windows and Linux only: Dear ImGui (docking), ImGuizmo, imnodes, SDL2, OpenGL.
 - Console and cross builds run in pinned native build support modules (psp-build, ps2-build, windows-build, android-build, ...), installed per user from the Hub or `rensga modules`. Users never need Docker; Docker is an optional contributor backend (`RENSGA_TOOLCHAIN=docker`).
+- Scripting: C++17, or Blueprint graphs chosen per project at creation (Editor 14, API 14); a Blueprint compiles to C++ and never replaces it. No runtime interpreter.
 - Non-goals: C#/.NET, shader graphs, per-pixel lighting, URP/HDRP, DOTS, store integration, shipping any Sony BIOS, an editor on Android or consoles.
 
 ## Task list
@@ -218,7 +219,7 @@ Search before renumbering: `grep -n "PSX Engine" docs/rensga-engine/design-doc/r
 - Tick a task only when its "done when" is fully true. Note partial progress under the task.
 - Never renumber task IDs. Add new tasks at the end of their block.
 - Every MVP shortcut gets a row in the MVP hook register naming the Step 2 task that finishes it. A deviation from the design doc needs its reason there.
-- Step 2 weights are `estimate / 243.5 weeks`, rounded so they sum to exactly 100%. If a roadmap phase is added, removed or re-estimated, update TASKLIST.md in the same change and recompute the weights and the Progress table.
+- Step 2 weights are `estimate / 252.5 weeks`, rounded so they sum to exactly 100%. If a roadmap phase is added, removed or re-estimated, update TASKLIST.md in the same change and recompute the weights and the Progress table.
 - Update the Progress table's Status column when you tick tasks.
 
 ## When code is added

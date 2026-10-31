@@ -45,6 +45,7 @@ Planned layout: `engine/{core,api,profiles,backends}`, `editor/{core,targets}`, 
 - Scripts hold `Ref<T>` handles, which read as null after `Destroy`. Never hand scripts raw pointers to engine objects.
 - One API for every profile. A feature the profile lacks is greyed out in the inspector with a reason, rejected by the validator, and a compile error with a hint in scripts.
 - On PSX, using `float` in game code is a compile error with a hint to use `Scalar`.
+- Blueprint visual scripts compile to C++ and follow every rule here; there is no runtime interpreter. C++ stays a full scripting language: a project picks C++ or Blueprint at creation.
 - Lifecycle order matches Unity: Awake, OnEnable, Start, FixedUpdate, Update, LateUpdate, OnDisable, OnDestroy.
 
 ## 5. Licensing and legal [now]

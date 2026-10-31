@@ -85,7 +85,7 @@ EDITOR = {
     "slug": "editor",
     "title": "Editor",
     "summary": "Unity-style editor in C++ (Dear ImGui on SDL2 + OpenGL). Users assemble scenes, write C++ Behaviour scripts and build a playable console image or PC build.",
-    "stats": [("total", "~55 weeks"), ("phases", "14 + 0.5 + 11.5"), ("starts after", "engine phase 3")],
+    "stats": [("total", "~60 weeks"), ("phases", "15 + 0.5 + 11.5"), ("starts after", "engine phase 3")],
     "legend": ["editor core", "Unity feature set", "build, debug, extend"],
     "phases": [
         (1, "Editor shell and projects", "Docking UI, project folders, console", "2 wk",
@@ -190,6 +190,13 @@ EDITOR = {
           ("data assets", "Design data assets in my engine as the equivalent of Unity ScriptableObjects, created from the project window and edited in the inspector"),
           ("guide for Unity users", "Write a getting-started guide for Unity developers moving to Rensga Engine, mapping Unity concepts and APIs to mine")],
          [("Unity-user playtest", "Give me an exercise: have a Unity developer build a small game in my editor from the sample project and note every friction point")]),
+        (3, "Visual scripting", "Blueprint graphs, project language choice, debugging", "5 wk",
+         "Blueprint is a second scripting language next to C++, not a replacement: C++ stays the base and every Blueprint compiles to C++ (API 14). In the Hub's Create Project the user picks C++ or Blueprint; the templates ship in both. A Blueprint is a graph asset (event graph, functions, variables) edited with imnodes, with nodes generated from the reflected API. Graph variables are reflected fields, so they show in the inspector and take prefab overrides. Play in editor highlights the running nodes and supports breakpoints.",
+         [("Blueprint graph editor", "Design an Unreal-style Blueprint graph editor for my C++ engine with imnodes: event graph, functions, variables, pins with types, comments and search, saved as a diff-friendly JSON asset"),
+          ("node library from reflection", "Generate a visual scripting node library from my engine's reflected C++ API: one node per public function, pure and impure nodes, latent nodes like Wait, and profile-gated nodes greyed out with the same hint as the compiler"),
+          ("C++ or Blueprint per project", "Design the project creation flow where the user picks C++ or Blueprint as the project's scripting language: Hub picker, templates in both languages, the default script kind and Create menu entries, and how a project can still add C++ later"),
+          ("graph debugging", "Design debugging for visual scripts in my editor: running-node highlights, breakpoints, step and value watches in Play in editor, and node ids in console build logs")],
+         [("player controller as a Blueprint", "Give me an exercise: rebuild a template's player controller as a Blueprint in a Blueprint project and play it on PSP and PC with the same behaviour as the C++ version")]),
     ],
 }
 
@@ -197,7 +204,7 @@ API = {
     "slug": "api",
     "title": "Scripting API",
     "summary": "Unity-style C++17 API: Unity names, getters and setters instead of properties, Ref<T> handles, no exceptions, no per-frame allocation. One API for every profile, gated by the ConsoleTarget.",
-    "stats": [("total", "~33 weeks"), ("phases", "14"), ("runs alongside", "engine + editor")],
+    "stats": [("total", "~37 weeks"), ("phases", "15"), ("runs alongside", "engine + editor")],
     "legend": ["core API", "gameplay systems", "tooling, docs, stability"],
     "phases": [
         (1, "API design rules", "Naming, handles, ownership, profile gating", "1.5 wk",
@@ -281,6 +288,13 @@ API = {
           ("versioning and deprecation", "Design semantic versioning and a deprecation policy for my engine API, with deprecation warnings at compile time"),
           ("API tests in CI", "Set up automated API tests for my engine that run on PC and inside PPSSPP and PCSX-Redux in CI")],
          [("port a Unity tutorial", "Give me an exercise: port a small Unity tutorial game to my engine using only the docs, and log every missing or confusing API")]),
+        (3, "Blueprint compiler", "Graphs compiled to C++ for every profile", "4 wk",
+         "Blueprints compile to C++ at build time and take the same path as hand-written scripts: reflection, cooker, static compile for each console and PC build. There is no interpreter and no garbage collector at runtime, so a Blueprint runs on the PSX's 2 MB with fixed-point Scalar, allocates nothing per frame and keeps determinism. Function reflection exposes the API as nodes, and a feature the profile lacks is an error on the node with the compiler's hint. Hot reload recompiles a changed graph in seconds.",
+         [("function reflection", "Extend my C++ reflection codegen to describe public API functions for visual scripting: parameters, return values, pure or impure, latent, and profile gating, without runtime cost"),
+          ("graph to C++ codegen", "Design a compiler from Blueprint graph JSON to readable, deterministic C++17 script classes, with node ids mapped to source lines so compile errors point at nodes"),
+          ("latent nodes and events", "Implement latent visual scripting nodes (Wait, Delay, sequences) on top of my C++ coroutines, plus lifecycle, collision, input and custom events as graph entry points"),
+          ("Blueprint parity tests", "Set up tests that a Blueprint and the equivalent hand-written C++ script behave the same, comparing determinism state hashes on PC and inside the console emulators")],
+         [("same enemy in C++ and Blueprint", "Give me an exercise: write the same enemy behaviour in C++ and as a Blueprint, build both for PSP and PS2, and compare the state hashes and frame times")]),
     ],
 }
 
