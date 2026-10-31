@@ -33,6 +33,9 @@ jobs:
         with: { path: "~/.local/bin", key: ppsspp-headless-v1.17.1 }
       - run: tools/ci/build_ppsspp_headless.sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: tools/ci/psp.sh            # boots to frame 240 and requires alloc-check allocs=0 (F2.G1)
+      - run: tools/ci/psp_hello.sh || [ $? = 77 ]   # F4: shared hello world as an EBOOT in PPSSPP (exit 77 = not implemented yet / skipped)
+      - run: tools/ci/psp_2d.sh || [ $? = 77 ]      # F4: the 2D slice on PSP in PPSSPP
+      - run: tools/ci/templates.sh || [ $? = 77 ]   # F4: the Hub's 2D and 3D templates cook and boot
       - run: tools/ci/editor_tour.sh || [ $? = 77 ]   # F3 exercises: samples/editor_tour plays in PPSSPP and builds an EBOOT.PBP
       - run: tools/ci/determinism.sh    # Linux rensga_headless vs PSP rensga_sim state hash (F2.G2)
       - run: tools/ci/psp_gpu_check.sh

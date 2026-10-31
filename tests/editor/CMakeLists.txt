@@ -9,7 +9,7 @@ if(TARGET rensga_editor_core)
   target_include_directories(rensga_editor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
   target_compile_definitions(rensga_editor_tests PRIVATE
     RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"
-    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp"
+    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp-3d"
     RENSGA_TOUR_DIR="${CMAKE_SOURCE_DIR}/samples/editor_tour"
     RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp")
   rensga_link_whole_archive(rensga_editor_tests PRIVATE rensga_target_dummy)
@@ -19,7 +19,7 @@ if(TARGET rensga_editor_core)
   set_target_properties(rensga_editor_tests PROPERTIES ENABLE_EXPORTS ON)
   rensga_host_target(rensga_editor_tests)
   add_test(NAME rensga_editor_tests COMMAND rensga_editor_tests)
-  # Builds templates/psp's script module once; editor checks that need its scripts depend on this fixture.
+  # Builds templates/psp-3d's script module once; editor checks that need its scripts depend on this fixture.
   add_test(NAME editor_script_module_template COMMAND rensga_editor_tests script_module_template_build)
   set_tests_properties(editor_script_module_template PROPERTIES FIXTURES_SETUP script_module_psp TIMEOUT 900
                        ENVIRONMENT "RENSGA_JOBS=2")
@@ -33,7 +33,7 @@ if(TARGET rensga_editor_core AND TARGET rensga_target_psp)
   target_include_directories(rensga_asset_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
   target_compile_definitions(rensga_asset_tests PRIVATE
     RENSGA_SAMPLE_DIR="${CMAKE_SOURCE_DIR}/samples/platformer2d"
-    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp"
+    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp-3d"
     RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_assets")
   rensga_link_whole_archive(rensga_asset_tests PRIVATE rensga_target_psp)
   rensga_host_target(rensga_asset_tests)
@@ -51,7 +51,7 @@ endif()
 if(TARGET rensga-editor)
   foreach(proj IN ITEMS psp platformer)
     if(proj STREQUAL "psp")
-      set(dir ${CMAKE_SOURCE_DIR}/templates/psp)
+      set(dir ${CMAKE_SOURCE_DIR}/templates/psp-3d)
       set(args TestLevel Player W "2|speed|9")
     else()
       set(dir ${CMAKE_SOURCE_DIR}/samples/platformer2d)
@@ -63,7 +63,7 @@ if(TARGET rensga-editor)
                          ENVIRONMENT "RENSGA_JOBS=2")
   endforeach()
   add_test(NAME editor_play_hot_reload COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/play_hot_reload.sh $<TARGET_FILE:rensga-editor>
-           ${CMAKE_SOURCE_DIR}/templates/psp ${CMAKE_CURRENT_BINARY_DIR}/play_hot_reload)
+           ${CMAKE_SOURCE_DIR}/templates/psp-3d ${CMAKE_CURRENT_BINARY_DIR}/play_hot_reload)
   set_tests_properties(editor_play_hot_reload PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl" ENVIRONMENT "RENSGA_JOBS=2")
 endif()
 
@@ -73,7 +73,7 @@ if(TARGET rensga_editor_core)
   add_executable(rensga_inspector_tests ../test_main.cpp ${RENSGA_INSPECTOR_TEST_SRCS})
   target_link_libraries(rensga_inspector_tests PRIVATE rensga_editor_core rensga_cooker_lib rensga_api)
   target_include_directories(rensga_inspector_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
-  target_compile_definitions(rensga_inspector_tests PRIVATE RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp")
+  target_compile_definitions(rensga_inspector_tests PRIVATE RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp-3d")
   rensga_host_target(rensga_inspector_tests)
   add_test(NAME rensga_inspector_tests COMMAND rensga_inspector_tests)
 endif()
@@ -92,7 +92,7 @@ if(TARGET rensga_editor_core AND TARGET rensga_target_psp)
   target_include_directories(rensga_sceneedit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
   target_compile_definitions(rensga_sceneedit_tests PRIVATE
     RENSGA_SAMPLE_DIR="${CMAKE_SOURCE_DIR}/samples/platformer2d"
-    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp"
+    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp-3d"
     RENSGA_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
     RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_scene")
   rensga_link_whole_archive(rensga_sceneedit_tests PRIVATE rensga_target_psp)
@@ -103,7 +103,7 @@ endif()
 # F3.01 / F3.G1: hierarchy edits, 2D mode, ID-buffer picking, save and reopen a scene, under xvfb (skipped without it).
 if(TARGET rensga-editor)
   add_test(NAME editor_scene_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/scene_ui_check.sh $<TARGET_FILE:rensga-editor>
-           ${CMAKE_SOURCE_DIR}/samples/platformer2d ${CMAKE_SOURCE_DIR}/templates/psp ${CMAKE_CURRENT_BINARY_DIR}/scene_ui)
+           ${CMAKE_SOURCE_DIR}/samples/platformer2d ${CMAKE_SOURCE_DIR}/templates/psp-3d ${CMAKE_CURRENT_BINARY_DIR}/scene_ui)
   set_tests_properties(editor_scene_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600 LABELS "slow;gl")
 endif()
 
@@ -142,8 +142,14 @@ if(TARGET rensga_editor_core)
   add_test(NAME rensga_editor_modules_tests COMMAND rensga_editor_modules_tests)
   if(TARGET rensga-editor)
     add_test(NAME editor_modules_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/modules_ui_check.sh $<TARGET_FILE:rensga-editor>
-             ${CMAKE_SOURCE_DIR}/templates/psp ${CMAKE_CURRENT_BINARY_DIR}/modules_ui)
+             ${CMAKE_SOURCE_DIR}/templates/psp-3d ${CMAKE_CURRENT_BINARY_DIR}/modules_ui)
     set_tests_properties(editor_modules_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300 LABELS "slow;gl")
   endif()
   set_tests_properties(rensga_editor_modules_tests PROPERTIES TIMEOUT 300)
 endif()
+
+# --- F4 2D tools (agent 2a) ---
+# --- end 2a ---
+
+# --- F4 hub templates (agent 2b) ---
+# --- end 2b ---

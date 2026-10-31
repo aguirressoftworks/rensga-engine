@@ -58,7 +58,7 @@ struct MapFixture {
     mapObj = world.createObject("map");
     Tilemap* tm = mapObj->AddComponent<Tilemap>();
     tm->map = rec.guid;
-    mapObj->AddComponent<TilemapCollider>();
+    mapObj->AddComponent<TilemapCollider2D>();
   }
   BoxCollider2D* box(Scalar x, Scalar y, Scalar w = 12, Scalar h = 14) {
     GameObject* go = world.createObject("box");
@@ -361,4 +361,42 @@ TEST(g2d_dont_destroy_on_load_survives_destroy_all) {
   CHECK(world.findByName("other") == nullptr);
   world.destroyAllImmediate(false);                      // a full clear still removes everything
   CHECK_EQ(world.objectCount(), 0u);
+}
+
+// F4 contract: the renamed collider keeps its old scene name, and the new Rigidbody2D is reflected.
+TEST(f4_tilemap_collider_rename_alias) {
+  const TypeInfo* now = TypeRegistry::instance().find("TilemapCollider2D");
+  const TypeInfo* old = TypeRegistry::instance().find("TilemapCollider");
+  CHECK(now != nullptr);
+  CHECK(old == now);
+  CHECK(strcmp(TypeRegistry::canonicalName("TilemapCollider"), "TilemapCollider2D") == 0);
+  CHECK(strcmp(TypeRegistry::canonicalName("Tilemap"), "Tilemap") == 0);
+}
+
+TEST(f4_rigidbody2d_reflected) {
+  const TypeInfo* ti = TypeRegistry::instance().find("Rigidbody2D");
+  CHECK(ti != nullptr);
+  if (!ti) return;
+  CHECK(ti->asComponent != nullptr);
+  bool body = false, grav = false, vx = false, vy = false;
+  for (u32 i = 0; i < ti->fieldCount; ++i) {
+    const char* n = ti->fields[i].name;
+    body |= strcmp(n, "bodyType") == 0;
+    grav |= strcmp(n, "gravityScale") == 0;
+    vx |= strcmp(n, "velocityX") == 0;
+    vy |= strcmp(n, "velocityY") == 0;
+  }
+  CHECK(body && grav && vx && vy);
+}
+
+// F4 contract: the texture record keeps its v2 layout (paletteCount / flags and storedWidth / storedHeight reuse old u32s).
+TEST(f4_pack_tex_rec_layout) {
+  CHECK_EQ(sizeof(PackTexRec), 48u);
+  PackTexRec r = {};
+  r.width = 10;
+  CHECK_EQ(r.storedW(), 10u);
+  r.storedWidth = 16;
+  CHECK_EQ(r.storedW(), 16u);
+  CHECK_EQ(r.storedH(), 0u);
+  CHECK_EQ(sizeof(PackMeshExt), 32u);
 }

@@ -6,7 +6,7 @@ Guide for AI coding agents working in this repository. Read [RULES.md](RULES.md)
 
 Rensga Engine is a planned open-source (MIT) engine, editor and Unity-style C++17 API for making games that ship as PSX, PSP and PS2 disc images plus Windows, Linux and Android builds.
 
-**The repository holds the docs plus the Step 1 MVP** (engine/core, engine/api, PSP and GU backends, cooker, pipeline, CLI, minimal editor, `templates/psp`, tests). Do not invent build commands, source files or features that don't exist; see TASKLIST.md for what is done.
+**The repository holds the docs plus the Step 1 MVP** (engine/core, engine/api, PSP and GU backends, cooker, pipeline, CLI, minimal editor, `templates/psp-3d`, tests). Do not invent build commands, source files or features that don't exist; see TASKLIST.md for what is done.
 
 - `docs/rensga-engine/design-doc/rensga-engine-design-doc.md` is the main design reference. Read it before any design or architecture work.
 - `docs/rensga-engine/roadmaps/` has 13 roadmaps (phases, estimates, Claude prompts), generated from Python data.
@@ -37,12 +37,12 @@ RENSGA_TOOLCHAIN=auto|native|docker                                       # auto
 export RENSGA_HOME=$PWD/build/rensga-home                                 # dev: shared module install inside the repo (gitignored); tests use their own temp RENSGA_HOME and file:// fixtures, never the network
 cmake --preset linux-host -B build/host && cmake --build build/host -j4   # tests, cooker, pipeline, CLI, editor, headless sim
 ctest --test-dir build/host                                               # all tests
-build/host/tools/cli/rensga cook templates/psp                            # cook + budget check
-build/host/engine/runtime/rensga_headless --pack templates/psp/Library/Cooked/psp/game.rpak --frames 400 --hash
-xvfb-run -a build/host/tools/cli/rensga play --target psp templates/psp --json --quit-after 25   # dev build with the native psp-build module, boots in PPSSPP
-build/host/tools/cli/rensga build --target psp templates/psp              # release: EBOOT.PBP in Library/Build/psp-release/
-build/host/editor/app/rensga-editor --project templates/psp [--play --quit-after 30]   # --play runs the emulator pipeline (exits 1 if it fails); project scripts build into <project>/Library/ScriptAssemblies and hot-reload in the background on change (--no-auto-rebuild turns it off)
-xvfb-run -a -s "-screen 0 1600x900x24" build/host/editor/app/rensga-editor --project templates/psp --screenshot out.png [--screenshot-frames N] [--select <object>] [--ui-event click|rclick|move:x,y|script:Name|focus|create:cube|select:Name|addscript:Name|save ...]   # editor PNG, never opens a window on the desktop
+build/host/tools/cli/rensga cook templates/psp-3d                            # cook + budget check
+build/host/engine/runtime/rensga_headless --pack templates/psp-3d/Library/Cooked/psp/game.rpak --frames 400 --hash
+xvfb-run -a build/host/tools/cli/rensga play --target psp templates/psp-3d --json --quit-after 25   # dev build with the native psp-build module, boots in PPSSPP
+build/host/tools/cli/rensga build --target psp templates/psp-3d              # release: EBOOT.PBP in Library/Build/psp-release/
+build/host/editor/app/rensga-editor --project templates/psp-3d [--play --quit-after 30]   # --play runs the emulator pipeline (exits 1 if it fails); project scripts build into <project>/Library/ScriptAssemblies and hot-reload in the background on change (--no-auto-rebuild turns it off)
+xvfb-run -a -s "-screen 0 1600x900x24" build/host/editor/app/rensga-editor --project templates/psp-3d --screenshot out.png [--screenshot-frames N] [--select <object>] [--ui-event click|rclick|move:x,y|script:Name|focus|create:cube|select:Name|addscript:Name|save ...]   # editor PNG, never opens a window on the desktop
 # F3.02 asset verbs for --ui-event (Project window, asset inspector, VRAM map): asset:<Assets/..path> | assettab:<default|build target id> | assetset:<key>=<value> (e.g. format=clut4) | assetapply | assetrevert | assetundo | assetredo | assetrename:<path>|<new name> | assetmove:<path>|<folder> | assetdelete:<path> | assetdrop:<path>[|<object>] | search:<text> | folder:<Assets/..> | vram   # open Window > VRAM Map; the Inspector shows the asset until an object is picked
 # F3.07 edit-mode callbacks: --ui-event editworld rebuilds the edit-mode World now and prints "scene: editworld valid= rebuilds= objects= error="; tests/editor/callbacks_ui_check.sh (ctest editor_callbacks_ui) shows the Patrol waypoint gizmos
 # F3.01 inspector verbs for --ui-event: multiselect:A|B (object names) | addcomp:<Type> | rmcomp:<i> | moveup:<i> | movedown:<i> | resetcomp:<i> | copycomp:<i> | pastecomp:<i> | ctxmenu:<i>|<method> | setfield:<Type>.<field>=<json> | setobj:<name|active|tag|layer>=<json> | undo | redo   # act on the whole selection as one undo step; combine with shot:<png>
@@ -169,7 +169,7 @@ Search before renumbering: `grep -n "PSX Engine" docs/rensga-engine/design-doc/r
 - Tick a task only when its "done when" is fully true. Note partial progress under the task.
 - Never renumber task IDs. Add new tasks at the end of their block.
 - Every MVP shortcut gets a row in the MVP hook register naming the Step 2 task that finishes it. A deviation from the design doc needs its reason there.
-- Step 2 weights are `estimate / 240.5 weeks`, rounded so they sum to exactly 100%. If a roadmap phase is added, removed or re-estimated, update TASKLIST.md in the same change and recompute the weights and the Progress table.
+- Step 2 weights are `estimate / 243.5 weeks`, rounded so they sum to exactly 100%. If a roadmap phase is added, removed or re-estimated, update TASKLIST.md in the same change and recompute the weights and the Progress table.
 - Update the Progress table's Status column when you tick tasks.
 
 ## When code is added

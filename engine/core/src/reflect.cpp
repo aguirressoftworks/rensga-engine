@@ -41,7 +41,15 @@ TypeRegistry& TypeRegistry::instance() {
   return r;
 }
 
+const char* TypeRegistry::canonicalName(const char* name) {
+  static const struct { const char* old; const char* now; } kRenamed[] = {{"TilemapCollider", "TilemapCollider2D"}};
+  for (const auto& r : kRenamed)
+    if (strcmp(name, r.old) == 0) return r.now;
+  return name;
+}
+
 const TypeInfo* TypeRegistry::find(const char* name) const {
+  name = canonicalName(name);
   for (u32 i = 0; i < count_; ++i)
     if (strcmp(types_[i].name, name) == 0) return &types_[i];
   return nullptr;

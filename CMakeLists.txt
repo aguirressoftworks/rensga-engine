@@ -12,7 +12,7 @@ option(RENSGA_BUILD_TESTS  "Build host unit tests"                 OFF)
 option(RENSGA_BUILD_TOOLS  "Build cooker, pipeline and CLI"        OFF)
 option(RENSGA_BUILD_EDITOR "Build the editor"                      OFF)
 # Game project whose Assets/Scripts/*.cpp compile into the runtime executables.
-set(RENSGA_PROJECT_DIR "${CMAKE_SOURCE_DIR}/templates/psp" CACHE PATH "Game project directory")
+set(RENSGA_PROJECT_DIR "${CMAKE_SOURCE_DIR}/templates/psp-3d" CACHE PATH "Game project directory")
 # Generated headers (console_target.gen.h) from the cooker land here.
 set(RENSGA_GENERATED_DIR "${CMAKE_BINARY_DIR}/generated" CACHE PATH "Generated headers directory")
 
@@ -56,7 +56,8 @@ include(cmake/RensgaTargets.cmake)
 include(cmake/RensgaReflect.cmake)
 # Reflection tables: engine components and the project scripts (used by core, runtime, cooker, tests).
 rensga_reflect_scan(engine RENSGA_REFLECT_ENGINE_SRCS "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/components.h"
-                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/gameplay.h")
+                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/gameplay.h"
+                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/rigidbody2d.h")
 rensga_reflect_scan(project RENSGA_REFLECT_PROJECT_SRCS "${RENSGA_PROJECT_DIR}/Assets/Scripts")
 include(CTest)  # defines BUILD_TESTING; tests are still gated by RENSGA_BUILD_TESTS
 

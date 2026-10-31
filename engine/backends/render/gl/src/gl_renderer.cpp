@@ -366,6 +366,10 @@ void GlRenderer::releaseUserTextures() {
 u32 GlRenderer::uploadTexture(const TextureDesc& d) {
   if (!ready_ && !gl.GenTextures) return 0;
   if (!d.width || !d.height || !d.pixels || texCount_ >= kMaxTextures) return 0;
+  if (d.flags != 0) {  // swizzled (PSP) data: only the GU renderer reads it
+    RLOG_ERROR("gl", "texture upload: flags 0x%x (swizzled) are not supported", d.flags);
+    return 0;
+  }
   const u32 n = d.width * d.height;
   const void* rgba = d.pixels;
   u32* expanded = nullptr;

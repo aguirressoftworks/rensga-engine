@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland desktop
-# CI job psp: cook templates/psp with the host CLI (builds it if needed), build the PSP ELF with the PSP Build Support module (native; Docker only as contributor fallback)
+# CI job psp: cook templates/psp-3d with the host CLI (builds it if needed), build the PSP ELF with the PSP Build Support module (native; Docker only as contributor fallback)
 # (exits after 240 frames), boot it in PPSSPPHeadless (software renderer) and require the boot log line.
 set -eu
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -9,7 +9,7 @@ CLI="$CI_OUT/linux-host/tools/cli/rensga"
 if [ ! -x "$CLI" ]; then
   step "host CLI"; cmake --preset linux-host -B "$CI_OUT/linux-host" >/dev/null; cmake --build "$CI_OUT/linux-host" -j"$JOBS" --target rensga
 fi
-PROJ="$REPO/templates/psp"; B="$CI_OUT/psp"; ROOT="$CI_OUT/psp-root"
+PROJ="$REPO/templates/psp-3d"; B="$CI_OUT/psp"; ROOT="$CI_OUT/psp-root"
 . "$REPO/tools/modules/toolchain_env.sh" psp-build psp || exit 1
 GEN=(); [ "$RENSGA_TOOLCHAIN_BACKEND" = native ] && GEN=(-G Ninja)
 step "cook"; "$CLI" cook "$PROJ"

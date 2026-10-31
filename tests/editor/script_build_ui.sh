@@ -1,8 +1,8 @@
 #!/bin/sh
-# F3.03 end to end, in the real editor under xvfb on a temp copy of templates/psp:
+# F3.03 end to end, in the real editor under xvfb on a temp copy of templates/psp-3d:
 #   syntax error in a script -> background build fails, console shows file:line, the frame counter keeps advancing
 #   during the build (no freeze) -> open-in-editor stub receives file:line -> fix -> "scripts reloaded".
-# usage: script_build_ui.sh <rensga-editor> <templates/psp> [screenshot.png]. Exit 77 = skipped.
+# usage: script_build_ui.sh <rensga-editor> <templates/psp-3d> [screenshot.png]. Exit 77 = skipped.
 EDITOR_BIN="$1"; TEMPLATE="$2"; SHOT="$3"
 command -v xvfb-run >/dev/null 2>&1 || { echo "skip: no xvfb-run"; exit 77; }
 [ -x "$EDITOR_BIN" ] || { echo "skip: no editor binary"; exit 77; }

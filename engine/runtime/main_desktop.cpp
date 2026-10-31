@@ -326,6 +326,7 @@ int main(int argc, char** argv) {
       TextureDesc d;
       d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
       d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
+      d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
       packTex[i] = renderer.uploadTexture(d);
     }
     if (as.textureCount) RLOG_INFO("game", "rensga: uploaded %u textures", as.textureCount);
@@ -396,6 +397,7 @@ int main(int argc, char** argv) {
       TextureDesc d;
       d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
       d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
+      d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
       packTex[i] = renderer.uploadTexture(d);
     }
     GfxAssets::bind(&view, &loaded.assets, packTex, as.textureCount);

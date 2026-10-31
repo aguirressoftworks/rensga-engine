@@ -176,7 +176,7 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     r.pixelBytes = static_cast<uint32_t>(ct.pixels.size());
     r.pixelOffset = blobAdd(out.blob, ct.pixels.data(), ct.pixels.size());
     if (!ct.palette.empty()) {
-      r.paletteCount = static_cast<uint32_t>(ct.palette.size());
+      r.paletteCount = static_cast<uint16_t>(ct.palette.size());
       r.paletteOffset = blobAdd(out.blob, ct.palette.data(), ct.palette.size() * 4);
     }
     out.textureBytes += ct.pixels.size() + ct.palette.size() * 4;

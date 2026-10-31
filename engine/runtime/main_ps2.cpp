@@ -167,6 +167,7 @@ int main() {
         TextureDesc d;
         d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
         d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
+        d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
         packTex[i] = renderer.uploadTexture(d);
         if (!packTex[i]) RLOG_ERROR("game", "texture %u upload failed", i);
       }
@@ -179,6 +180,7 @@ int main() {
       TextureDesc d;
       d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
       d.pixels = loaded.assets.texturePixels(t); d.palette = loaded.assets.texturePalette(t);
+      d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
       sprite = renderer.uploadTexture(d);
       spriteSrc = Rect(0, 0, static_cast<Scalar>(t.width), static_cast<Scalar>(t.height));
     }

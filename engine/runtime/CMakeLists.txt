@@ -2,6 +2,13 @@
 # executables (not a static lib) so their static REFLECT registrars survive linking.
 set(RENSGA_PROJECT_SCRIPTS ${RENSGA_REFLECT_PROJECT_SRCS})  # generated tables replace the reflected .cpp files
 
+# F4 contract: the shared pack boot (runtime_boot.h) and the frame profiler. Core only. Mains link it as they adopt it;
+# bootPack with BootDeps::audio set also needs runtime_audio.cpp in the executable (it already is on desktop and PS2).
+add_library(rensga_runtime_boot STATIC runtime_boot.cpp profiler.cpp)
+target_include_directories(rensga_runtime_boot PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(rensga_runtime_boot PUBLIC rensga_core)
+rensga_runtime_target(rensga_runtime_boot)
+
 # Engine 0 hello: one main on linux-host (needs SDL2), windows, android and ps2.
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/main_hello.cpp AND NOT RENSGA_TARGET STREQUAL "psp")
   if(RENSGA_TARGET STREQUAL "android")

@@ -1,7 +1,7 @@
 #!/bin/sh
 # F3.04 item 5: a script edited while the scene plays is rebuilt in the background and hot reloaded; the World is rebuilt and
-# the running state (a field changed during play, the object's position) survives. Temp copy of templates/psp, xvfb.
-# usage: play_hot_reload.sh <rensga-editor> <templates/psp> <work dir>. Exit 77 = skipped.
+# the running state (a field changed during play, the object's position) survives. Temp copy of templates/psp-3d, xvfb.
+# usage: play_hot_reload.sh <rensga-editor> <templates/psp-3d> <work dir>. Exit 77 = skipped.
 EDITOR_BIN="$1"; TEMPLATE="$2"; WORK="$3"
 command -v xvfb-run >/dev/null 2>&1 || { echo "skip: no xvfb-run"; exit 77; }
 [ -x "$EDITOR_BIN" ] || { echo "skip: no editor binary"; exit 77; }

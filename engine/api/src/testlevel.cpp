@@ -1,4 +1,4 @@
-// The TestLevel built in code (--scene-test, unit tests). Mirrors templates/psp/Assets/Scenes/TestLevel.scene.
+// The TestLevel built in code (--scene-test, unit tests). Mirrors templates/psp-3d/Assets/Scenes/TestLevel.scene.
 #include <stdio.h>
 #include <string.h>
 

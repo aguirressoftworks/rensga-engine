@@ -46,20 +46,32 @@ struct MeshTable {
   u32 meshCount = 0;
   const PackVertex* vertices = nullptr;  // 16-byte aligned, lives in the pack
   u32 vertexCount = 0;
+  // F4: optional compact-vertex description (pack MSHX). nullptr = the vertices are float PackVertex. When non-null
+  // with format kMeshFormatCompact16, `vertices` actually points at PackVertexCompact[vertexCount] (cast by the
+  // PSP renderer; every other renderer never sees a pack with MSHX because only the psp-target cook emits it).
+  const PackMeshExt* ext = nullptr;
 };
 
 // Pixel formats of TextureDesc (contract 4, Engine 2).
 namespace tex_format {
-constexpr u8 RGBA8 = 0, CLUT4 = 1, CLUT8 = 2;
+constexpr u8 RGBA8 = 0, CLUT4 = 1, CLUT8 = 2, RGBA5551 = 3, RGBA4444 = 4;  // same numbers as PackTexFormat
+}
+// tex_flag mirrors PackTexRec::flags. GL and GS renderers return 0 from uploadTexture when flags != 0.
+namespace tex_flag {
+constexpr u16 kSwizzled = kTexSwizzled;
 }
 // CLUT8: `pixels` is one index byte per pixel. CLUT4: two indices per byte, low nibble first, rows padded to a
 // whole byte (the same layout as the pack TEXR section). `palette` has 16 or 256 RGBA8 entries (R in the low byte).
-// RGBA8: `pixels` is width*height u32 in memory order R,G,B,A.
+// RGBA8: `pixels` is width*height u32 in memory order R,G,B,A. RGBA5551 / RGBA4444: width*height u16 (see PackTexFormat).
+// F4: width / height are the SOURCE size (UV space); storedWidth / storedHeight (0 = same) is the size of the pixel
+// array the cooker stored (padded, see PackTexRec). flags carries PackTexRec::flags (tex_flag::kSwizzled).
 struct TextureDesc {
   u32 width = 0, height = 0;
   u8 format = 0;
   const void* pixels = nullptr;
   const u32* palette = nullptr;
+  u32 storedWidth = 0, storedHeight = 0;
+  u32 flags = 0;
 };
 
 class IRenderer {

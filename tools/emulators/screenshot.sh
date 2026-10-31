@@ -3,11 +3,11 @@ unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland des
 # MVP-43: capture a screenshot of the game running in PPSSPP, without a display grab (X grabs of PPSSPP's GL window are black).
 # Builds a screenshot ELF (RENSGA_EXIT_AFTER_FRAMES, which dumps the displayed frame to host0:/rensga_shot.bmp on exit),
 # runs it in PPSSPPHeadless (software renderer, separate process) and converts the BMP to PNG.
-# Usage: tools/emulators/screenshot.sh [project=templates/psp] [out=docs/rensga-engine/mvp/psp-template.png]
+# Usage: tools/emulators/screenshot.sh [project=templates/psp-3d] [out=docs/rensga-engine/mvp/psp-template.png]
 # Needs the project cooked first (rensga cook) and Docker (tools/docker/psp.sh).
 set -eu
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PROJ="$(cd "${1:-$REPO/templates/psp}" && pwd)"; OUT="${2:-$REPO/docs/rensga-engine/mvp/psp-template.png}"
+PROJ="$(cd "${1:-$REPO/templates/psp-3d}" && pwd)"; OUT="${2:-$REPO/docs/rensga-engine/mvp/psp-template.png}"
 GEN="$PROJ/Library/Generated/psp"; PACK="$PROJ/Library/Cooked/psp/game.rpak"
 S="$REPO/build/shot"; ROOT="$REPO/build/shotroot"
 [ -f "$PACK" ] || { echo "cook first: rensga cook $PROJ" >&2; exit 1; }

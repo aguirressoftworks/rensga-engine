@@ -12,7 +12,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 - Tick a box (`- [x]`) when the task's "done when" is true. Don't tick partial work: add a note under the task instead.
 - Task IDs (`MVP-07`, `F5.12`) are stable. Never renumber them. New tasks go at the end of their block with the next free number.
 - `Engine 3`, `PSP Editor 5` and similar references mean phase 3 of the Engine roadmap and so on, as in the design doc. The roadmap page has the scope, topics and Claude prompts for that phase.
-- **Percentages.** Each Step 2 task carries its share of the whole project, taken from its roadmap estimate (`estimate / 240.5 weeks`). The weeks are human part-time effort and are used only as relative weights, not as a schedule. Progress = sum of ticked percentages.
+- **Percentages.** Each Step 2 task carries its share of the whole project, taken from its roadmap estimate (`estimate / 243.5 weeks`). The weeks are human part-time effort and are used only as relative weights, not as a schedule. Progress = sum of ticked percentages.
 - **Gates** carry no weight but must be ticked before their milestone counts as closed.
 - Legend: 🔶 the MVP gives this task a head start (it still counts only when the whole phase is done) · ⏭ optional, not counted · ◐ half ticked: done except a check that is waiting on something outside the repo, not counted in Progress until fully ticked · 🟡 attention: the reason, at the end of the task line.
 - If a roadmap phase is added, removed or re-estimated, update this file in the same change (see AGENTS.md).
@@ -22,17 +22,17 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 | Step / milestone | Weight | Cumulative | Status |
 | --- | --- | --- | --- |
 | **Step 1 · MVP** | own 0–100% | — | 100%: all tasks done and accepted (clean build, play + editor Play + build, screenshot); S7 editor usability (MVP-45..57) done after the review, 13/13 tests |
-| F1 · Foundations (harden the MVP) | 4.8% | 4.8% | 4.8% — closed (all tasks and gates) |
-| F2 · Shared core | 9.2% | 13.9% | 4.99% ticked + 4.16% half ticked (◐ F2.01, F2.02, F2.05, G1: Android run deferred) — API 1-3, Engine 3 and Engine 4 done and accepted; Engine 1, 2 and 5 are built and tested on the host and PS2 and wait only for the Android phone run (`tools/ci/android_device.sh`); gates: G2 met, G1 met except Android (built, not run) |
-| F3 · Editor core | 10.4% | 24.3% | 9.14% ticked (F3.01-F3.07 done: 57/57 ctest, console and CI checks passed natively without Docker); F3.08 half ticked (see its note); all four gates met |
-| F4 · 2D slice everywhere + PSP base | 7.9% | 32.2% | 0% |
-| F5 · PSP track | 16.2% | 48.4% | 0% |
-| F6 · Full editor and API | 16.0% | 64.4% | 0% |
+| F1 · Foundations (harden the MVP) | 4.7% | 4.7% | 4.7% — closed (all tasks and gates) |
+| F2 · Shared core | 9.0% | 13.7% | 4.92% ticked + 4.10% half ticked (◐ F2.01, F2.02, F2.05, G1: Android run deferred) — API 1-3, Engine 3 and Engine 4 done and accepted; Engine 1, 2 and 5 are built and tested on the host and PS2 and wait only for the Android phone run (`tools/ci/android_device.sh`); gates: G2 met, G1 met except Android (built, not run) |
+| F3 · Editor core | 10.3% | 24.0% | 9.03% ticked (F3.01-F3.07 done: 57/57 ctest, console and CI checks passed natively without Docker); F3.08 half ticked (see its note); all four gates met |
+| F4 · 2D slice everywhere + PSP base | 8.6% | 32.6% | 0% |
+| F5 · PSP track | 16.0% | 48.6% | 0% |
+| F6 · Full editor and API | 15.8% | 64.4% | 0% |
 | F7 · PSP template | 2.3% | 66.7% | 0% |
-| F8 · PS2 track | 7.3% | 74.0% | 0% |
-| F9 · PSX track | 23.9% | 97.9% | 0% |
-| F10 · Ship 1.0 | 2.1% | 100.0% | 0% |
-| **Step 2 total** | **100%** | | **18.9%** |
+| F8 · PS2 track | 7.2% | 73.9% | 0% |
+| F9 · PSX track | 24.0% | 98.0% | 0% |
+| F10 · Ship 1.0 | 2.0% | 100.0% | 0% |
+| **Step 2 total** | **100%** | | **18.7%** |
 
 ---
 
@@ -42,7 +42,7 @@ Sources: [design document](docs/rensga-engine/design-doc/rensga-engine-design-do
 
 On Linux, both of these build the PSP template project with the pinned native psp-build support module (MVP-era shortcut was a Docker image; **F3.08** replaced it, users never need Docker) and boot it in the bundled, pinned PPSSPP:
 
-- `rensga play --target psp templates/psp`
+- `rensga play --target psp templates/psp-3d`
 - **Play** in the minimal editor
 
 In the game, a primitive capsule character moves with the analog nub around a primitive test level. It has a follow camera, gravity, and a jump that lands on boxes, and it collects 5 pickups shown as HUD pips. **Stop** closes PPSSPP. The game's log appears in the editor's Console.
@@ -76,7 +76,7 @@ In the game, a primitive capsule character moves with the analog nub around a pr
 
 ### S2 · Data and cooker — 30 → 45%
 
-- [x] **MVP-16** ConsoleTarget JSON schema and `templates/psp/ProjectSettings/ConsoleTarget.json`: profile `psp`, scalar `float`, 480x272, budgets for RAM (32 MB PSP-1000), VRAM (2 MB) and triangles per frame, plus allowed components. A generator emits a constants header, and `ENGINE_PROFILE_PSP` is defined.
+- [x] **MVP-16** ConsoleTarget JSON schema and `templates/psp-3d/ProjectSettings/ConsoleTarget.json`: profile `psp`, scalar `float`, 480x272, budgets for RAM (32 MB PSP-1000), VRAM (2 MB) and triangles per frame, plus allowed components. A generator emits a constants header, and `ENGINE_PROFILE_PSP` is defined.
 - [x] **MVP-17** Project layout: `Assets/`, `ProjectSettings/`, and `Library/` (cache, never committed). A `.meta` with a GUID next to every asset. A project format version field.
 - [x] **MVP-18** Scene JSON: GameObjects, Transform, components with reflected fields, references by GUID, and a prefab field (reserved, empty). Also `InputActions.json`: Move → nub, Jump → south button, Camera orbit → L/R.
 - [x] **MVP-19** Shared primitive generator: cube, sphere, capsule, plane and ramp, with tessellation from the ConsoleTarget and matching colliders.
@@ -104,8 +104,8 @@ In the game, a primitive capsule character moves with the analog nub around a pr
   - `Debug::Log`
 - [x] **MVP-30** Minimal physics: `CharacterController::Move` with gravity, AABB collision against static box colliders and a grounded flag. Sphere triggers with `OnTriggerEnter`.
 - [x] **MVP-31** Script registration: a `REFLECT`ed Behaviour gets a factory, so scenes instantiate scripts by type name. Project scripts link statically into the PSP build.
-- [x] **MVP-32** Template scene `templates/psp/Assets/Scenes/TestLevel.scene`: ground plane, 4–6 box platforms and a ramp, a capsule player with a sphere head, 5 pickups, a camera and a directional light setting.
-- [x] **MVP-33** Template scripts in `templates/psp/Assets/Scripts/`, using `Scalar` only (never `float`):
+- [x] **MVP-32** Template scene `templates/psp-3d/Assets/Scenes/TestLevel.scene`: ground plane, 4–6 box platforms and a ramp, a capsule player with a sphere head, 5 pickups, a camera and a directional light setting.
+- [x] **MVP-33** Template scripts in `templates/psp-3d/Assets/Scripts/`, using `Scalar` only (never `float`):
   - `PlayerController`: camera-relative nub movement, jump
   - `FollowCamera`: follows the player, orbits on L/R
   - `Pickup`: spins, collected on trigger
@@ -136,7 +136,7 @@ In the game, a primitive capsule character moves with the analog nub around a pr
   - A dropdown next to Play has "Play on console" active and "Play in editor" greyed out, with the reason "arrives in Editor 5".
   - Validator errors appear in the Console with the asset named.
 - [x] **MVP-43** Acceptance, on a clean clone:
-  - run `fetch_ppsspp.sh`, then `rensga play --target psp templates/psp`
+  - run `fetch_ppsspp.sh`, then `rensga play --target psp templates/psp-3d`
   - press editor **Play**
 
   Both must boot the game. The nub moves the character, jump lands on platforms, the pickups count to 5, Stop closes PPSSPP, and the Console shows the game log. Save a screenshot to `docs/rensga-engine/mvp/`.
@@ -157,7 +157,7 @@ The MVP review found three blockers: Dear ImGui default look, loose overlapping 
 - [x] **MVP-50** Game tab: preview at the target's resolution (`previewRules()`) through the scene's Camera and light.
 - [x] **MVP-51** Inspector editing via reflection: name, active, Transform (Euler degrees), every component field with a widget (slider for RANGE, combo for Guid), HEADER labels, one undo step per edit; Add Component lists registered types (those outside the target's allowed list are disabled with the reason); Remove Component from the header context menu.
 - [x] **MVP-52** Hierarchy editing: drag-and-drop reparent, F2 / double-click rename, context menu and GameObject menu (Create Empty, 3D Object > Cube / Sphere / Capsule / Plane / Ramp, Duplicate, Delete), Ctrl+D / Delete. New primitives get MeshRenderer and a collider and appear 5 units in front of the Scene camera.
-- [x] **MVP-53** Play integration and close-out: Play saves a dirty scene first (Console line), so edits reach the build. Checked end to end on a scratch copy of `templates/psp`: a test moves a pickup and adds a cube, saves; `rensga cook` and `rensga_headless --pack` load 22 objects (template: 21). `rensga-editor --play` exits non-zero when the pipeline fails. Screenshot tooling: `--screenshot`, `--select`, `--focus`, `--ui-event`.
+- [x] **MVP-53** Play integration and close-out: Play saves a dirty scene first (Console line), so edits reach the build. Checked end to end on a scratch copy of `templates/psp-3d`: a test moves a pickup and adds a cube, saves; `rensga cook` and `rensga_headless --pack` load 22 objects (template: 21). `rensga-editor --play` exits non-zero when the pipeline fails. Screenshot tooling: `--screenshot`, `--select`, `--focus`, `--ui-event`.
 - [x] **MVP-54** Assign scripts: the Project window lists `Assets/` and shows scripts by class name (file name = class name). Drag a script onto a Hierarchy row, onto an object in the Scene view (pick under the cursor) or onto the Inspector to add that Behaviour (one undo step; the class is also added to the project's `allowedComponents` so the cook accepts it). Add Component has a Scripts submenu; scripts on disk but not yet compiled into this editor are greyed with "compiling..." or "needs rebuild". Double-click opens the file in `$VISUAL`, `$EDITOR` or `xdg-open`.
 - [x] **MVP-55** Create objects from the Scene view: a right-click without drag opens the Hierarchy create menu (Create Empty, 3D Object, Camera, Light); the object lands where the cursor ray hits the scene or the ground, else 5 units ahead, and is selected. Right-drag stays fly-look.
 - [x] **MVP-56** Project window > Create > C++ Script: name prompt (C++ identifier, unique), writes `Assets/Scripts/<Name>.cpp` from a template (Behaviour, REFLECT, HEADER, `SERIALIZE_FIELD(Scalar, speed, 1.0f)`, Start, Update) and its `.meta` with a new GUID.
@@ -179,7 +179,7 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | Lifecycle | `engine/api` | done in F2.08 (all eight callbacks, execution order, `Time` getters) | done in F2.08 |
 | Input actions | `InputActions.json`, `engine/api` | done in F3.06 (axes, buttons, actions, rumble, composites; PSP pad map, SDL pads); PS2 libpad rumble and PSP static_asserts never compiled (needs the F3.08 modules or Docker) | **F6.04**&nbsp;Editor 10 (action editor) |
 | 2D gameplay | `engine/core/gameplay`, `engine/api` | tile flags (solid, one-way, slopes), BoxCollider2D, Physics2D layers, Camera2D, DontDestroyOnLoad; 2D editor gizmos done in F3.01; no PSP or PSX 2D | **F4**&nbsp;2D slice (PSP), **F9**&nbsp;PSX Engine 3 |
-| Real-PS2 timing and memory card | `backends/platform/ps2`, `runtime_audio` | measured only in PCSX2 (emulated timing); no `icon.sys` on the card; no real-pad play-through | **F4.01**&nbsp;2D vertical slice |
+| Real-PS2 timing and memory card | `backends/platform/ps2`, `runtime_audio` | measured only in PCSX2 (emulated timing); no `icon.sys` on the card (F4.01 adds it); no real-pad play-through | **F8.02**&nbsp;Engine 8 and **F8.G3** |
 | Physics | `engine/api` | CharacterController, box colliders, sphere triggers | **F6.08**&nbsp;API 6 |
 | ConsoleTarget + profile defines | `ProjectSettings/`, generated header | PSP profile | **F1.02**&nbsp;API 0, **F5.12**&nbsp;PSP API 0 |
 | Project layout, `.meta`, `Library/` | templates, cooker, `editor/core` asset database | done in F3.02 (GUID index, importer settings with per-target overrides, Project window, VRAM map); moving or renaming the open scene file does not update `project.scenes`; the PS2 VRAM map uses the generic layout | **F8.07**&nbsp;PS2 Editor (PS2 TargetModule) |
@@ -202,7 +202,7 @@ Each MVP shortcut, where it lives, and the Step 2 task that finishes it. Add a r
 | Script module hot reload | `editor/core/game_module`, `script_build` | done in F3.03: scripts build as a per-project shared module (background `ScriptBuildJob`, status bar progress and Cancel), loaded with dlopen and reloaded with script state kept; compile errors with file:line open in the external editor. Windows path (LoadLibrary, import lib) written but never built: `TODO(Windows)` in `editor/app/CMakeLists.txt` | **F10**&nbsp;Windows editor build |
 | Create C++ Script | `editor/core/script_assets` | fixed template, `Assets/Scripts/<Name>.cpp`; builds and hot reloads on creation | **F6.03**&nbsp;Editor 9 (templates) |
 | Script drag-and-drop | `editor/app/panels` | done in F3.01 and F3.02: `RENSGA_ASSET_GUID` payload, Project to Hierarchy, Scene view and Inspector | done |
-| Template project | `templates/psp` | test level and controller | **F7.04**&nbsp;PSP Template 3 |
+| Template project | `templates/psp-3d` | test level and controller | **F7.04**&nbsp;PSP Template 3 |
 | Console and cross toolchains | `tools/docker/*.sh`, `tools/pipeline` Compile stage, `editor/targets/psp` (`dockerRun`), `tools/ci/*.sh`, `.github/workflows/ci.yml` | MVP: pinned Docker images (users and CI needed Docker). F3.08: pinned native build support modules, Docker only as optional contributor backend | **F3.08**&nbsp;Editor 11.5 (native build support modules from the Hub or `rensga modules`; CI installs the same modules; Docker stays an optional contributor backend, `RENSGA_TOOLCHAIN=docker`) |
 | CMake presets | `CMakePresets.json` | `linux-host`, `psp`, `windows`, `android`, `ps2` enabled (cross builds run in pinned Docker images via `tools/docker/*.sh` today; native build support modules replace this in **F3.08**, Docker stays an optional contributor backend); `psx` declared | done in F1.01 (module toolchains: **F3.08**; psx: **F9**) |
 
@@ -215,6 +215,7 @@ Recorded deviations:
 - **F2: PS2 audio and VRAM numbers come from PCSX2.** Timing is emulated; real-PS2 numbers are F4.01. The PS2 audio backend patches the BIOS module loader (`sbv_patch_enable_lmb`) to load audsrv on the 1.60 BIOS.
 - **F2: `IFileSystem` fixed slot table.** 8 stream slots, no heap; PS2 memory card saves use flat names under `mc0:/RENSGA` and write no `icon.sys`.
 - **F2: Windows alloc-check ran under wine.** CI installs wine and skips if missing; a native Windows run is not done.
+- **F4: real-hardware runs deferred.** On 2026-10-31 the user deferred the F4 real PS2 and real PSP hardware runs and the Android phone run. F4 uses PCSX2 and PPSSPP only (the Android APK is built, not run, like F2). The real-hardware passes moved to later phases and gates: PSP in PSP Engine 7 (**F5.G1**), PS2 in Engine 8 (**F8.G3**), every console in **F10.G4**. The roadmaps (Engine 6, PSP Engine 5, PSP Engine 7, Engine 8) and the design doc say the same.
 
 - **Native PSP platform instead of SDL2.** The PSP backend uses sceCtrl/sceDisplay directly (pspsdk); SDL2 stays on the editor and host side. Reason: pspdev does ship SDL2, but running SDL2 input/timing alongside raw GU rendering was deferred to keep the MVP to one day; `IPlatform` isolates it, and PSP Engine 1 (F4.03) moves the platform layer to SDL2 as the design doc specifies.
 - **Project scripts are compiled into the cooker, CLI and editor at build time** (`RENSGA_PROJECT_DIR`, `rensga_cooker_scripts`). Reason: reflection registers types at static init, so scenes can only be read by an executable that links the scripts. F1.05 replaced static-init field registration with build-time codegen (`tools/reflect/reflect_scan.py` writes `*.reflect.gen.cpp`; the macros only declare), which closes the reflection deviation. Scripts are still linked in until hot reload (Editor 4) loads them dynamically.
@@ -237,17 +238,17 @@ Recorded deviations:
 
 Milestones follow the design doc's build order: shared core → editor and TargetModule → PSP → PS2 → PSX → ship. Milestones can overlap once their inputs exist. The percentages measure how much is done, not when.
 
-### F1 · Foundations (harden the MVP) — 4.8% (cumulative 4.8%)
+### F1 · Foundations (harden the MVP) — 4.7% (cumulative 4.7%)
 
 Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
-- [x] **F1.01** Engine 0 · Toolchain and build matrix — one CMake repo, four targets, CI green · `0.83%` 🔶
-- [x] **F1.02** API 0 · API design rules — naming, handles, ownership, profile gating · `0.63%` 🔶
+- [x] **F1.01** Engine 0 · Toolchain and build matrix — one CMake repo, four targets, CI green · `0.82%` 🔶
+- [x] **F1.02** API 0 · API design rules — naming, handles, ownership, profile gating · `0.62%` 🔶
   - Rules: `docs/rensga-engine/api-rules.md`; `tools/check_api_rules.sh` in ctest. Audit notes: F2.08 makes `Time::*` getters; F2.07 adds `Transform` local getters/setters and the `RENSGA_REQUIRES_FEATURE` / `RENSGA_API_VERSION_*` macros.
-- [x] **F1.03** Editor 0 · Editor shell and projects — docking UI, project folders, console · `0.83%` 🔶
-- [x] **F1.04** Editor 0.5 · TargetModule interface — console plug-in boundary · `0.83%` 🔶
+- [x] **F1.03** Editor 0 · Editor shell and projects — docking UI, project folders, console · `0.82%` 🔶
+- [x] **F1.04** Editor 0.5 · TargetModule interface — console plug-in boundary · `0.82%` 🔶
   - Reviewed: preview and inspector rules are now data from ConsoleTarget.json; `docs/rensga-engine/target-module.md`; test-only `editor/targets/dummy`. Left for F5.04: the cooker CLI default `--target psp` and its PSP plugin registration.
-- [x] **F1.05** Editor 1 · Reflection, serialization and undo — the backbone everything else needs · `1.66%` 🔶
+- [x] **F1.05** Editor 1 · Reflection, serialization and undo — the backbone everything else needs · `1.64%` 🔶
   - Codegen: `tools/reflect/reflect_scan.py` (Python 3; the cross images have none, so cross builds read tables written by `tools/reflect/prescan.sh` on the host, run by the PSP target module and `tools/ci/*.sh`). Macros: `REFLECT`, `SERIALIZE_FIELD`, `RANGE`, `HEADER`, `TOOLTIP`, `REQUIRE_COMPONENT`; `RENSGA_STRIP_EDITOR_METADATA` (on for cross/runtime builds) strips headers, tooltips, ranges and required components. For a scanned `.cpp` the generated file includes it and replaces it in the source list.
   - One description feeds the inspector, JSON (`fieldsToOrderedJson`), the FDAT blob, field paths (`parseFieldPath`: `speed`, `offset.x`) and hot-reload state transfer (`saveState` / `loadState`, name-keyed). Undo is command-based (`editor/core/undo.h`: merge by key, groups, 256 steps, dirty tracking); `SceneDocument` runs on it.
 
@@ -258,26 +259,26 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/ren
 - [x] **F1.G3** The API design rules are written up as a page under `docs/` before API 1 begins.
 - [x] **F1.G4** Every MVP hook in the register has an owner task in this list.
 
-### F2 · Shared core — 9.2% (cumulative 13.9%)
+### F2 · Shared core — 9.0% (cumulative 13.7%)
 
 Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
-- ◐ **F2.01** Engine 1 · Core and platform layer — loop, memory, input, files, logging · `1.25%` 🔶 🟡 *Attention: everything is done (touch controls and the Android player are built) except the Android on-device run (`tools/ci/android_device.sh`), deferred by the user to a later phase.*
+- ◐ **F2.01** Engine 1 · Core and platform layer — loop, memory, input, files, logging · `1.23%` 🔶 🟡 *Attention: everything is done (touch controls and the Android player are built) except the Android on-device run (`tools/ci/android_device.sh`), deferred by the user to a later phase.*
   - Acceptance 2: done and tested: fixed-timestep loop, arena/pool/frame allocators with budgets, `data:/` and `save:/` file systems (PC, Android assets, PS2 cdrom0/host/mass/mc0, PSP ms0:/host0:), logging, alloc-check, multi-touch virtual gamepad (`engine/backends/platform/sdl/touch.cpp`, tests `touch_pad_logic`, `touch_sdl_events`), and the Android player APK (`libmain.so` is the engine player, `game.rpak` and `music.wav` in the assets, `build/ci/android/rensga-player.apk`). Waiting for the phone run (`tools/ci/android_device.sh`): touch zones and the player on a real device.
-- ◐ **F2.02** Engine 2 · 2D renderer — gsKit backend + GL/GLES backend · `1.66%` 🟡 *Attention: everything is done (the GLES path is built) except the Android on-device run (`tools/ci/android_device.sh`), deferred by the user to a later phase.*
+- ◐ **F2.02** Engine 2 · 2D renderer — gsKit backend + GL/GLES backend · `1.64%` 🟡 *Attention: everything is done (the GLES path is built) except the Android on-device run (`tools/ci/android_device.sh`), deferred by the user to a later phase.*
   - Acceptance 2: GL desktop renderer and gsKit renderer done. The PS2 VRAM manager is done (32 KB CLUT area, 8 KB-page first-fit texture area with LRU eviction, queue kick before eviction), verified in PCSX2 with `RENSGA_PS2_VRAM_STRESS`. The only gap left is the Android GLES run on a device; waiting for the phone run (`tools/ci/android_device.sh`). Font and tilemap draw paths are used by the sample on both backends.
   - Evidence: PCSX2 `rensga: vram fb=2240KB tex=1608KB used/1824KB area clut=2KB free=216KB evictions=5833 uploads=5841`, `alloc-check frames=300 allocs=0`, screenshot of 24 correct textured cells (PCSX2 hardware and software renderers identical; CLUT8 uses CSM1 = TEX0.CSM 0, gsKit puts ClutStorageMode into CSM); desktop 1000 sprites `alloc-check frames=299 allocs=0`.
-- [x] **F2.03** Engine 3 · Asset pipeline — c++ cooker, per-target formats, pack files · `1.25%` 🔶
+- [x] **F2.03** Engine 3 · Asset pipeline — c++ cooker, per-target formats, pack files · `1.23%` 🔶
   - Evidence: cooker with per-target plugins (PS2 CLUT4/CLUT8 or RGBA, PC/Android RGBA), pack v2 (TEXR, AUDI, TMAP, ANIM, FONT, SCNE, PH2D, CTGT), whole-project skip plus a per-asset cache in `Library/Cache/<target>/` (PNG and WAV; JSON assets always re-cook). Touching one WAV in the sample: `cook: cooked 1, cached 8`; unchanged project: `cooked 0, cached 0 (whole project up to date)`; test `assets_cook_cache_reuses_unchanged_assets`. Desktop hot reload: `rensga_desktop` reloads the pack between frames and logs `rensga: hot-reload <pack> (scene TestLevel, objects=21)` (test `hot_reload_desktop`); the PS2 build has no watcher. CSM1 CLUT8 swizzle is in `gs_renderer.cpp` and the PS2 screenshots show correct palette colors. Exercise (cook a tileset and sprite sheet for PS2 and PC, load, draw): `samples/platformer2d` room on PS2 (PCSX2) and desktop.
-- [x] **F2.04** Engine 4 · Audio — own software mixer on SDL audio · `0.83%`
+- [x] **F2.04** Engine 4 · Audio — own software mixer on SDL audio · `0.82%`
   - Evidence: one mixer (16 voices, volume/pan, loop, streamed music with 4096-frame double buffering) wired into the desktop, Android and PS2 mains (`runtime_audio.cpp`; sample rate and voice cap from the ConsoleTarget, voice count is compile-time `RENSGA_AUDIO_MAX_VOICES`); SDL backend on PC and Android, audsrv on PS2 (needs `sbv_patch_enable_lmb` on the 1.60 BIOS); music is `Streaming/music.wav`, copied next to the pack and put on the disc as `MUSIC.WAV`. Exercise (looping music plus 16 overlapping effects, CPU cost): PCSX2 `audio-stress voices=16 mix_us=3119/4310 ... cpu_permille=92 music=1 underruns=0`, `alloc-check frames=200 allocs=0` (emulated timing, about 9% of a core); desktop `audio-stress voices=16 mix_us=177/221 ... cpu_permille=3 underruns=0` with a non-silent device output (test `audio_stress_desktop`). SPU2 comparison is a design topic; software mixing stays (real-PS2 timing is F4.01).
-- ◐ **F2.05** Engine 5 · Gameplay framework — entities, collision, animation, saves, UI · `1.25%` 🟡 *Attention: everything is done (the room exercise runs on Linux, Windows and PS2; Android is the fourth target) except the Android on-device run (`tools/ci/android_device.sh`), deferred by the user to a later phase.*
+- ◐ **F2.05** Engine 5 · Gameplay framework — entities, collision, animation, saves, UI · `1.23%` 🟡 *Attention: everything is done (the room exercise runs on Linux, Windows and PS2; Android is the fourth target) except the Android on-device run (`tools/ci/android_device.sh`), deferred by the user to a later phase.*
   - Acceptance 2: done: SpriteRenderer, SpriteAnimator, Tilemap with solid / one-way / slope tile flags, BoxCollider2D sweep (slopes, one-way, DropThrough, Down+South auto-drop), Physics2D layer matrix (`Physics2D.json`, PH2D section), Camera2D (dead zone, bounds, pixel snap), DontDestroyOnLoad, UI (text, image, button), SceneManager, Save store (files; PS2 memory card `mc0:/RENSGA`). Exercise on `samples/platformer2d`: 40x14 room, slope run, one-way planks, 7 coins, Walker and Hopper enemies (stomp or lose 1 HP), save point; bot `RoomBot` clears it on host (`tests/sample`, 20 tests), desktop and PS2.
   - Evidence: desktop `room cleared coins=7 score=1836`, `alloc-check frames=8999 allocs=0`; PCSX2 `room cleared coins=7 score=1832`, `saved best=700 coins=5`, `save readback best=1832 coins=7`, `alloc-check frames=1100 allocs=0`.
   - Not ticked: the exercise says "all four targets" and Android has not run the room (waiting for the phone run, `tools/ci/android_device.sh`; the player starts on Title, tap the South zone). Also open: no `icon.sys` is written on the PS2 card (saves work but show no icon in the BIOS browser; real-card check is F4.01), no real-pad PS2 play-through (PCSX2 sandbox has no controller), 2D editor gizmos (F3.01), PSP and PSX 2D (F4, F9).
-- [x] **F2.06** API 1 · Math and core types — vector3, Quaternion, Mathf, Random · `0.83%` 🔶
-- [x] **F2.07** API 2 · Object model — gameObject, Component, Transform · `1.25%` 🔶
-- [x] **F2.08** API 3 · Lifecycle, Time, Debug, Application — execution order and global services · `0.83%` 🔶
+- [x] **F2.06** API 1 · Math and core types — vector3, Quaternion, Mathf, Random · `0.82%` 🔶
+- [x] **F2.07** API 2 · Object model — gameObject, Component, Transform · `1.23%` 🔶
+- [x] **F2.08** API 3 · Lifecycle, Time, Debug, Application — execution order and global services · `0.82%` 🔶
 
 **Gates**
 
@@ -286,25 +287,25 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga
 - [x] **F2.G2** Determinism test: the same scene and inputs give the same state hash on Linux and PSP.
   - Evidence: `tests/determinism/walk.json`, 400 frames, Linux hash == PSP hash `05d7d1bf`, all 400 per-frame trace hashes equal (`tools/ci/determinism.sh`).
 
-### F3 · Editor core — 10.4% (cumulative 24.3%)
+### F3 · Editor core — 10.3% (cumulative 24.0%)
 
 Roadmaps: [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
-- [x] **F3.01** Editor 2 · Scene, hierarchy and inspector — gameObjects, Transforms, gizmos · `1.66%`
+- [x] **F3.01** Editor 2 · Scene, hierarchy and inspector — gameObjects, Transforms, gizmos · `1.64%`
   - Evidence: `rensga_sceneedit_tests`, `editor_scene_ui`, `editor_callbacks_ui`, `exercise_patrol`. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
-- [x] **F3.02** Editor 3 · Asset database and project window — .meta files, importers, VRAM map · `1.66%`
+- [x] **F3.02** Editor 3 · Asset database and project window — .meta files, importers, VRAM map · `1.64%`
   - Evidence: `rensga_asset_tests`, `editor_assets_ui` (dropped PNG, ps2 override clut8 to clut4). Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
-- [x] **F3.03** Editor 4 · C++ scripting workflow — behaviours, hot reload, compile errors · `2.08%`
+- [x] **F3.03** Editor 4 · C++ scripting workflow — behaviours, hot reload, compile errors · `2.05%`
   - Evidence: `editor_script_build_ui` (frames keep advancing during a build, error file:line), `exercise_hot_reload`, `editor_play_hot_reload`, `rensga_editor_tests` game module tests. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
-- [x] **F3.04** Editor 5 · Play mode and Game view — play, pause, step, revert, profile previews · `1.25%`
+- [x] **F3.04** Editor 5 · Play mode and Game view — play, pause, step, revert, profile previews · `1.23%`
   - Evidence: `editor_play_psp`, `editor_play_platformer`, `exercise_play_revert`. Known gap: no audio in editor play. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
-- [x] **F3.05** API 4 · Coroutines, Invoke and events — waiting over time, C# events, UnityEvent · `1.04%`
+- [x] **F3.05** API 4 · Coroutines, Invoke and events — waiting over time, C# events, UnityEvent · `1.03%`
   - Evidence: `rensga_core_tests` coroutine tests (allocs=0), `rensga_cooker_tests` door/UnityEvent, `exercise_door`. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
 - [x] **F3.06** API 5 · Input — axes, buttons, actions, rumble · `0.62%`
   - Evidence: `rensga_core_tests` input tests, `pad_psp_map`, `pad_sdl_events`, `input_cook`, `exercise_input_desktop`. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
-- [x] **F3.07** API 11 · Editor-facing attributes — serializeField, Range, RequireComponent · `0.83%`
+- [x] **F3.07** API 11 · Editor-facing attributes — serializeField, Range, RequireComponent · `0.82%`
   - Evidence: `rensga_inspector_tests`, `rensga_strip_tests`, `reflect_scan_codegen`. Console and CI checks passed natively (no Docker, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`): psp booted to frame 240 with allocs=0, determinism MATCH, psp_gpu_check 0 unknown syscalls, editor_tour, windows build + wine alloc-check 0, ps2 build + PCSX2 boot (allocs=0).
-- ◐ **F3.08** Editor 11.5 · Build support modules — native toolchains and emulators from the Hub, no Docker · `1.25%` 🟡 *Attention: Windows-hosted PSP toolchain is built by .github/workflows/toolchains.yml, not published yet; android-build was never installed or run (installing it means accepting Google's Android SDK license, which only the user may do: `rensga modules install android-build --accept-licenses`, then `RENSGA_TOOLCHAIN=native tools/ci/android.sh`); the PPSSPP Linux entry is `manual`; Windows-host installs and the Windows postInstall (`sh -c`) are untested.*
+- ◐ **F3.08** Editor 11.5 · Build support modules — native toolchains and emulators from the Hub, no Docker · `1.23%` 🟡 *Attention: Windows-hosted PSP toolchain is built by .github/workflows/toolchains.yml, not published yet; android-build was never installed or run (installing it means accepting Google's Android SDK license, which only the user may do: `rensga modules install android-build --accept-licenses`, then `RENSGA_TOOLCHAIN=native tools/ci/android.sh`); the PPSSPP Linux entry is `manual`; Windows-host installs and the Windows postInstall (`sh -c`) are untested.*
   - Evidence: psp-build, ps2-build, windows-build, build-tools installed from the catalog; `run_local.sh` natively passed linux_host, psp, editor_tour, determinism, psp_gpu_check, windows, windows_run, ps2, ps2_check, android_device ("built, not run"); android SKIPPED with the clear "android-build is not installed, it needs Google's Android SDK license" message (exit 77; in CI it fails instead); 57/57 ctest incl. `editor_modules_ui` (Hub screenshots).
   - Done when: every console and cross build runs from pinned, sha256-verified native toolchain archives installed per user (Hub > Modules or `rensga modules install <id>`; catalog `tools/modules/manifest.d/`), the pipeline, the editor TargetModules and `tools/ci/*.sh` resolve toolchains through one runner (`RENSGA_TOOLCHAIN=auto|native|docker`), CI installs the same modules, and Docker is only an optional contributor backend. Windows archives we build ourselves stay "unpublished" until `.github/workflows/toolchains.yml` releases them.
 
@@ -317,75 +318,81 @@ Roadmaps: [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga
 - [x] **F3.G3** The Play dropdown's "Play in editor" works and Stop restores the scene.
   - Evidence: `editor_play_psp`, `editor_play_platformer`, `exercise_play_revert` (Stop restores the scene), `rensga_editor_tests` session tests.
 - [x] **F3.G4** A machine without Docker installs PSP build support from the Hub or CLI, builds the PSP template and plays it in PPSSPP.
-  - Evidence: fresh `RENSGA_HOME`, Docker permission denied: `rensga modules install psp-build build-tools`, `rensga build --target psp templates/psp` (EBOOT.PBP 597962 bytes), `rensga play --target psp` with `RENSGA_TOOLCHAIN=auto` ran to quit-after with heartbeats. Hub screenshots: `build/nm-accept0/tests/editor/modules_ui/` (`ctest editor_modules_ui`).
+  - Evidence: fresh `RENSGA_HOME`, Docker permission denied: `rensga modules install psp-build build-tools`, `rensga build --target psp templates/psp-3d` (EBOOT.PBP 597962 bytes), `rensga play --target psp` with `RENSGA_TOOLCHAIN=auto` ran to quit-after with heartbeats. Hub screenshots: `build/nm-accept0/tests/editor/modules_ui/` (`ctest editor_modules_ui`).
 
-### F4 · 2D slice everywhere + PSP base — 7.9% (cumulative 32.2%)
+### F4 · 2D slice everywhere + PSP base — 8.6% (cumulative 32.6%)
 
-Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/rensga-engine/roadmaps/editor.html) · [PSP Engine](docs/rensga-engine/roadmaps/psp-engine.html)
+Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [Editor](docs/rensga-engine/roadmaps/editor.html) · [PSP Engine](docs/rensga-engine/roadmaps/psp-engine.html) · [PSP Template](docs/rensga-engine/roadmaps/psp-template.html) · [PS2 Template](docs/rensga-engine/roadmaps/ps2-template.html)
 
-- [ ] **F4.01** Engine 6 · 2D vertical slice on all targets — a small real game, shipped four ways · `1.66%`
+- [ ] **F4.01** Engine 6 · 2D vertical slice on all targets — a small real game, shipped four ways · `1.64%`
+  - Note: real-PS2 hardware testing moved to F8.02 (Engine 8) and F8.G3; F4 uses PCSX2. The Android phone run stays deferred.
 - [ ] **F4.02** PSP Engine 0 · pspdev toolchain and PSP target — preset, EBOOT.PBP, bundled PPSSPP, CI · `0.62%` 🔶
-- [ ] **F4.03** PSP Engine 1 · PSP platform layer — files, input, home button, memory, clock · `0.83%` 🔶
-- [ ] **F4.04** PSP Engine 2 · GU 2D backend — display lists, 2 MB VRAM, 480x272 · `1.25%` 🔶
+- [ ] **F4.03** PSP Engine 1 · PSP platform layer — files, input, home button, memory, clock · `0.82%` 🔶
+- [ ] **F4.04** PSP Engine 2 · GU 2D backend — display lists, 2 MB VRAM, 480x272 · `1.23%` 🔶
 - [ ] **F4.05** PSP Engine 3 · PSP cooker plugin — swizzled CLUT textures, GU vertex formats · `0.62%` 🔶
-- [ ] **F4.06** PSP Engine 4 · Audio on PSP — shared mixer, streaming from memory stick · `0.42%`
-- [ ] **F4.07** PSP Engine 5 · 2D slice on PSP — same game, new target · `0.83%`
-- [ ] **F4.08** Editor 7 · 2D toolset — sprites, tilemaps, 2D physics · `1.66%`
+- [ ] **F4.06** PSP Engine 4 · Audio on PSP — shared mixer, streaming from memory stick · `0.41%`
+- [ ] **F4.07** PSP Engine 5 · 2D slice on PSP — same game, new target · `0.82%`
+  - Note: the real-PSP pass moved to F5.02 (PSP Engine 7) and F5.G1; F4 uses PPSSPP.
+- [ ] **F4.08** Editor 7 · 2D toolset — sprites, tilemaps, 2D physics · `1.64%`
+- [ ] **F4.09** PSP Template 5 · PSP 2D template and Hub picker — 480x272 tilemap room, a 2D and a 3D card per target API · `0.41%`
+  - Done when: `templates/psp-2d` is one 480x272 tilemap room with a sprite player driven by the shared 2D platformer controller (written against `Scalar`, so PSX reuses it), a coin, a HUD and Camera2D; the Hub's Create Project shows a 2D and a 3D template card for every target API, and unbuilt ones are greyed out and name the phase that brings them; CI cooks the template and boots it in headless PPSSPP.
+- [ ] **F4.10** PS2 Template 5 · PS2 2D template — 640x448 tilemap room, boot test in PCSX2 · `0.41%`
+  - Done when: `templates/ps2-2d` is the 640x448 version of the PSP 2D template with the same shared controller; it cooks in CI and boots in PCSX2 locally (needs the user's own BIOS, like every PS2 run).
 
 **Gates**
 
 - [ ] **F4.G1** CI boots the PSP build in headless PPSSPP.
 - [ ] **F4.G2** The 2D slice runs on Windows, Linux, Android, PS2 and PSP from one codebase.
 
-### F5 · PSP track — 16.2% (cumulative 48.4%)
+### F5 · PSP track — 16.0% (cumulative 48.6%)
 
 Roadmaps: [PSP Engine](docs/rensga-engine/roadmaps/psp-engine.html) · [PSP Editor](docs/rensga-engine/roadmaps/psp-editor.html) · [PSP API](docs/rensga-engine/roadmaps/psp-api.html) · [Emulator Play](docs/rensga-engine/roadmaps/emulator-play.html)
 
-- [ ] **F5.01** PSP Engine 6 · GU 3D backend — hardware T&L, lights, skinning, clipping · `2.08%` 🔶
-- [ ] **F5.02** PSP Engine 7 · PSP performance — budgets, VFPU, profiling · `1.25%`
-- [ ] **F5.03** PSP Engine 8 · PSP packaging and release — eBOOT, saves, icons, open-source build · `0.83%`
-- [ ] **F5.04** PSP Editor 0 · PSP target module — register PSP with the editor · `0.42%` 🔶
-- [ ] **F5.05** PSP Editor 1 · PSP project template — consoleTarget PSP, default scene, input map · `0.42%` 🔶
+- [ ] **F5.01** PSP Engine 6 · GU 3D backend — hardware T&L, lights, skinning, clipping · `2.05%` 🔶
+- [ ] **F5.02** PSP Engine 7 · PSP performance — budgets, VFPU, profiling · `1.23%`
+- [ ] **F5.03** PSP Engine 8 · PSP packaging and release — eBOOT, saves, icons, open-source build · `0.82%`
+- [ ] **F5.04** PSP Editor 0 · PSP target module — register PSP with the editor · `0.41%` 🔶
+- [ ] **F5.05** PSP Editor 1 · PSP project template — consoleTarget PSP, default scene, input map · `0.41%` 🔶
 - [ ] **F5.06** PSP Editor 2 · PSP import settings — texture, mesh and audio rules · `0.62%`
-- [ ] **F5.07** PSP Editor 3 · PSP preview mode — 480x272, 16-bit color, live budgets · `0.83%`
+- [ ] **F5.07** PSP Editor 3 · PSP preview mode — 480x272, 16-bit color, live budgets · `0.82%`
 - [ ] **F5.08** PSP Editor 4 · PSP inspector rules — profile gating and validation · `0.62%`
-- [ ] **F5.09** PSP Editor 5 · Build and Run in PPSSPP — one click to a running EBOOT · `0.83%` 🔶
-- [ ] **F5.10** PSP Editor 6 · PSP debugging and profiling — logs, profiler feed, PPSSPP debugger · `0.83%`
-- [ ] **F5.11** PSP Editor 7 · PSP samples and docs — sample project and getting-started page · `0.83%`
-- [ ] **F5.12** PSP API 0 · PSP profile definition — what the PSP profile allows · `0.42%` 🔶
-- [ ] **F5.13** PSP API 1 · PSP input and app events — one nub, Home button, suspend · `0.42%` 🔶
-- [ ] **F5.14** PSP API 2 · Rendering API on PSP — light limits, materials, skinning · `0.83%`
+- [ ] **F5.09** PSP Editor 5 · Build and Run in PPSSPP — one click to a running EBOOT · `0.82%` 🔶
+- [ ] **F5.10** PSP Editor 6 · PSP debugging and profiling — logs, profiler feed, PPSSPP debugger · `0.82%`
+- [ ] **F5.11** PSP Editor 7 · PSP samples and docs — sample project and getting-started page · `0.82%`
+- [ ] **F5.12** PSP API 0 · PSP profile definition — what the PSP profile allows · `0.41%` 🔶
+- [ ] **F5.13** PSP API 1 · PSP input and app events — one nub, Home button, suspend · `0.41%` 🔶
+- [ ] **F5.14** PSP API 2 · Rendering API on PSP — light limits, materials, skinning · `0.82%`
 - [ ] **F5.15** PSP API 3 · PSP system services — save dialog, keyboard, language, battery · `0.62%`
-- [ ] **F5.16** PSP API 4 · Performance API on PSP — cPU clock, memory stats, VFPU · `0.42%`
-- [ ] **F5.17** PSP API 5 · Audio API on PSP — same API, PSP-safe defaults · `0.42%`
+- [ ] **F5.16** PSP API 4 · Performance API on PSP — cPU clock, memory stats, VFPU · `0.41%`
+- [ ] **F5.17** PSP API 5 · Audio API on PSP — same API, PSP-safe defaults · `0.41%`
 - [ ] **F5.18** PSP API 7 · PSP docs and API tests — profile badges, tests in PPSSPP · `0.62%`
-- [ ] **F5.19** Emulator Play 0 · Emulator launch contract — cLI args, sandboxed configs, BIOS · `0.42%` 🔶
+- [ ] **F5.19** Emulator Play 0 · Emulator launch contract — cLI args, sandboxed configs, BIOS · `0.41%` 🔶
 - [ ] **F5.20** Emulator Play 1 · Play, Pause, Stop — toolbar buttons driving the emulator · `0.62%` 🔶
 - [ ] **F5.21** Emulator Play 2 · Fast iteration path — skip disc images, load assets from host · `0.62%` 🔶
-- [ ] **F5.22** Emulator Play 3 · Console log and crash handling — game output in the editor console · `0.42%` 🔶
-- [ ] **F5.23** Emulator Play 4 · Docked Game view — emulator window inside the editor · `0.83%`
+- [ ] **F5.22** Emulator Play 3 · Console log and crash handling — game output in the editor console · `0.41%` 🔶
+- [ ] **F5.23** Emulator Play 4 · Docked Game view — emulator window inside the editor · `0.82%`
 
 **Gates**
 
 - [ ] **F5.G1** Real-hardware pass on a PSP-1000 plus slim or Go.
 - [ ] **F5.G2** Review: no PSP-specific code leaked into `editor/core`. The TargetModule interface grew instead.
 
-### F6 · Full editor and API — 16.0% (cumulative 64.4%)
+### F6 · Full editor and API — 15.8% (cumulative 64.4%)
 
 Roadmaps: [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
-- [ ] **F6.01** Editor 6 · Prefabs — instances, overrides, nesting, variants · `1.66%`
-- [ ] **F6.02** Editor 8 · 3D toolset — meshes, materials, lights, cameras, audio · `1.66%`
-- [ ] **F6.03** Editor 9 · Animation — clips, Animation window, Animator graph · `1.66%`
-- [ ] **F6.04** Editor 10 · UI, input and project settings — canvas UI, input actions, tags and layers · `1.25%`
-- [ ] **F6.05** Editor 11 · Build pipeline — build Settings, packaging, Build and Run · `1.25%` 🔶
-- [ ] **F6.06** Editor 12 · Profiler and debugging — live stats from the running game · `1.25%`
-- [ ] **F6.07** Editor 13 · Extensibility and polish — custom inspectors, data assets, samples · `1.25%`
-- [ ] **F6.08** API 6 · Physics — rigidbody, callbacks, queries · `1.25%` 🔶
-- [ ] **F6.09** API 7 · Rendering and camera — renderers, materials, particles, Gizmos · `1.25%`
-- [ ] **F6.10** API 8 · Animation and audio — animator, AudioSource, mixer · `0.83%`
-- [ ] **F6.11** API 9 · Scenes, assets and saves — sceneManager, Resources, save data · `1.25%`
-- [ ] **F6.12** API 10 · UI API — buttons, text, sliders, navigation · `0.83%`
+- [ ] **F6.01** Editor 6 · Prefabs — instances, overrides, nesting, variants · `1.64%`
+- [ ] **F6.02** Editor 8 · 3D toolset — meshes, materials, lights, cameras, audio · `1.64%`
+- [ ] **F6.03** Editor 9 · Animation — clips, Animation window, Animator graph · `1.64%`
+- [ ] **F6.04** Editor 10 · UI, input and project settings — canvas UI, input actions, tags and layers · `1.23%`
+- [ ] **F6.05** Editor 11 · Build pipeline — build Settings, packaging, Build and Run · `1.23%` 🔶
+- [ ] **F6.06** Editor 12 · Profiler and debugging — live stats from the running game · `1.23%`
+- [ ] **F6.07** Editor 13 · Extensibility and polish — custom inspectors, data assets, samples · `1.23%`
+- [ ] **F6.08** API 6 · Physics — rigidbody, callbacks, queries · `1.23%` 🔶
+- [ ] **F6.09** API 7 · Rendering and camera — renderers, materials, particles, Gizmos · `1.23%`
+- [ ] **F6.10** API 8 · Animation and audio — animator, AudioSource, mixer · `0.82%`
+- [ ] **F6.11** API 9 · Scenes, assets and saves — sceneManager, Resources, save data · `1.23%`
+- [ ] **F6.12** API 10 · UI API — buttons, text, sliders, navigation · `0.82%`
 - [ ] **F6.13** API 12 · Platform and performance helpers — defines, profiling, pooling, budgets · `0.62%`
 
 **Gates**
@@ -398,26 +405,26 @@ Roadmaps: [Editor](docs/rensga-engine/roadmaps/editor.html) · [API](docs/rensga
 Roadmaps: [PSP Template](docs/rensga-engine/roadmaps/psp-template.html)
 
 - [ ] **F7.01** PSP Template 0 · Primitive generator (shared) — gameObject > 3D Object menu · `0.62%` 🔶
-- [ ] **F7.02** PSP Template 1 · Primitive character — hierarchy prefab, lit and textured · `0.42%` 🔶
-- [ ] **F7.03** PSP Template 2 · Primitive test level — textured blocks, 4 lights, fog · `0.42%` 🔶
+- [ ] **F7.02** PSP Template 1 · Primitive character — hierarchy prefab, lit and textured · `0.41%` 🔶
+- [ ] **F7.03** PSP Template 2 · Primitive test level — textured blocks, 4 lights, fog · `0.41%` 🔶
 - [ ] **F7.04** PSP Template 3 · Character controller (shared base) — move, jump, one-nub camera, pickups · `0.62%` 🔶
-- [ ] **F7.05** PSP Template 4 · Package the PSP template — new-project entry, CI boot test · `0.21%`
+- [ ] **F7.05** PSP Template 4 · Package the PSP template — 3D entry, CI boot test · `0.21%`
 
 **Gates**
 
 - [ ] **F7.G1** A first-time user goes from New Project (PSP) to Play without touching an SDK.
 
-### F8 · PS2 track — 7.3% (cumulative 74.0%)
+### F8 · PS2 track — 7.2% (cumulative 73.9%)
 
 Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [PS2 Template](docs/rensga-engine/roadmaps/ps2-template.html)
 
-- [ ] **F8.01** Engine 7 · 3D renderer — ps2gl backend + matching GL look · `3.33%`
-- [ ] **F8.02** Engine 8 · 3D gameplay and performance — characters, physics, animation, budgets · `2.08%`
+- [ ] **F8.01** Engine 7 · 3D renderer — ps2gl backend + matching GL look · `3.29%`
+- [ ] **F8.02** Engine 8 · 3D gameplay and performance — characters, physics, animation, budgets · `2.05%`
 - [ ] **F8.03** PS2 Template 0 · PS2 primitive settings — smoother tessellation, VU1 path · `0.21%`
-- [ ] **F8.04** PS2 Template 1 · Primitive character and blob shadow — shared prefab, smoother look · `0.42%`
+- [ ] **F8.04** PS2 Template 1 · Primitive character and blob shadow — shared prefab, smoother look · `0.41%`
 - [ ] **F8.05** PS2 Template 2 · Primitive test level — bigger layout, textures, fog · `0.62%`
-- [ ] **F8.06** PS2 Template 3 · Dual-analog controller — right-stick camera, rumble · `0.42%`
-- [ ] **F8.07** PS2 Template 4 · Package the PS2 template — new-project entry, boot test without public BIOS · `0.21%`
+- [ ] **F8.06** PS2 Template 3 · Dual-analog controller — right-stick camera, rumble · `0.41%`
+- [ ] **F8.07** PS2 Template 4 · Package the PS2 template — 3D entry, boot test without public BIOS · `0.21%`
 
 **Gates**
 
@@ -425,40 +432,42 @@ Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [PS2 Template](do
 - [ ] **F8.G2** A self-hosted runner with a maintainer's private BIOS boots the PS2 template on every engine change.
 - [ ] **F8.G3** Real-hardware pass on a PS2.
 
-### F9 · PSX track — 23.9% (cumulative 97.9%)
+### F9 · PSX track — 24.0% (cumulative 98.0%)
 
 Roadmaps: [PSX Engine](docs/rensga-engine/roadmaps/psx-engine.html) · [PSX Editor](docs/rensga-engine/roadmaps/psx-editor.html) · [PSX API](docs/rensga-engine/roadmaps/psx-api.html) · [PSX Template](docs/rensga-engine/roadmaps/psx-template.html)
 
-- [ ] **F9.01** PSX Engine 0 · PSn00bSDK toolchain and PSX target — pS-EXE, BIN/CUE, bundled PCSX-Redux · `0.83%`
-- [ ] **F9.02** PSX Engine 1 · Fixed-point core — same core systems, integer math · `1.25%`
-- [ ] **F9.03** PSX Engine 2 · PSX platform layer — no SDL: pad, CD, memory card, vsync · `0.83%`
-- [ ] **F9.04** PSX Engine 3 · GPU 2D backend — ordering tables, VRAM, 320x240 · `1.25%`
-- [ ] **F9.05** PSX Engine 4 · PSX cooker plugin and VRAM packer — tIM-style textures, CLUTs, VAG, sectors · `1.25%`
-- [ ] **F9.06** PSX Engine 5 · SPU audio and CD streaming — hardware voices, XA music · `1.04%`
-- [ ] **F9.07** PSX Engine 6 · 2D slice on PSX — same game code, smaller assets · `1.04%`
-- [ ] **F9.08** PSX Engine 7 · GTE 3D backend — transforms, sorting, subdivision, lights · `2.08%`
-- [ ] **F9.09** PSX Engine 8 · PSX performance and streaming — scratchpad, area streaming, budgets · `1.25%`
+- [ ] **F9.01** PSX Engine 0 · PSn00bSDK toolchain and PSX target — pS-EXE, BIN/CUE, bundled PCSX-Redux · `0.82%`
+- [ ] **F9.02** PSX Engine 1 · Fixed-point core — same core systems, integer math · `1.23%`
+- [ ] **F9.03** PSX Engine 2 · PSX platform layer — no SDL: pad, CD, memory card, vsync · `0.82%`
+- [ ] **F9.04** PSX Engine 3 · GPU 2D backend — ordering tables, VRAM, 320x240 · `1.23%`
+- [ ] **F9.05** PSX Engine 4 · PSX cooker plugin and VRAM packer — tIM-style textures, CLUTs, VAG, sectors · `1.23%`
+- [ ] **F9.06** PSX Engine 5 · SPU audio and CD streaming — hardware voices, XA music · `1.03%`
+- [ ] **F9.07** PSX Engine 6 · 2D slice on PSX — same game code, smaller assets · `1.03%`
+- [ ] **F9.08** PSX Engine 7 · GTE 3D backend — transforms, sorting, subdivision, lights · `2.05%`
+- [ ] **F9.09** PSX Engine 8 · PSX performance and streaming — scratchpad, area streaming, budgets · `1.23%`
 - [ ] **F9.10** PSX Engine 9 · PSX packaging and release — bIN/CUE, memory card icon, licenses · `0.62%`
-- [ ] **F9.11** PSX Editor 0 · PSX target module — register PSX with the editor · `0.42%`
-- [ ] **F9.12** PSX Editor 1 · PSX project template — consoleTarget PSX, 320x240, starter scene · `0.42%`
-- [ ] **F9.13** PSX Editor 2 · PSX import settings and VRAM map — bit depth, CLUT sharing, live VRAM view · `1.04%`
-- [ ] **F9.14** PSX Editor 3 · PSX preview mode — wobble, affine warp, sorting, dither · `1.04%`
+- [ ] **F9.11** PSX Editor 0 · PSX target module — register PSX with the editor · `0.41%`
+- [ ] **F9.12** PSX Editor 1 · PSX project template — consoleTarget PSX, 320x240, starter scene · `0.41%`
+- [ ] **F9.13** PSX Editor 2 · PSX import settings and VRAM map — bit depth, CLUT sharing, live VRAM view · `1.03%`
+- [ ] **F9.14** PSX Editor 3 · PSX preview mode — wobble, affine warp, sorting, dither · `1.03%`
 - [ ] **F9.15** PSX Editor 4 · PSX inspector rules — gating and validation · `0.62%`
-- [ ] **F9.16** PSX Editor 5 · Build and Run in PCSX-Redux — one click to a booting disc image · `0.83%`
-- [ ] **F9.17** PSX Editor 6 · PSX debugging and profiling — pCSX-Redux debugger, budget reports · `0.83%`
+- [ ] **F9.16** PSX Editor 5 · Build and Run in PCSX-Redux — one click to a booting disc image · `0.82%`
+- [ ] **F9.17** PSX Editor 6 · PSX debugging and profiling — pCSX-Redux debugger, budget reports · `0.82%`
 - [ ] **F9.18** PSX Editor 7 · PSX samples and docs — sample project, getting started, credits · `0.62%`
 - [ ] **F9.19** PSX API 0 · PSX profile and fixed-point rules — what scripts can and can't do · `0.62%`
-- [ ] **F9.20** PSX API 1 · Fixed-point math API — vector3, Quaternion, Mathf, same names · `0.83%`
-- [ ] **F9.21** PSX API 2 · Rendering API on PSX — 3 lights, blend modes, segmented meshes · `0.83%`
+- [ ] **F9.20** PSX API 1 · Fixed-point math API — vector3, Quaternion, Mathf, same names · `0.82%`
+- [ ] **F9.21** PSX API 2 · Rendering API on PSX — 3 lights, blend modes, segmented meshes · `0.82%`
 - [ ] **F9.22** PSX API 3 · Physics on PSX — kinematic, simple shapes, queries · `0.62%`
 - [ ] **F9.23** PSX API 4 · Audio and music API on PSX — sPU voices, XA tracks, residency · `0.62%`
 - [ ] **F9.24** PSX API 5 · Scenes and saves on PSX — area streaming, memory card blocks · `0.62%`
 - [ ] **F9.25** PSX API 7 · PSX docs and API tests — fixed-point guide, tests in PCSX-Redux · `0.62%`
 - [ ] **F9.26** PSX Template 0 · PSX primitive settings — low tessellation, vertex color, fixed-point · `0.21%`
-- [ ] **F9.27** PSX Template 1 · Segmented primitive character — box body, sphere head, cylinder limbs · `0.42%`
+- [ ] **F9.27** PSX Template 1 · Segmented primitive character — box body, sphere head, cylinder limbs · `0.41%`
 - [ ] **F9.28** PSX Template 2 · Primitive test level — grid ground, platforms, ramps, pickups · `0.62%`
-- [ ] **F9.29** PSX Template 3 · Fixed-point character controller — move, jump, camera, pickups · `0.42%`
-- [ ] **F9.30** PSX Template 4 · Package the PSX template — new-project entry, CI boot test · `0.21%`
+- [ ] **F9.29** PSX Template 3 · Fixed-point character controller — move, jump, camera, pickups · `0.41%`
+- [ ] **F9.30** PSX Template 4 · Package the PSX template — 3D entry, CI boot test · `0.20%`
+- [ ] **F9.31** PSX Template 5 · PSX 2D template — 320x240 tilemap room, CLUT4 tiles, fixed-point · `0.41%`
+  - Done when: `templates/psx-2d` is the 320x240 version of the 2D template (CLUT4 tiles, the shared controller in 20.12 fixed-point) after PSX Engine 6 (F9.07); CI cooks it and boots it in PCSX-Redux with OpenBIOS.
 
 **Gates**
 
@@ -468,12 +477,12 @@ Roadmaps: [PSX Engine](docs/rensga-engine/roadmaps/psx-engine.html) · [PSX Edit
 - [ ] **F9.G4** Using `float` in PSX game code is a compile error with a hint.
 - [ ] **F9.G5** Real-hardware pass on a PS1.
 
-### F10 · Ship 1.0 — 2.1% (cumulative 100.0%)
+### F10 · Ship 1.0 — 2.0% (cumulative 100.0%)
 
 Roadmaps: [Engine](docs/rensga-engine/roadmaps/engine.html) · [API](docs/rensga-engine/roadmaps/api.html)
 
-- [ ] **F10.01** Engine 9 · Ship — packaging, open-source release, legal notes · `0.83%`
-- [ ] **F10.02** API 13 · Docs, samples and stability — reference, Unity mapping, versioning · `1.25%`
+- [ ] **F10.01** Engine 9 · Ship — packaging, open-source release, legal notes · `0.82%`
+- [ ] **F10.02** API 13 · Docs, samples and stability — reference, Unity mapping, versioning · `1.23%`
 
 **Gates**
 

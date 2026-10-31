@@ -37,6 +37,6 @@ add_test(NAME editor_core_console_agnostic
 # F3.03: script build in the real editor (error -> console file:line, no freeze, open in editor, fix -> reload). Skips (77) without xvfb.
 add_test(NAME editor_script_build_ui
          COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/../../tests/editor/script_build_ui.sh $<TARGET_FILE:rensga-editor>
-                 ${CMAKE_SOURCE_DIR}/templates/psp ${CMAKE_BINARY_DIR}/editor_script_build_console.png)
+                 ${CMAKE_SOURCE_DIR}/templates/psp-3d ${CMAKE_BINARY_DIR}/editor_script_build_console.png)
 set_tests_properties(editor_script_build_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 LABELS "slow;gl"
                      ENVIRONMENT "RENSGA_JOBS=2")

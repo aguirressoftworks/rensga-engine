@@ -88,7 +88,11 @@ constexpr u32 kMaxTypes = 128;
 class TypeRegistry {
  public:
   static TypeRegistry& instance();
+  // find() also resolves renamed types: canonicalName() maps an old name (scene files, ConsoleTarget lists) to the current one.
   const TypeInfo* find(const char* name) const;
+  // F4: the current name of a type that was renamed ("TilemapCollider" -> "TilemapCollider2D"); any other name is returned as is.
+  // Use it wherever a type name read from a file is compared with another name (allowedComponents checks).
+  static const char* canonicalName(const char* name);
   const TypeInfo* findByHash(u32 hash) const;
   const TypeInfo* byId(u32 id) const { return id < count_ ? &types_[id] : nullptr; }
   u32 count() const { return count_; }

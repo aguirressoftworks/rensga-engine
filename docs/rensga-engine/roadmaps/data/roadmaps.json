@@ -222,15 +222,11 @@
         "title": "2D vertical slice on all targets",
         "subtitle": "A small real game, shipped four ways",
         "estimate": "4 wk",
-        "note": "Proves the whole engine before 3D. Includes testing on a real PS2 through OPL or FreeMcBoot, since emulators hide timing and memory bugs. Profile on PS2 first; the other targets will be fine.",
+        "note": "Proves the whole engine before 3D. Tested with emulators and native builds only: PCSX2 for the PS2 ISO, and Windows, Linux and Android builds (the Android phone run can wait). Real-PS2 testing moves to Engine 8, where timing and memory bugs get a hardware pass. Profile on PS2 first; the other targets will be fine.",
         "topics": [
           {
             "label": "scope the slice",
             "prompt": "Scope a 2D vertical slice game that exercises every engine system and fits in 4 weeks part-time"
-          },
-          {
-            "label": "real hardware testing",
-            "prompt": "How do I test PS2 homebrew on real hardware with OPL, FreeMcBoot or ps2link, and what bugs typically appear on hardware but not in PCSX2"
           },
           {
             "label": "PS2 profiling",
@@ -240,7 +236,7 @@
         "exercises": [
           {
             "label": "cross-target QA pass",
-            "prompt": "Give me a cross-target QA checklist for my 2D slice: PS2 ISO in PCSX2 and real hardware, Windows, Linux and Android"
+            "prompt": "Give me a cross-target QA checklist for my 2D slice: PS2 ISO in PCSX2, Windows, Linux and Android"
           }
         ]
       },
@@ -286,7 +282,7 @@
         "title": "3D gameplay and performance",
         "subtitle": "Characters, physics, animation, budgets",
         "estimate": "5 wk",
-        "note": "Third-person controller, capsule vs triangle collision, skinned animation (CPU first, VU0 later if needed). Per-scene budgets for polygons, textures and memory enforced by the cooker.",
+        "note": "Third-person controller, capsule vs triangle collision, skinned animation (CPU first, VU0 later if needed). Per-scene budgets for polygons, textures and memory enforced by the cooker. The real-PS2 hardware pass lands here (gate F8.G3): timing, memory card and pad behavior that PCSX2 hides.",
         "topics": [
           {
             "label": "character controller",
@@ -299,6 +295,10 @@
           {
             "label": "scene budgets",
             "prompt": "Define realistic per-scene budgets for polygons, textures, draw calls and memory for a PS2 homebrew 3D game, and enforce them in the cooker"
+          },
+          {
+            "label": "real hardware testing",
+            "prompt": "How do I test PS2 homebrew on real hardware with OPL, FreeMcBoot or ps2link, and what bugs typically appear on hardware but not in PCSX2, such as timing, memory card saves and pad differences"
           },
           {
             "label": "custom VU1 later",
@@ -1403,12 +1403,8 @@
         "title": "2D slice on PSP",
         "subtitle": "Same game, new target",
         "estimate": "2 wk",
-        "note": "The 2D vertical slice from the engine roadmap rebuilt for PSP with only profile and asset changes. Tested in PPSSPP and on a real PSP with custom firmware; any game code change needed is a bug in the abstraction.",
+        "note": "The 2D vertical slice from the engine roadmap rebuilt for PSP with only profile and asset changes. Tested in PPSSPP only; the real-PSP pass moves to PSP Engine 7. Any game code change needed is a bug in the abstraction.",
         "topics": [
-          {
-            "label": "real PSP testing",
-            "prompt": "How do I test PSP homebrew on real hardware with custom firmware and psplink, and what usually differs from PPSSPP"
-          },
           {
             "label": "640x448 to 480x272",
             "prompt": "Adapt a 640x448 2D game to 480x272 on PSP through my profile system without changing game code"
@@ -1417,7 +1413,7 @@
         "exercises": [
           {
             "label": "PSP slice QA",
-            "prompt": "Give me a QA checklist for the 2D slice running on PSP in PPSSPP and real hardware, compared to PS2 and PC"
+            "prompt": "Give me a QA checklist for the 2D slice running on PSP in PPSSPP, compared to PS2 and PC"
           }
         ]
       },
@@ -1455,11 +1451,15 @@
         "title": "PSP performance",
         "subtitle": "Budgets, VFPU, profiling",
         "estimate": "3 wk",
-        "note": "Per-scene budgets in the PSP ConsoleTarget, VFPU for hot math behind the same math types, profiling with PPSSPP's debugger and on hardware.",
+        "note": "Per-scene budgets in the PSP ConsoleTarget, VFPU for hot math behind the same math types, profiling with PPSSPP's debugger and on hardware. The first real-PSP pass lands here (gate F5.G1): custom firmware and psplink, and what differs from PPSSPP.",
         "topics": [
           {
             "label": "PSP budgets",
             "prompt": "Define realistic PSP budgets for polygons, textures, draw calls and memory and add them to the PSP ConsoleTarget"
+          },
+          {
+            "label": "real PSP testing",
+            "prompt": "How do I test PSP homebrew on real hardware with custom firmware and psplink, and what usually differs from PPSSPP"
           },
           {
             "label": "VFPU math",
@@ -2833,19 +2833,19 @@
     "group": "Minor features",
     "slug": "psp-template",
     "title": "PSP template project",
-    "summary": "Built first, so it carries the shared primitive generator and controller. Shows off hardware textures, lighting and a one-nub camera scheme.",
+    "summary": "Built first, so it carries the shared primitive generator and controller. Shows off hardware textures, lighting and a one-nub camera scheme. Also holds the first 2D template and the Hub's 2D and 3D template picker.",
     "stats": [
       {
         "label": "total",
-        "value": "~5.5 weeks"
+        "value": "~6.5 weeks"
       },
       {
         "label": "phases",
-        "value": "5"
+        "value": "6"
       },
       {
         "label": "builds",
-        "value": "shared primitives + controller"
+        "value": "shared primitives + controller + 2D controller"
       }
     ],
     "legend": [
@@ -2946,9 +2946,9 @@
         "number": "4",
         "group": 3,
         "title": "Package the PSP template",
-        "subtitle": "New-project entry, CI boot test",
+        "subtitle": "3D entry, CI boot test",
         "estimate": "0.5 wk",
-        "note": "PSP entry in the new-project dialog with thumbnail and EBOOT icon. CI builds it and boots it in headless PPSSPP on every engine change.",
+        "note": "PSP 3D entry in the new-project dialog with thumbnail and EBOOT icon. CI builds it and boots it in headless PPSSPP on every engine change.",
         "topics": [
           {
             "label": "PSP template CI",
@@ -2961,6 +2961,34 @@
             "prompt": "Give me an exercise: create a project from the PSP template and press Play to reach the running game in PPSSPP"
           }
         ]
+      },
+      {
+        "number": "5",
+        "group": 3,
+        "title": "PSP 2D template and Hub picker",
+        "subtitle": "480x272 tilemap room, 2D and 3D cards per target",
+        "estimate": "1 wk",
+        "note": "The first 2D template, and the Hub's template picker. Create Project shows a 2D and a 3D card for every target API; entries that are not built yet are greyed out and name the phase that brings them. The PSP 2D template is one 480x272 tilemap room with a sprite player driven by the shared 2D platformer controller (written against Scalar, so PSX reuses it), a coin, a HUD and Camera2D. CI cooks it and boots it in headless PPSSPP.",
+        "topics": [
+          {
+            "label": "Hub template picker",
+            "prompt": "Design the Create Project screen of my game-engine hub so that every target API (PSX, PSP, PS2) shows a 2D and a 3D template card, with templates that are not built yet greyed out and naming the roadmap phase that brings them"
+          },
+          {
+            "label": "PSP 2D template room",
+            "prompt": "Build a 480x272 tilemap room template for a PSP 2D game: tile sheet, sprite player, one coin, a HUD and a Camera2D, within PSP VRAM budgets"
+          },
+          {
+            "label": "shared 2D platformer controller",
+            "prompt": "Write a shared 2D platformer controller script against a Scalar type so it compiles for float profiles and for PSX fixed-point: run, jump with coyote time and a variable-height jump, tile collision through BoxCollider2D"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "2D template to Play",
+            "prompt": "Give me an exercise: create a 2D project from the PSP template in the new-project dialog, press Play and reach the running room in PPSSPP"
+          }
+        ]
       }
     ]
   },
@@ -2968,19 +2996,19 @@
     "group": "Minor features",
     "slug": "psx-template",
     "title": "PSX template project",
-    "summary": "Primitive character, primitive test level and a fixed-point third-person controller. Everything is vertex-colored, so the scene uses almost no VRAM.",
+    "summary": "Primitive character, primitive test level and a fixed-point third-person controller, plus a 2D tilemap room. Everything is vertex-colored or CLUT4, so the scenes use almost no VRAM.",
     "stats": [
       {
         "label": "total",
-        "value": "~4.5 weeks"
+        "value": "~5.5 weeks"
       },
       {
         "label": "phases",
-        "value": "5"
+        "value": "6"
       },
       {
         "label": "reuses",
-        "value": "shared primitives + controller"
+        "value": "shared primitives + controller + 2D controller"
       }
     ],
     "legend": [
@@ -3085,9 +3113,9 @@
         "number": "4",
         "group": 3,
         "title": "Package the PSX template",
-        "subtitle": "New-project entry, CI boot test",
+        "subtitle": "3D entry, CI boot test",
         "estimate": "0.5 wk",
-        "note": "The project becomes the PSX entry in the new-project dialog with a thumbnail. CI builds it and boots it in PCSX-Redux with OpenBIOS on every engine change, so the template never breaks.",
+        "note": "The project becomes the PSX 3D entry in the new-project dialog with a thumbnail (the Hub shows a 2D and a 3D card per target API). CI builds it and boots it in PCSX-Redux with OpenBIOS on every engine change, so the template never breaks.",
         "topics": [
           {
             "label": "template packaging and CI",
@@ -3100,6 +3128,34 @@
             "prompt": "Give me an exercise: create a project from the PSX template and press Play to reach the running game in PCSX-Redux"
           }
         ]
+      },
+      {
+        "number": "5",
+        "group": 3,
+        "title": "PSX 2D template",
+        "subtitle": "320x240 tilemap room, CLUT4 tiles, fixed-point",
+        "estimate": "1 wk",
+        "note": "The PSX 2D entry of the new-project dialog, made after the 2D slice runs on PSX (PSX Engine 6). One 320x240 tilemap room with 4-bit CLUT tiles, a sprite player driven by the shared 2D platformer controller (written against Scalar, so it runs in 20.12 fixed-point here), a coin, a HUD and Camera2D. CI cooks it and boots it in PCSX-Redux with OpenBIOS.",
+        "topics": [
+          {
+            "label": "PSX 2D template room",
+            "prompt": "Build a 320x240 tilemap room template for a PSX 2D game engine: 4-bit CLUT tile sheet, sprite player, one coin, a HUD and a Camera2D, all within PSX VRAM and polygon budgets"
+          },
+          {
+            "label": "shared 2D controller in fixed-point",
+            "prompt": "Write a 2D platformer controller script against a Scalar type so one source compiles to float on PC and PSP and to 20.12 fixed-point on PSX, with coyote time and a variable-height jump"
+          },
+          {
+            "label": "2D template CI on PSX",
+            "prompt": "Cook a PSX 2D template project in CI and boot it in PCSX-Redux with OpenBIOS, checking that the coin is collected and the process exits cleanly"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "2D template to Play",
+            "prompt": "Give me an exercise: create a 2D project from the PSX template in the new-project dialog and press Play to reach the running room in PCSX-Redux"
+          }
+        ]
       }
     ]
   },
@@ -3107,19 +3163,19 @@
     "group": "Minor features",
     "slug": "ps2-template",
     "title": "PS2 template project",
-    "summary": "The roomiest template: smoother primitives, a dual-analog camera, rumble and a blob shadow. Public CI can't boot it in PCSX2, so the boot test runs on a maintainer's machine.",
+    "summary": "The roomiest template: smoother primitives, a dual-analog camera, rumble and a blob shadow. Public CI can't boot it in PCSX2, so the boot test runs on a maintainer's machine. A 640x448 2D template comes after the 3D one.",
     "stats": [
       {
         "label": "total",
-        "value": "~4.5 weeks"
+        "value": "~5.5 weeks"
       },
       {
         "label": "phases",
-        "value": "5"
+        "value": "6"
       },
       {
         "label": "reuses",
-        "value": "shared primitives + controller"
+        "value": "shared primitives + controllers"
       }
     ],
     "legend": [
@@ -3216,9 +3272,9 @@
         "number": "4",
         "group": 3,
         "title": "Package the PS2 template",
-        "subtitle": "New-project entry, boot test without public BIOS",
+        "subtitle": "3D entry, boot test without public BIOS",
         "estimate": "0.5 wk",
-        "note": "PS2 entry in the new-project dialog. Public CI builds the ELF and ISO; the PCSX2 boot test runs on a self-hosted runner where a maintainer supplies their own BIOS dump, since it can't live in the repo.",
+        "note": "PS2 3D entry in the new-project dialog. Public CI builds the ELF and ISO; the PCSX2 boot test runs on a self-hosted runner where a maintainer supplies their own BIOS dump, since it can't live in the repo.",
         "topics": [
           {
             "label": "PS2 boot test runner",
@@ -3229,6 +3285,30 @@
           {
             "label": "template to Play",
             "prompt": "Give me an exercise: create a project from the PS2 template and press Play to reach the running game in PCSX2"
+          }
+        ]
+      },
+      {
+        "number": "5",
+        "group": 3,
+        "title": "PS2 2D template",
+        "subtitle": "640x448 tilemap room, boot test in PCSX2",
+        "estimate": "1 wk",
+        "note": "The PS2 2D entry of the new-project dialog: the PSP 2D template (PSP Template 5) at 640x448, with the same shared 2D platformer controller, a coin, a HUD and Camera2D. Public CI cooks it; the PCSX2 boot test runs locally or on the self-hosted runner, since it needs a BIOS dump.",
+        "topics": [
+          {
+            "label": "PS2 2D template room",
+            "prompt": "Build a 640x448 tilemap room template for a PS2 2D game from a 480x272 version, changing only profile and asset settings: tile sheet with CLUT textures, sprite player, coin, HUD and Camera2D"
+          },
+          {
+            "label": "2D boot test in PCSX2",
+            "prompt": "Write a boot test for a PS2 2D template that runs the ISO in PCSX2 with a user-supplied BIOS, collects the coin with a scripted input and checks the log for a clean finish"
+          }
+        ],
+        "exercises": [
+          {
+            "label": "2D template to Play",
+            "prompt": "Give me an exercise: create a 2D project from the PS2 template in the new-project dialog and cook it for PS2, then boot it in PCSX2"
           }
         ]
       }

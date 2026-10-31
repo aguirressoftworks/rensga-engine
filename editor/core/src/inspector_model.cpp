@@ -266,17 +266,27 @@ std::vector<std::string> missingRequirements(const TypeInfo& ti, const SceneObje
   return out;
 }
 
+// F4: names read from files may be pre-rename ("TilemapCollider"); compare canonical names.
+static bool isAllowed(const std::set<std::string>& allowed, const std::string& type) {
+  if (allowed.count(type)) return true;
+  const char* canon = TypeRegistry::canonicalName(type.c_str());
+  if (type != canon && allowed.count(canon)) return true;
+  for (const std::string& a : allowed)
+    if (type == TypeRegistry::canonicalName(a.c_str())) return true;
+  return false;
+}
+
 std::string greyReason(const std::string& type, const std::set<std::string>& allowed, const std::string& targetName) {
-  if (allowed.empty() || allowed.count(type)) return "";
+  if (allowed.empty() || isAllowed(allowed, type)) return "";
   return "Not supported by " + targetName + ": the cook will reject this component.";
 }
 
 std::string addBlockReason(const std::string& type, const SceneObject& o, const std::set<std::string>& allowed, const std::string& targetName) {
   const TypeInfo* ti = typeOf(type);
   if (!ti || !ti->asComponent) return "Unknown component type " + type;
-  if (!allowed.empty() && !allowed.count(type)) return "Not in the component list of " + targetName + " (ConsoleTarget allowedComponents).";
+  if (!allowed.empty() && !isAllowed(allowed, type)) return "Not in the component list of " + targetName + " (ConsoleTarget allowedComponents).";
   for (const std::string& r : missingRequirements(*ti, o))
-    if (!allowed.empty() && !allowed.count(r)) return type + " requires " + r + ", which " + targetName + " does not support.";
+    if (!allowed.empty() && !isAllowed(allowed, r)) return type + " requires " + r + ", which " + targetName + " does not support.";
   return "";
 }
 

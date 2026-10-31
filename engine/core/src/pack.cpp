@@ -57,7 +57,7 @@ bool PackView::validateAssets(const char* nm) const {
   for (u32 i = 0; i < a.textureCount; ++i) {
     const PackTexRec& t = a.textures[i];
     u64 pal = t.paletteCount * 4ull;
-    if (t.format > 2 || !fits(t.pixelOffset, t.pixelBytes) || (t.paletteCount && !fits(t.paletteOffset, pal))) {
+    if (t.format > kPackTexFormatMax || !fits(t.pixelOffset, t.pixelBytes) || (t.paletteCount && !fits(t.paletteOffset, pal))) {
       RLOG_ERROR("pack", "%s: texture %u has a bad format or payload range", nm, i);
       return false;
     }
@@ -295,6 +295,7 @@ bool World::loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex) {
     out->meshes.meshCount = meshCount;
     out->meshes.vertices = verts;
     out->meshes.vertexCount = vertCount;
+    out->meshes.ext = pack.records<PackMeshExt>(pack_section::MSHX);  // nullptr = float vertices (every pack today)
     out->inputs = inputs;
     out->inputCount = inputCount;
     out->hasTarget = ctgt != nullptr;

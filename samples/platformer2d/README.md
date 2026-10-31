@@ -2,7 +2,7 @@
 
 The Engine 5 exercise: a single-screen-style platformer room on the PS2 profile (640x448) that runs on PS2, Windows, Linux and Android.
 The room is two screens wide (1280x448) and one room: the `Camera2D` scrolls with the player. It uses the gameplay framework in
-`engine/core` (`gameplay.h`, `scene_manager.h`, `save.h`) with C++ scripts in `Assets/Scripts` (Behaviour + REFLECT, like `templates/psp`).
+`engine/core` (`gameplay.h`, `scene_manager.h`, `save.h`) with C++ scripts in `Assets/Scripts` (Behaviour + REFLECT, like `templates/psp-3d`).
 
 ## The game
 

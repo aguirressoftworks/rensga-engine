@@ -1,5 +1,5 @@
 #!/bin/sh
-# F3.01 / gate F3.G1 in the real editor under xvfb, on temp copies of samples/platformer2d (2D mode) and templates/psp (3D):
+# F3.01 / gate F3.G1 in the real editor under xvfb, on temp copies of samples/platformer2d (2D mode) and templates/psp-3d (3D):
 #  - exercise "save and reopen a scene": build a three-level nested scene, save, reopen from disk, save again: no diff;
 #  - multi-select reparent / reorder / duplicate / copy-paste / delete with undo, as one step each;
 #  - picking through the ID buffer (sprites, tilemaps, meshes, markers) and box selection;

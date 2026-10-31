@@ -210,7 +210,7 @@ TEST(script_module_build_error_reports_diagnostics) {
   CHECK(log.find("missing_symbol") != std::string::npos);
 }
 
-// The template project's own scripts as a module: what `rensga-editor --project templates/psp` loads.
+// The template project's own scripts as a module: what `rensga-editor --project templates/psp-3d` loads.
 TEST(script_module_template_build) {
   const fs::path root = RENSGA_TEMPLATE_DIR;
   std::string log, err;

@@ -290,7 +290,7 @@ coins_at = [(168, 392), (360, 328), (600, 296), (760, 232), (846, 392), (1000, 3
 def build_room(with_bot):
     global _oid
     _oid = [0x500 if with_bot else 0x400]  # object GUIDs differ per scene
-    objs = [obj("Tilemap", comps=[comp("Tilemap", map=MAP_ROOM), comp("TilemapCollider", solidOutside=True)])]
+    objs = [obj("Tilemap", comps=[comp("Tilemap", map=MAP_ROOM), comp("TilemapCollider2D", solidOutside=True)])]
     player = obj("Player", pos=(64, 384, 0), tag="Player", comps=[
         comp("SpriteRenderer", texture=TEX_PLAYER, srcX=0, srcY=0, srcW=32, srcH=32, sortingOrder=5),
         comp("SpriteAnimator", clip=ANIM_IDLE),
@@ -372,7 +372,7 @@ write_json(os.path.join(root, "ProjectSettings/ConsoleTarget.json"), {
     "textureFormats": ["clut4", "clut8", "rgba8"], "depth": "zbuffer", "media": "iso", "refreshHz": 60,
     "audio": {"sampleRate": 22050, "voices": 16},
     "capabilities": {"rumble": True},
-    "allowedComponents": ["SpriteRenderer", "SpriteAnimator", "Tilemap", "TilemapCollider", "BoxCollider2D", "UIText", "UIImage", "UIButton",
+    "allowedComponents": ["SpriteRenderer", "SpriteAnimator", "Tilemap", "TilemapCollider2D", "BoxCollider2D", "UIText", "UIImage", "UIButton",
                           "Camera2D", "PlayerController2D", "Coin", "Walker", "Hopper", "SavePoint", "AutoPilot", "HudController", "TitleMenu", "TitleScreen", "InputTestHud"]})
 write_json(os.path.join(root, "ProjectSettings/InputActions.json"), {"format": 1, "stickDeadZone": 0.2, "stickOuterClamp": 0.95, "actions": [
     {"name": "Move", "kind": "axis2", "source": "nub"},

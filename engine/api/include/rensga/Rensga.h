@@ -5,9 +5,10 @@
 //   hierarchy, Translate, Rotate, LookAt), Instantiate / Destroy, Application, Time::deltaTime() / fixedDeltaTime(), Input::GetAxis / GetButton /
 //   GetButtonDown by action name, Debug::Log, Ref<T>, and the REFLECT / SERIALIZE_FIELD / RANGE /
 //   HEADER macros. Game code uses Scalar, never float.
-//   F2.05 gameplay: SpriteRenderer, SpriteAnimator, Tilemap, TilemapCollider, BoxCollider2D (Move), UIText,
+//   F2.05 gameplay: SpriteRenderer, SpriteAnimator, Tilemap, TilemapCollider2D, BoxCollider2D (Move), UIText,
 //   UIImage, UIButton (OnUIClick), Camera2D, Physics2D::IgnoreLayerCollision, DontDestroyOnLoad (Object.h),
 //   SceneManager::LoadScene, Save::SaveFile / LoadFile / SaveInt / LoadInt.
+//   F4: Rigidbody2D (bodyType, gravityScale, velocityX / velocityY).
 //   F3.05 events: StartCoroutine(Wait(1).Then(f)) / step functions, Invoke / InvokeRepeating, Event<Args>, UnityEvent, METHOD(Name).
 #pragma once
 #include "rensga/core/application.h"
@@ -23,6 +24,7 @@
 #include "rensga/core/object.h"
 #include "rensga/core/ref.h"
 #include "rensga/core/reflect.h"
+#include "rensga/core/rigidbody2d.h"
 #include "rensga/core/save.h"
 #include "rensga/core/scene_manager.h"
 #include "rensga/core/time.h"

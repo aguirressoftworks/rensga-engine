@@ -12,7 +12,7 @@ step "host build"; cmake --preset linux-host -B "$CI_OUT/linux-host" >/dev/null
 cmake --build "$CI_OUT/linux-host" -j"$JOBS" --target rensga rensga_headless
 . "$REPO/tools/modules/toolchain_env.sh" psp-build psp || exit 1
 GEN=(); [ "$RENSGA_TOOLCHAIN_BACKEND" = native ] && GEN=(-G Ninja)
-PROJ="$REPO/templates/psp"; B="$CI_OUT/psp"; ROOT="$CI_OUT/psp-sim-root"; INPUT="$REPO/tests/determinism/walk.json"
+PROJ="$REPO/templates/psp-3d"; B="$CI_OUT/psp"; ROOT="$CI_OUT/psp-sim-root"; INPUT="$REPO/tests/determinism/walk.json"
 step "cook"; "$CLI" cook "$PROJ" >/dev/null
 PACK="$PROJ/Library/Cooked/psp/game.rpak"
 step "psp sim build"

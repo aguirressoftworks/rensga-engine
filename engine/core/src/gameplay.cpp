@@ -3,6 +3,7 @@
 
 #include <string.h>
 
+#include "rensga/core/rigidbody2d.h"
 #include "rensga/core/input.h"
 #include "rensga/core/time.h"
 #include "rensga/core/world.h"
@@ -223,11 +224,11 @@ struct Geo {
   i32 cellY(Scalar y) const { return static_cast<i32>(Mathf::Floor((y - o.y) / th)); }
 };
 
-// Calls fn(Geo&) for every enabled TilemapCollider whose layer collides with `mover`'s. fn returns true to stop.
+// Calls fn(Geo&) for every enabled TilemapCollider2D whose layer collides with `mover`'s. fn returns true to stop.
 template <class F>
 void eachMap(World& world, const GameObject* mover, F fn) {
   bool done = false;
-  world.forEach<TilemapCollider>([&](TilemapCollider& tc) {
+  world.forEach<TilemapCollider2D>([&](TilemapCollider2D& tc) {
     if (done || !tc.enabled()) return;
     GameObject* go = tc.gameObject();
     if (!go || !go->activeInHierarchy()) return;
@@ -660,6 +661,7 @@ void sendPair(World& world, const Pair2D& p, bool enter) {
 void Gameplay2D::resetTriggerMemory() { g_prevCount = 0; }
 
 void Gameplay2D::fixedStep(World& world) {
+  Rigidbody2DSim::fixedStep(world);  // F4: bodies move first, so this step's trigger pairs see the new positions
   g_curCount = 0;
   auto add = [](GameObject* a, GameObject* b, bool trigger) {
     if (g_curCount < kMaxPairs2D) g_curPairs[g_curCount++] = {a->index, a->generation, b->index, b->generation, trigger};

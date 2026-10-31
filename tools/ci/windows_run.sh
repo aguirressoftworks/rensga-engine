@@ -4,7 +4,7 @@
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$REPO"  # native llvm-mingw build is static; only SDL2.dll is needed next to the exe
-D="$CI_OUT/windows/engine/runtime"; PACK="$REPO/templates/psp/Library/Cooked/psp/game.rpak"
+D="$CI_OUT/windows/engine/runtime"; PACK="$REPO/templates/psp-3d/Library/Cooked/psp/game.rpak"
 command -v wine >/dev/null && command -v xvfb-run >/dev/null || { echo "windows_run: wine/xvfb-run missing, skipped"; exit 77; }
 [ -f "$D/rensga_desktop.exe" ] && [ -f "$PACK" ] || { echo "windows_run: build windows + cook first, skipped"; exit 77; }
 W="$(mktemp -d)"; trap 'wineserver -k >/dev/null 2>&1; rm -rf "$W"' EXIT

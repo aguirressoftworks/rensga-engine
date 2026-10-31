@@ -33,7 +33,7 @@
      }
     },
     {
-     "type": "TilemapCollider",
+     "type": "TilemapCollider2D",
      "fields": {
       "solidOutside": true
      }

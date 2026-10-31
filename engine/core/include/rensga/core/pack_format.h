@@ -27,6 +27,7 @@ constexpr u32 COMP = makeFourCC('C', 'O', 'M', 'P');  // PackComponent[count]
 constexpr u32 FDAT = makeFourCC('F', 'D', 'A', 'T');  // reflected field blobs
 constexpr u32 MESH = makeFourCC('M', 'E', 'S', 'H');  // PackMeshRec[count]
 constexpr u32 VERT = makeFourCC('V', 'E', 'R', 'T');  // PackVertex[count]
+constexpr u32 MSHX = makeFourCC('M', 'S', 'H', 'X');  // F4: optional PackMeshExt (one record); absent = meshes are float PackVertex
 constexpr u32 INPT = makeFourCC('I', 'N', 'P', 'T');  // PackInputAction[count]
 constexpr u32 INPX = makeFourCC('I', 'N', 'P', 'X');  // F3.06: PackInputActionExt[count], parallel to INPT (absent in older packs)
 constexpr u32 INPS = makeFourCC('I', 'N', 'P', 'S');  // F3.06: PackInputSettings (one record; absent = defaults)
@@ -114,6 +115,28 @@ struct PackVertex {
 };
 static_assert(sizeof(PackVertex) == 16, "PackVertex is 16 bytes");
 
+// MSHX record: 32 bytes (F4, optional). Present only in a pack cooked for the psp profile itself (never for
+// linux, windows or android). When absent, VERT holds PackVertex (float) as before. Format 1 is the compact PSP
+// vertex, 12 bytes: GU_COLOR_8888 | GU_VERTEX_16BIT, `PackVertexCompact` below. The VERT section then holds
+// PackVertexCompact[count] (each mesh's vertexOffset is a vertex INDEX of that type). The decoded position is
+// offset[i] + xyz[i] * scale[i]. The VERT section's `count` is the number of vertices of the active format (the cooker
+// writes size / sizeof(vertex type)). Each scale is a power of two (so the GU model matrix absorbs it exactly).
+struct PackMeshExt {
+  u32 format;       // 0 = float (same as no MSHX), 1 = compact 16-bit positions
+  float offset[3];
+  float scale[3];   // world units per i16 step, a power of two
+  u32 reserved;
+};
+static_assert(sizeof(PackMeshExt) == 32, "PackMeshExt is 32 bytes");
+constexpr u32 kMeshFormatFloat = 0, kMeshFormatCompact16 = 1;
+
+struct PackVertexCompact {
+  u32 color;  // ABGR packed
+  i16 x, y, z;
+  u16 pad;
+};
+static_assert(sizeof(PackVertexCompact) == 12, "PackVertexCompact is 12 bytes");
+
 // INPT record: 16 bytes. Kinds: Button (held/pressed/released), Axis2 (Vector2, y up), Axis (one Scalar, -1..1).
 enum class PackInputKind : u32 { Button = 0, Axis2 = 1, Axis = 2 };
 enum class PackInputSource : u32 {
@@ -185,20 +208,43 @@ static_assert(sizeof(PackSchedulerLimits) == 16, "PackSchedulerLimits is 16 byte
 // ---- v2 asset records. Every record starts with the asset GUID (RULES 1.7); *Offset fields are byte
 // offsets from the start of BLOB and every payload starts on a 16-byte boundary inside BLOB. ----
 
-enum class PackTexFormat : u32 { RGBA8 = 0, CLUT4 = 1, CLUT8 = 2 };
+// F4 texture contract (frozen). Formats 0..2 are unchanged from v2.
+//   RGBA5551 is GU_PSM_5551 (R bits 0-4, G 5-9, B 10-14, A bit 15), RGBA4444 is GU_PSM_4444 (R 0-3, G 4-7, B 8-11, A 12-15),
+//   both little-endian u16 per pixel, rows tightly packed (storedWidth * 2 bytes).
+enum class PackTexFormat : u32 { RGBA8 = 0, CLUT4 = 1, CLUT8 = 2, RGBA5551 = 3, RGBA4444 = 4 };
+constexpr u32 kPackTexFormatMax = 4;  // validateAssets accepts format <= this
+
+// PackTexRec::flags bits.
+//   kTexSwizzled: the pixel bytes are stored in the PSP swizzle order: 8-row bands top to bottom; inside a band,
+//   16-byte columns left to right, each column is 8 rows of 16 bytes (row-major). The row pitch of the unswizzled
+//   image is storedWidth * bytesPerPixel (CLUT4: storedWidth / 2). Only the PSP renderer reads swizzled data;
+//   the GL and GS renderers return 0 from uploadTexture when flags != 0.
+constexpr u16 kTexSwizzled = 1u << 0;
 
 // TEXR: RGBA8 pixels are width*height*4 bytes (R,G,B,A). CLUT8 is one index byte per pixel; CLUT4
 // packs two indices per byte, low nibble first (rows padded to a whole byte). The palette is
-// paletteCount RGBA8 u32 entries (little-endian R,G,B,A byte order) at paletteOffset (16 or 256).
+// paletteCount RGBA8 u32 entries (little-endian R,G,B,A byte order, R in the low byte = GU_PSM_8888) at
+// paletteOffset (16 or 256, 16-byte aligned).
+//
+// `width` / `height` are ALWAYS the source pixel size (what scripts and UVs address). When the cooker
+// pads the image (PSP: power of two, minimum 32 px wide for CLUT4, 16 for CLUT8, 8 for 16/32-bit, minimum 8
+// high, padding bytes zero) `storedWidth` x `storedHeight` is the size of the stored pixel array (pixelBytes
+// covers the stored size). 0 means "same as width / height" (every v2 pack). Layout is byte-compatible with
+// v2: the old u32 paletteCount (value 0, 16 or 256) reads the same as the new u16 paletteCount + u16 flags(0),
+// and the old u32 reserved (0) as storedWidth(0) + storedHeight(0) on a little-endian target.
 struct PackTexRec {
   Guid guid;
-  u32 width, height;
-  u32 format;  // PackTexFormat
+  u32 width, height;  // source pixel size
+  u32 format;         // PackTexFormat
   u32 pixelOffset;
   u32 pixelBytes;
-  u32 paletteOffset;  // 0 when format is RGBA8
-  u32 paletteCount;   // 0, 16 or 256
-  u32 reserved;
+  u32 paletteOffset;  // 0 when format is RGBA8 / RGBA5551 / RGBA4444
+  u16 paletteCount;   // 0, 16 or 256
+  u16 flags;          // kTex* bits
+  u16 storedWidth;    // 0 = width
+  u16 storedHeight;   // 0 = height
+  u32 storedW() const { return storedWidth ? storedWidth : width; }
+  u32 storedH() const { return storedHeight ? storedHeight : height; }
 };
 static_assert(sizeof(PackTexRec) == 48, "PackTexRec is 48 bytes");
 

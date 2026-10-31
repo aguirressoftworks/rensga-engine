@@ -97,7 +97,8 @@ bool HubData::load(const fs::path& dataFile, const fs::path& tdir) {
     x.id = a.value("id", "");
     x.available = a.value("available", false);
     std::error_code ec;
-    x.hasTemplate = fs::exists(tdir / x.id / "ProjectSettings" / "Project.json", ec);
+    x.hasTemplate = fs::exists(tdir / x.id / "ProjectSettings" / "Project.json", ec) ||
+                    fs::exists(tdir / (x.id + "-3d") / "ProjectSettings" / "Project.json", ec);
     if (!x.id.empty()) apis.push_back(std::move(x));
   }
   for (const json& b : j.value("buildTargets", json::array())) {
@@ -128,8 +129,10 @@ bool createProject(const HubData& data, const HubSettings& s, const std::string&
                    const std::string& buildTarget, fs::path& outDir, std::string& err) {
   err = validateProjectName(name, s.projectsPath);
   if (!err.empty()) return false;
-  const fs::path src = data.templatesDir / api, dst = s.projectsPath / name;
+  fs::path src = data.templatesDir / api;
+  const fs::path dst = s.projectsPath / name;
   std::error_code ec;
+  if (!fs::exists(src / "ProjectSettings" / "Project.json", ec)) src = data.templatesDir / (api + "-3d");  // templates/<api>-3d (F4)
   if (!fs::exists(src / "ProjectSettings" / "Project.json", ec)) { err = "no template for " + api; return false; }
   fs::create_directories(dst, ec);
   for (fs::recursive_directory_iterator it(src, ec), end; !ec && it != end; it.increment(ec)) {

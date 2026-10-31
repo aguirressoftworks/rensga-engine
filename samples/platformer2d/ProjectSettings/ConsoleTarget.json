@@ -32,7 +32,7 @@
   "SpriteRenderer",
   "SpriteAnimator",
   "Tilemap",
-  "TilemapCollider",
+  "TilemapCollider2D",
   "BoxCollider2D",
   "UIText",
   "UIImage",

@@ -57,6 +57,7 @@ void bindWorld(PlayGl& pg, EditorWorld& ew) {
     TextureDesc d;
     d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
     d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
+    d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
     pg.tex[i] = pg.gl.uploadTexture(d);
   }
   GfxAssets::bind(&ew.view(), &ew.loaded().assets, pg.tex.data(), as.textureCount);

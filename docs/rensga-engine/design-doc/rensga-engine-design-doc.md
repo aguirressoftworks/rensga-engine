@@ -71,7 +71,7 @@ editor/
   core/          panels, reflection, undo, asset database, play, build
   targets/       psp/ ps2/ psx/ (TargetModules)
 tools/cooker/    shared, with per-target format plugins
-templates/       psx/ psp/ ps2/
+templates/       psp-2d/ psp-3d/ ps2-2d/ (ps2-3d, psx-2d, psx-3d arrive with their phases)
 third_party/emulators/  ppsspp/ pcsx2/ pcsx-redux/ (pinned, with licenses)
 ```
 
@@ -175,7 +175,7 @@ The editor is a data editor: every panel views or changes assets through reflect
 
 **Hub and modules.** The project hub (like Unity Hub) lists projects and has a Modules tab. Each console or cross target is a build support module the user installs per user, with progress, a cancel button and a license prompt before anything that has a license (Google's Android SDK). Missing modules are named in the target's validation message with the install command. No module needs Docker. (Editor 0 and 11.5)
 
-**Templates.** New Project offers PSX, PSP and PS2 templates, each with its ConsoleTarget, a primitive character, a primitive test level and a shared third-person controller script that compiles for both float and fixed-point profiles. (PSX, PSP and PS2 Template roadmaps)
+**Templates.** Every target API has a 2D and a 3D template, shown as two cards per target in the Hub's Create Project screen. A 3D template has its ConsoleTarget, a primitive character, a primitive test level and a shared third-person controller script that compiles for both float and fixed-point profiles. A 2D template is one tilemap room at the target's resolution (PSP 480x272, PS2 640x448, PSX 320x240 with CLUT4 tiles), a sprite player driven by a shared 2D platformer controller written against `Scalar`, a coin, a HUD and Camera2D. Templates that are not built yet are greyed out and name the phase that brings them. Folders are `templates/<api>-2d` and `templates/<api>-3d`. The PSP 2D template and the picker come first (PSP Template 5), then PS2 (PS2 Template 5) and PSX (PSX Template 5, after PSX Engine 6). CI cooks every template and boots it in its emulator: PPSSPP headless, PCSX-Redux with OpenBIOS, and PCSX2 locally because it needs a BIOS dump. (PSX, PSP and PS2 Template roadmaps)
 
 **Extensibility.** Projects add custom inspectors, editor windows and menu items in C++, registered by macro and hot-reloaded with game code. (Editor 13)
 
@@ -228,7 +228,7 @@ Users never need Docker. Every console and cross build uses a build support modu
 
 **Emulator sandboxing.** Each project gets its own emulator config folder and memory card, so play sessions never change the user's personal emulator settings. (Emulator Play 0)
 
-**Test layers.** Unit tests for math and core on every target; API tests run inside the emulators and compared against the PC build of the same profile; template projects boot on every engine change; real-hardware passes before each release. (API 13; PSP API 7; PSX API 7; Template roadmaps)
+**Test layers.** Unit tests for math and core on every target; API tests run inside the emulators and compared against the PC build of the same profile; template projects boot on every engine change; real-hardware passes are later phases and gates, not part of the 2D slice: PSP in PSP Engine 7 (F5.G1), PS2 in Engine 8 (F8.G3) and every console before release (F10.G4). Until then emulators and native builds carry the tests. (API 13; PSP API 7; PSX API 7; Template roadmaps)
 
 **Known limits.** OpenBIOS does not handle memory cards yet, so PSX development builds also save to a host file. Public CI cannot boot PS2 builds because the PS2 BIOS cannot be distributed.
 
@@ -260,9 +260,9 @@ Thirteen roadmaps cover the whole program; most run in parallel once the shared 
 | PSX Editor | 0–7 | ~14 wk | Editor 0–5 | PSX module, VRAM map, PSX look preview, Build and Run in PCSX-Redux |
 | PSX API | 0–7 | ~12 wk (+2 optional) | API 0–2 | Fixed-point rules, rendering limits, saves, optional FMV |
 | Emulator Play | 0–5 | ~7 wk (+3 optional) | First console's Build and Run | Play button running the bundled emulator |
-| PSP Template | 0–4 | ~5.5 wk | PSP Engine 6 | Shared primitive generator and controller, PSP sample |
-| PSX Template | 0–4 | ~4.5 wk | PSX Engine 7 | Segmented primitive character, tiled level |
-| PS2 Template | 0–4 | ~4.5 wk | Engine 7 | Dual-analog controller, blob shadow |
+| PSP Template | 0–5 | ~6.5 wk | PSP Engine 6 (phase 5 after PSP Engine 5) | Shared primitive generator and controller, PSP 3D sample; PSP 2D template and Hub 2D/3D picker |
+| PSX Template | 0–5 | ~5.5 wk | PSX Engine 7 (phase 5 after PSX Engine 6) | Segmented primitive character, tiled level; PSX 2D template |
+| PS2 Template | 0–5 | ~5.5 wk | Engine 7 (phase 5 after Engine 6) | Dual-analog controller, blob shadow; PS2 2D template |
 
 **Build order.**
 
@@ -282,7 +282,7 @@ The biggest risk is scope: three consoles, three platforms, an editor and an API
 | Shared core not ready for PSX constraints | PSX forces a core rewrite late | Profile scalar, sort keys and AudioBackend are rules from Engine phase 1 |
 | Console code leaking into editor core | Each new console costs more than the last | TargetModule boundary; CI check that editor core never names a console |
 | PSn00bSDK is still marked work in progress | Missing or changing PSX features | Pin a version; contribute fixes upstream; keep the PSX platform layer thin |
-| Emulators hide hardware bugs | Games that crash on real consoles | Real-hardware pass before every release, per target |
+| Emulators hide hardware bugs | Games that crash on real consoles | Emulators and native builds carry F4; real-hardware passes are PSP Engine 7 (F5.G1), Engine 8 (F8.G3) and the release gate (F10.G4), per target |
 | GPL emulator licensing | Legal problems for the MIT editor | Separate processes only; licensing review before any in-process mode |
 | PS2 cannot be boot-tested in public CI | PS2 regressions found late | Self-hosted runner with a maintainer's private BIOS |
 | Reflection codegen complexity | Slows every later editor feature | Build it early (Editor 1), test it against every component type |

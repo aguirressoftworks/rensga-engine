@@ -298,7 +298,8 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
   // ---- scene objects through reflection
   std::vector<ObjectDef> objs;
   std::map<std::string, int> objIndex;
-  const std::set<std::string> allowed(target.allowedComponents.begin(), target.allowedComponents.end());
+  std::set<std::string> allowed;  // canonical names, so a ConsoleTarget written before a type rename still works
+  for (const std::string& n : target.allowedComponents) allowed.insert(TypeRegistry::canonicalName(n.c_str()));
   try {
     for (const json& oj : scene.at("objects")) {
       ObjectDef o;
@@ -336,7 +337,7 @@ CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
                    sceneAsset.rel, sceneAsset.guid);
           continue;
         }
-        if (!allowed.count(tn)) {
+        if (!allowed.count(ti->name)) {
           cx.error("component '" + tn + "' on object '" + o.name + "' (guid " + g + ") is not allowed by the " +
                        target.profile + " ConsoleTarget",
                    sceneAsset.rel, sceneAsset.guid);

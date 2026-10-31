@@ -115,9 +115,9 @@ struct Tilemap : Component {
   Vector2 origin() const;
 };
 
-// Collision of the Tilemap on the same object. BoxCollider2D::Move queries every enabled TilemapCollider.
-struct TilemapCollider : Component {
-  REFLECT(TilemapCollider)
+// Collision of the Tilemap on the same object. BoxCollider2D::Move queries every enabled TilemapCollider2D.
+struct TilemapCollider2D : Component {
+  REFLECT(TilemapCollider2D)
   REQUIRE_COMPONENT(Tilemap)
   TOOLTIP("Cells outside the map count as solid walls.")
   SERIALIZE_FIELD(bool, solidOutside, true)

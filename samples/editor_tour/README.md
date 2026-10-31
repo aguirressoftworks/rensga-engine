@@ -1,6 +1,6 @@
 # Editor Tour
 
-A small PSP-profile project (`ProjectSettings` as in `templates/psp`) that backs the runnable F3 exercises. Open it with
+A small PSP-profile project (`ProjectSettings` as in `templates/psp-3d`) that backs the runnable F3 exercises. Open it with
 `rensga-editor --project samples/editor_tour`. It has no art: every object is a primitive.
 
 | Scene | Shows | Exercise |

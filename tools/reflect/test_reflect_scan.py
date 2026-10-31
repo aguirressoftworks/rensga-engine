@@ -20,7 +20,7 @@ def run(out, *groups):
 
 
 groups = [("engine", [os.path.join(repo, "engine/core/include/rensga/core/components.h")]),
-          ("project", [os.path.join(repo, "templates/psp/Assets/Scripts")]),
+          ("project", [os.path.join(repo, "templates/psp-3d/Assets/Scripts")]),
           ("tests", [os.path.join(repo, "tests/core"), os.path.join(repo, "tests/game")])]
 a, b = os.path.join(tmp, "a"), os.path.join(tmp, "b")
 for d in (a, b):

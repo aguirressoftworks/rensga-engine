@@ -175,6 +175,10 @@ u32 GsRenderer::uploadTexture(const TextureDesc& d) {
     RLOG_ERROR("gs", "uploadTexture: bad size %ux%u or no pixels or texture table full (%u)", d.width, d.height, texCount_);
     return 0;
   }
+  if (d.flags != 0) {  // swizzled (PSP) data: only the GU renderer reads it
+    RLOG_ERROR("gs", "uploadTexture: flags 0x%x (swizzled) are not supported", d.flags);
+    return 0;
+  }
   const bool clut = d.format != tex_format::RGBA8;
   if (d.format > tex_format::CLUT8 || (clut && !d.palette) || (!clut && (d.width > 256 || d.height > 256))) {
     RLOG_ERROR("gs", "uploadTexture: unsupported format %u (RGBA8 max 256x256, CLUT needs a palette)", d.format);
