@@ -136,7 +136,8 @@ struct App {
   Fonts fonts;
 
   // Console filters
-  bool showInfo = true, showWarn = true, showError = true, showEditor = true, showGame = true;
+  bool showInfo = true, showWarn = true, showError = true, showEditor = true, showGame = true, showEmulator = true;
+  char logSearch[128] = {};           // F5.22: text filter of the Console (case-insensitive substring)
   bool scrollLog = true;
 
   // Panels (closable from Window menu)
@@ -186,6 +187,12 @@ struct App {
 
 void doPlay(App& a);          // the Play button: follows the dropdown (Play in editor by default)
 void doPlayConsole(App& a);   // dev build + emulator (--play)
+std::string consoleStatusText(App& a);  // toolbar status word of the console run (Running / Running (paused) / Stopped (failed) ...)
+// F5.19-F5.22 console-play --ui-event verbs (panels/console_play.cpp): consolepause | consoleresume | consolestep[:N] | consolestop |
+// consoledebugger | consolewait:<what>|<timeoutSec> | consolestate | consoledump | consolectl:<raw command> | consolesignal:<STOP|CONT|SEGV|KILL> |
+// consolesearch:<text> | consolefilter:<level or source>=<0|1> | consolesave
+bool consoleUiHook(App& a, const std::string& act, const std::string& arg);
+bool consoleUiHolds(App& a, const std::string& event);   // consolewait holds the --ui-event queue
 
 // Play in editor (panels/play.cpp)
 bool startPlayInEditor(App& a);

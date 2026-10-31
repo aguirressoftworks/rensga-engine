@@ -172,8 +172,13 @@ struct SceneBudgetInput {
   // Heaviest mesh owner, named in the triangle-budget error.
   std::string heaviestObjectName, heaviestObjectGuid;
   uint64_t heaviestTriangles = 0;
+  // F5.17: AudioSources that start sounding when the scene loads (loop = true, or play on awake). 0 = not counted.
+  uint64_t audioStartingSources = 0;
 };
 // Appends one error per exceeded budget; each names the asset and GUID. Returns true if all fit.
 bool validateBudgets(const ConsoleTargetData& target, const SceneBudgetInput& in, std::vector<CookMessage>& errors);
+// F5.17: appends a Warning (never an error) when the scene starts more AudioSources than the target has voices. Names the scene.
+// Returns true when there is no warning.
+bool warnAudioVoices(const ConsoleTargetData& target, const SceneBudgetInput& in, std::vector<CookMessage>& warnings);
 
 }  // namespace rensga

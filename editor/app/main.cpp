@@ -281,7 +281,7 @@ int main(int argc, char** argv) {
     ImGui_ImplSDL2_NewFrame();
     tileSimFrame(app);  // scripted mouse of --ui-event tiledrag / spritedrag
     spriteSimFrame(app);
-    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx]) && !modulesUiHolds(app, uiEvents[evIdx]) && !tileSimHolds() && !spriteSimHolds()) {
+    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx]) && !consoleUiHolds(app, uiEvents[evIdx]) && !modulesUiHolds(app, uiEvents[evIdx]) && !tileSimHolds() && !spriteSimHolds()) {
       const std::string& e = uiEvents[evIdx++];
       evNext = frame + 6;
       float x = 0, y = 0;
@@ -290,6 +290,7 @@ int main(int argc, char** argv) {
       // test hooks that run the same code paths as the UI
       if (hubHook(app, act, arg)) {}
       else if (modulesHook(app, act, arg)) {}                                  // Hub > Modules: modules, modinstall, modaccept, modremove, playconsole, ...
+      else if (consoleUiHook(app, act, arg)) {}                                // F5.19-22: consolepause, consolestep, consolewait, ...
       else if (playUiHook(app, act, arg)) {}                                   // F3.04: playedit, pause, step, stopedit, playset, ...
       else if (inspectorHook(app, act, arg)) {}                                 // F3.01: multiselect, addcomp, setfield, undo, ...
       else if (sceneUiHook(app, act, arg)) {}                                  // F3.01: new, selectmany, reparent, pickobj, ...

@@ -7,7 +7,7 @@
 namespace rensga {
 namespace editor {
 
-enum class LogSource { Editor, Game };
+enum class LogSource { Editor, Game, Emulator };  // Emulator: lines from the emulator process and the launcher (game() routes lines tagged "[emu]" or "[launcher]")
 enum class LogLevel { Info, Warn, Error };
 
 struct LogLine {
@@ -32,6 +32,8 @@ class EditorLog {
   void addDiagnostic(LogLevel lvl, std::string text, std::string file, int line, int col, int build);
   void game(const std::string& line);  // level guessed from the text
   std::vector<LogLine> snapshot() const;
+  void clear();                        // the console's Clear button
+  size_t size() const;
   void setEcho(bool on) { echo_ = on; }  // mirror lines to stdout (headless runs, tests)
 
  private:

@@ -7,6 +7,7 @@
 
 #include "rensga/platform/psp.h"
 #include "rensga/Sim.h"
+#include "rensga/core/animation.h"
 #include "runtime_boot.h"
 #include "runtime_budget.h"
 
@@ -69,9 +70,11 @@ int main(int, char** argv) {
   const u32 pickups = liveCount(world, "Pickup");
   RLOG_INFO("game", "rensga: scene loaded objects=%u pickups=%u", static_cast<unsigned>(world.objectCount()), static_cast<unsigned>(pickups));
 
+  AnimationSystem::setTrace(topt.trace);  // F5: per-fixed-step "rensga: skin f=<n> h=<hex>" lines (determinism 3dlit)
   SimResult r = runSim(world, frames, haveInput ? &script : nullptr, pickups, &topt);
   heap::logAllocCheck();
   RLOG_INFO("game", "rensga: hash %08x", static_cast<unsigned>(r.hash));
+  if (AnimationSystem::stepCount()) RLOG_INFO("game", "rensga: skinhash %08x", static_cast<unsigned>(AnimationSystem::skinHash()));
   log::flushAll();
   world.shutdown();
   platform.shutdown();

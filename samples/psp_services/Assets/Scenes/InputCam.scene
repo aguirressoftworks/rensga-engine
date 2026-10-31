@@ -1,0 +1,368 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000000603",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000028695",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     3,
+     -7
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {
+      "fov": 60.0,
+      "nearClip": 0.3,
+      "farClip": 80.0
+     }
+    },
+    {
+     "type": "CamRig",
+     "fields": {
+      "distance": 7.0,
+      "orbitSpeed": 100.0,
+      "moveSpeed": 4.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000028696",
+   "name": "Sun",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     10,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "DirectionalLight",
+     "fields": {
+      "direction": [
+       -0.4,
+       -1,
+       -0.3
+      ],
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000028697",
+   "name": "Ground",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     -0.5,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     40,
+     1,
+     40
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c004",
+      "color": [
+       70,
+       120,
+       70,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000028698",
+   "name": "Player",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0.5,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       240,
+       200,
+       60,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000028699",
+   "name": "North",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     1,
+     12
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     2,
+     2,
+     2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       230,
+       70,
+       70,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000028700",
+   "name": "East",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     12,
+     1,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     2,
+     2,
+     2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       70,
+       140,
+       230,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000028701",
+   "name": "South",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     1,
+     -12
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     2,
+     2,
+     2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       230,
+       230,
+       230,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000028702",
+   "name": "West",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -12,
+     1,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     2,
+     2,
+     2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       150,
+       80,
+       220,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000028703",
+   "name": "CamLine",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 8,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

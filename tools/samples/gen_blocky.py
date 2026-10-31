@@ -392,11 +392,9 @@ def obj(n, name, pos, comps, rot=(0, 0, 0, 1), scale=(1, 1, 1), parent=None):
             'components': [{'type': t, 'fields': f} for t, f in comps], 'prefab': None}
 
 def camera_obj(n, pos, pitch):
-    # engine camera looks +z (Unity-like); a 180 degree turn about y makes it look at -z, then pitch
-    q = qaxis((0, 1, 0), 180.0); p = qaxis((1, 0, 0), pitch)
-    x1, y1, z1, w1 = q; x2, y2, z2, w2 = p
-    r = (w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2, w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-         w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2, w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2)
+    # the engine camera looks down its local -z (view = inverse of the transform), so a camera on +z already faces the
+    # room; a negative turn about x tilts it down by `pitch` degrees
+    r = qaxis((1, 0, 0), -pitch)
     return obj(n, 'Camera', pos, [('Camera', {'fov': 60.0, 'nearClip': 0.3, 'farClip': 60.0})], rot=r)
 
 def light(n, name, pos, typ, color, intensity, rng, mode=0, rot=(0, 0, 0, 1)):
@@ -456,10 +454,10 @@ def build_sample():
     ]
     add('Assets/Scenes/Room.scene', scene(GUID['scene_room'], room))
     # Lights12 scene: 4 x 3 grid of cubes, 12 colored point lights above
-    objs = [camera_obj(1, (0, 7.0, 9.5), 38.0),
-            obj(2, 'Floor', (0, 0, 0), [('MeshRenderer', {'mesh': GUID['plane'], 'color': [200, 200, 200, 255], 'material': GUID['mat_pillar']})], scale=(2, 1, 2)),
-            settings_obj(3, (40, 40, 48, 255), None)]
-    n = 10
+    objs = [camera_obj(0x101, (0, 7.0, 9.5), 38.0),  # ids 0x1xx: unique across the scenes of one pack
+            obj(0x102, 'Floor', (0, 0, 0), [('MeshRenderer', {'mesh': GUID['plane'], 'color': [200, 200, 200, 255], 'material': GUID['mat_pillar']})], scale=(2, 1, 2)),
+            settings_obj(0x103, (40, 40, 48, 255), None)]
+    n = 0x110
     cols = [(255, 80, 80), (80, 255, 80), (80, 80, 255), (255, 255, 80), (255, 80, 255), (80, 255, 255),
             (255, 160, 60), (160, 90, 255), (255, 255, 255), (120, 255, 160), (255, 120, 160), (140, 180, 255)]
     k = 0

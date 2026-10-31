@@ -35,3 +35,23 @@ endif()
 if(RENSGA_TARGET STREQUAL "linux-host" AND TARGET rensga-cooker)
   add_test(NAME feature_gate_check COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/core/feature_gate_check.sh ${CMAKE_CXX_COMPILER} $<TARGET_FILE:rensga-cooker> ${CMAKE_SOURCE_DIR})
 endif()
+
+# --- F5 A6 begin ---
+# F5.12: scripts against the generated header of every profile; each gating error carries its hint. Also: the availability doc is not stale.
+if(RENSGA_TARGET STREQUAL "linux-host" AND TARGET rensga-cooker)
+  add_test(NAME api_profile COMMAND ${CMAKE_COMMAND} -E env RENSGA_COOKER=$<TARGET_FILE:rensga-cooker> RENSGA_CI_OUT=${CMAKE_CURRENT_BINARY_DIR}/api_profile_out
+           ${CMAKE_SOURCE_DIR}/tools/ci/api_profile.sh)
+endif()
+find_package(Python3 QUIET COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME api_availability_doc COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/docs/gen_api_availability.py --check)
+endif()
+# --- F5 A6 end ---
+
+# --- F5 core3d begin ---
+# Writes the pack3d fixture pack for tools/ci/determinism.sh 3dlit.
+add_executable(pack3d_write determinism/pack3d_write.cpp)
+target_link_libraries(pack3d_write PRIVATE rensga_api rensga_core rensga_reflect_json)
+target_include_directories(pack3d_write PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+rensga_runtime_target(pack3d_write)
+# --- F5 core3d end ---

@@ -25,7 +25,11 @@
     "Rotator",
     "Patrol",
     "Door",
-    "DoorBell"
+    "DoorBell",
+    "Light",
+    "RenderSettings",
+    "SkinnedMeshRenderer",
+    "Animation"
   ],
   "tessellation": {
     "sphereSegments": 12,

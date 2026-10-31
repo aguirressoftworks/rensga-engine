@@ -45,6 +45,10 @@
   "Camera2D",
   "PlayerController2D",
   "Coin",
-  "HudController"
+  "HudController",
+  "Light",
+  "RenderSettings",
+  "SkinnedMeshRenderer",
+  "Animation"
  ]
 }

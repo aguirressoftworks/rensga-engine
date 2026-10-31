@@ -201,3 +201,12 @@ if(TARGET rensga_editor_core)
   add_test(NAME rensga_tilemap_tests COMMAND rensga_tilemap_tests)
 endif()
 # --- end core2d ---
+
+# --- F5 emu-play begin ---
+# F5.19-F5.22: Play on console in the editor with a real PPSSPPSDL under xvfb (Pause, Step N, Resume, Stop, x10, crash, hang, debugger).
+if(TARGET rensga-editor AND TARGET rensga)
+  add_test(NAME editor_emu_play COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/emu_play_ui.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/templates/psp-3d ${CMAKE_CURRENT_BINARY_DIR}/emu_play)
+  set_tests_properties(editor_emu_play PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl;emulator" ENVIRONMENT "RENSGA_JOBS=2")
+endif()
+# --- F5 emu-play end ---

@@ -94,8 +94,19 @@ static_assert(psp_pad::kCross == PSP_CTRL_CROSS && psp_pad::kCircle == PSP_CTRL_
               psp_pad::kRight == PSP_CTRL_RIGHT,
               "psp_pad_map.h bit values must match pspctrl.h");
 
+// F4.03 check: the Home button has no game-pad mapping (the system takes it as the exit callback / Home popup), but sceCtrl still
+// reports PSP_CTRL_HOME. Log the rising edge once per press so a test can see whether anything reaches the game.
+static void noteHome(unsigned buttons) {
+  static bool down = false;
+  const bool now = (buttons & PSP_CTRL_HOME) != 0;
+  if (now && !down) RLOG_INFO("platform", "rensga: input home bit seen");
+  down = now;
+}
+
 void PspPlatform::pollInput(VirtualGamepad& pad) {
   if (sdlPad_) {
+    SceCtrlData hd;
+    if (sceCtrlPeekBufferPositive(&hd, 1) > 0) noteHome(hd.Buttons);
     SDL_GameController* c = static_cast<SDL_GameController*>(sdlPad_);
     SDL_GameControllerUpdate();
     auto b = [c](SDL_GameControllerButton id) { return SDL_GameControllerGetButton(c, id) != 0; };
@@ -115,11 +126,14 @@ void PspPlatform::pollInput(VirtualGamepad& pad) {
     s.leftX = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTX);
     s.leftY = SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_LEFTY);
     psp_pad::mapSdl(s, pad);
+    if (osk_) pad = VirtualGamepad();
     return;
   }
   SceCtrlData d;
   sceCtrlPeekBufferPositive(&d, 1);
+  noteHome(d.Buttons);
   psp_pad::map(d.Buttons, d.Lx, d.Ly, pad);
+  if (osk_) pad = VirtualGamepad();  // the dialog owns the pad
 }
 
 double PspPlatform::timeSeconds() {

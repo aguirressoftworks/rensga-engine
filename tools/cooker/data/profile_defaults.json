@@ -1,6 +1,6 @@
 {
   "format": 1,
-  "_comment": "Per-profile defaults that ProjectSettings/ConsoleTarget.json can override with \"limits\" and \"features\". Data, not code (RULES 1.2).",
+  "_comment": "Per-profile defaults that ProjectSettings/ConsoleTarget.json can override with \"limits\" and \"features\". Data, not code (RULES 1.2). A desktop (Windows, Linux, Android) build of a project keeps the project's profile features. docs/rensga-engine/api-availability.md is generated from this file by tools/docs/gen_api_availability.py.",
   "profiles": {
     "psp": {
       "limits": {
@@ -10,17 +10,86 @@
         "maxSkinnedJoints": 64,
         "maxTextureSize": 512
       },
-      "features": ["lighting", "skinning", "fog", "osk", "saveDialog", "battery", "cpuClock", "textureSwizzle"]
+      "features": [
+        "lighting",
+        "skinning",
+        "fog",
+        "osk",
+        "saveDialog",
+        "battery",
+        "cpuClock",
+        "textureSwizzle"
+      ]
     },
     "ps2": {
       "limits": {
         "ramLimitBytes": 0,
-        "maxLightsPerObject": 0,
+        "maxLightsPerObject": 8,
+        "maxBonesPerDraw": 0,
+        "maxSkinnedJoints": 64,
+        "maxTextureSize": 1024
+      },
+      "features": [
+        "lighting",
+        "skinning",
+        "fog",
+        "textureSwizzle"
+      ]
+    },
+    "psx": {
+      "limits": {
+        "ramLimitBytes": 2097152,
+        "maxLightsPerObject": 3,
         "maxBonesPerDraw": 0,
         "maxSkinnedJoints": 0,
-        "maxTextureSize": 0
+        "maxTextureSize": 256
       },
-      "features": []
+      "features": [
+        "lighting",
+        "fog"
+      ]
+    }
+  },
+  "featureInfo": {
+    "lighting": {
+      "api": "Light, RenderSettings (ambient)",
+      "what": "Run-time lights on meshes with a material",
+      "fix": "bake light into vertex colors (DirectionalLight)"
+    },
+    "skinning": {
+      "api": "SkinnedMeshRenderer, Animation::Play/Stop",
+      "what": "Skeletal animation (PSX uses segmented rigid models)",
+      "fix": "use sprite or vertex animation"
+    },
+    "fog": {
+      "api": "RenderSettings.fogEnabled/fogColor/fogStart/fogEnd",
+      "what": "Distance fog",
+      "fix": "fade to the background color in the art"
+    },
+    "osk": {
+      "api": "TouchScreenKeyboard::Open",
+      "what": "System on-screen keyboard",
+      "fix": "read the text from a UI field"
+    },
+    "saveDialog": {
+      "api": "Save::setMode(SaveMode::SystemDialog)",
+      "what": "System save/load dialog",
+      "fix": "keep Save::setMode(SaveMode::Auto)"
+    },
+    "battery": {
+      "api": "SystemInfo::batteryLevel, batteryStatus",
+      "what": "Battery level and charging state",
+      "fix": "do not branch on battery"
+    },
+    "cpuClock": {
+      "api": "Application::SetCpuClock",
+      "what": "CPU clock control",
+      "fix": "remove the call"
+    },
+    "textureSwizzle": {
+      "api": "(cooker) swizzled texture upload",
+      "what": "Swizzled textures in VRAM",
+      "fix": "none needed; the cooker picks linear textures"
     }
   }
 }

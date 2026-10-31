@@ -17,7 +17,8 @@
   "media": "eboot",
   "allowedComponents": [
     "MeshRenderer", "BoxCollider", "SphereCollider", "CharacterController", "Camera", "DirectionalLight",
-    "PlayerController", "FollowCamera", "Pickup", "PickupCounter"
+    "PlayerController", "FollowCamera", "Pickup", "PickupCounter",
+    "Light", "RenderSettings", "SkinnedMeshRenderer", "Animation"
   ],
   "tessellation": { "sphereSegments": 12, "capsuleSegments": 12 }
 }

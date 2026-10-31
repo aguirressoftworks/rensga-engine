@@ -38,6 +38,19 @@ void doPlayConsole(App& a) {
   if (!a.play.play(a.project.root, a.target)) EditorLog::instance().warn("play: already running");
 }
 
+// The status word next to the target combo while a console run exists: status + whether it is paused, hung or crashed.
+std::string consoleStatusText(App& a) {
+  std::string s = playStatusName(a.play.status());
+  if (a.play.status() == PlayStatus::Running) {
+    if (a.play.exitState() == pipeline::ExitState::Hung) s = "Running (hung)";
+    else if (a.play.exitState() == pipeline::ExitState::Crashed) s = "Running (crashed)";
+    else if (a.play.paused()) s = "Running (paused)";
+  } else if (a.play.status() == PlayStatus::Stopped && a.play.finished() && !a.play.lastOk()) {
+    s = "Stopped (failed)";
+  }
+  return s;
+}
+
 static bool primaryButton(const char* label, ImVec2 size) {
   ImGui::PushStyleColor(ImGuiCol_Button, brandToken("primary"));
   ImGui::PushStyleColor(ImGuiCol_ButtonHovered, brandToken("primary-hover"));
@@ -98,17 +111,26 @@ void drawToolbar(App& a) {
       ImGui::SetTooltip("The '%s' target has no editor module yet, so the editor cannot build or run it on a console. Play in editor works.", a.project.target.c_str());
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8);
     ImGui::SameLine(0, gap);
-    ImGui::BeginDisabled(!editing);
-    const bool paused = a.session.state() == PlayState::Paused;
+    // Pause / Step drive Play in editor, or the game running in the emulator (through the dev control channel, F5.20).
+    const bool consoleRun = !editing && a.play.status() == PlayStatus::Running;
+    ImGui::BeginDisabled(!editing && !consoleRun);
+    const bool paused = editing ? a.session.state() == PlayState::Paused : (consoleRun && a.play.paused());
     if (paused) ImGui::PushStyleColor(ImGuiCol_Button, brandToken("primary")), ImGui::PushStyleColor(ImGuiCol_Text, brandToken("on-primary"));
-    if (ImGui::Button("||##pause", ImVec2(qw, bh))) a.session.togglePause();
+    if (ImGui::Button("||##pause", ImVec2(qw, bh))) {
+      if (editing) a.session.togglePause();
+      else if (paused) a.play.resume();
+      else a.play.pause();
+    }
     if (paused) ImGui::PopStyleColor(2);
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Pause (Ctrl+Shift+P)");
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip(consoleRun ? "Pause the game in the emulator" : "Pause (Ctrl+Shift+P)");
     ImGui::SameLine(0, gap);
     ImGui::BeginDisabled(!paused);
-    if (ImGui::Button("|>##step", ImVec2(qw, bh))) a.session.requestStep();
+    if (ImGui::Button("|>##step", ImVec2(qw, bh))) {
+      if (editing) a.session.requestStep();
+      else a.play.step(1);
+    }
     ImGui::EndDisabled();
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("Step one frame while paused (Ctrl+Alt+P)");
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip(consoleRun ? "Run exactly one frame in the emulator while paused" : "Step one frame while paused (Ctrl+Alt+P)");
     ImGui::EndDisabled();
     ImGui::SameLine(0, gap);
     ImGui::BeginDisabled(!busy && !editing);
@@ -131,7 +153,7 @@ void drawToolbar(App& a) {
     const bool compiling = a.scripts.builder.busy();
     if (compiling) snprintf(st, sizeof st, "Compiling scripts %d%%", a.scripts.builder.percent());
     else if (editing) snprintf(st, sizeof st, "%s   frame %llu", paused ? "Paused" : "Playing", static_cast<unsigned long long>(a.session.frames()));
-    else snprintf(st, sizeof st, "%s%s", playStatusName(a.play.status()), a.doc.dirty() ? "   * unsaved" : "");
+    else snprintf(st, sizeof st, "%s%s", consoleStatusText(a).c_str(), a.doc.dirty() ? "   * unsaved" : "");
     const float cw = 190, stw = ImGui::CalcTextSize(st).x;
     ImGui::SetCursorPos(ImVec2(W - 12 - stw - 14 - cw, top));
     ImGui::SetNextItemWidth(cw);

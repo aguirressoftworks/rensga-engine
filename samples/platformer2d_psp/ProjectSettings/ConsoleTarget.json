@@ -56,6 +56,10 @@
   "TitleScreen",
   "GameOverScreen",
   "ResultsScreen",
-  "InputTestHud"
+  "InputTestHud",
+  "Light",
+  "RenderSettings",
+  "SkinnedMeshRenderer",
+  "Animation"
  ]
 }

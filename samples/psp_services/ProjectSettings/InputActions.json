@@ -1,0 +1,49 @@
+{
+ "format": 1,
+ "stickDeadZone": 0.2,
+ "stickOuterClamp": 0.95,
+ "actions": [
+  {
+   "name": "Move",
+   "kind": "axis2",
+   "source": "nub"
+  },
+  {
+   "name": "CameraLeft",
+   "kind": "button",
+   "source": "l",
+   "alt": "west"
+  },
+  {
+   "name": "CameraRight",
+   "kind": "button",
+   "source": "r",
+   "alt": "east"
+  },
+  {
+   "name": "CameraUp",
+   "kind": "button",
+   "source": "up"
+  },
+  {
+   "name": "CameraDown",
+   "kind": "button",
+   "source": "down"
+  },
+  {
+   "name": "ConfirmSouth",
+   "kind": "button",
+   "source": "south"
+  },
+  {
+   "name": "ConfirmEast",
+   "kind": "button",
+   "source": "east"
+  },
+  {
+   "name": "Menu",
+   "kind": "button",
+   "source": "start"
+  }
+ ]
+}

@@ -82,7 +82,7 @@ bool bootPack(const BootDeps& deps, BootState& st) {
     uploadPackTextures(*deps.renderer, as, deps.textureHandles, cap);
   }
   st.textureCount = as.textureCount < cap ? as.textureCount : cap;
-  if (deps.renderer && as.textureCount) RLOG_INFO("game", "rensga: uploaded %u textures", st.textureCount);
+  if (deps.renderer && as.textureCount) RLOG_INFO("game", "rensga: uploaded %u textures", static_cast<unsigned>(st.textureCount));
   GfxAssets::bind(&st.view, &st.loaded.assets, handles, st.textureCount);  // 2D components resolve textures here
   SceneManager::bind(&st.view, st.sceneIndex);
   if (deps.saves) Save::use(deps.saves);

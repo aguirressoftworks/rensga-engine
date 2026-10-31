@@ -33,6 +33,7 @@ bool RuntimeAudio::init(IFileSystem* fs, const PackConsoleTarget* ct, AudioMixer
     RLOG_WARN("audio", "target wants %u voices, this build mixes %u (RENSGA_AUDIO_MAX_VOICES)", wantVoices, AudioMixer::kMaxVoices);
   if (!mixer_.init(rate, fs)) return false;
   mixer_.setClock(clock);
+  mixer_.setVoiceLimit(wantVoices);  // F5.17: CTGT audioVoices
   AudioSystem::setMixer(&mixer_);
   backend_ = &g_backend;
   deviceOk_ = backend_->init(rate, &mixer_);

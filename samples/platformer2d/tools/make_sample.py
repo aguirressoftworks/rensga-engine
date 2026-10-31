@@ -569,7 +569,8 @@ else:   # PSP: 480x272, 16-bit framebuffer, 24 MB for the game (the PSP-1000 has
         "framebuffer": {"buffers": 2, "bpp": 16, "depthBits": 16},
         "depth": "zbuffer", "media": "eboot", "refreshHz": 60,
         "audio": {"sampleRate": 22050, "voices": 16},
-        "allowedComponents": components}
+        # F5.12: the PSP profile has the shared 3D components (lighting, skinning, fog), so a PSP project may add them.
+        "allowedComponents": components + ["Light", "RenderSettings", "SkinnedMeshRenderer", "Animation"]}
 write_json(os.path.join(root, "ProjectSettings/ConsoleTarget.json"), target)
 
 # ---- input actions / physics ----------------------------------------------------------------------------------------------

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <fstream>
 #include <map>
@@ -15,6 +16,8 @@
 #include "rensga/cooker/input_cook.h"
 
 #include "rensga/cooker/cooker.h"
+#include "rensga/cooker/model3d.h"
+#include "rensga/cooker/resample.h"  // F5.17 (A6)
 #include "rensga/core/components.h"
 #include "rensga/core/pack_format.h"
 #include "rensga/core/reflect_json.h"
@@ -26,7 +29,7 @@ using nlohmann::json;
 namespace rensga {
 namespace {
 
-constexpr const char* kCookerVersion = "rensga-cooker-5";
+constexpr const char* kCookerVersion = "rensga-cooker-6";
 
 struct Ctx {
   CookResult result;
@@ -110,6 +113,26 @@ struct Instance {
 };
 
 std::string relPath(const fs::path& root, const fs::path& p) { return fs::relative(p, root).generic_string(); }
+
+bool endsWith(const std::string& s, const char* suffix) {
+  const size_t n = strlen(suffix);
+  return s.size() >= n && s.compare(s.size() - n, n, suffix) == 0;
+}
+bool isGltfRel(const std::string& rel) { return endsWith(rel, ".gltf") || endsWith(rel, ".glb"); }
+
+// F5: one cooked material (MATL record in the making).
+struct MatEntry { Guid guid; MaterialDef def; std::string rel; };
+// F5: one skin with its clips (SKIN + CLP3 records in the making).
+struct SkinEntry { Guid guid; std::string rel; std::vector<GltfJoint> joints; std::vector<GltfClip> clips; };
+// F5: a lit mesh cooked once and shared by every renderer that uses the same glTF / primitive.
+struct LitCached {
+  PackMeshLit desc = {};
+  uint32_t skin = kInvalidIndex;
+  bool hasDerivedMaterial = false;
+  Guid derivedMaterial;
+  MaterialDef derivedDef;
+  std::string derivedWarning;  // reported only when the derived material is the one used
+};
 
 }  // namespace
 
@@ -390,6 +413,7 @@ CookResult cookProject(const CookOptions& optIn, const CookSink& sink) {
     for (const auto& c : o.comps)
       for (u32 f = 0; f < c.type->fieldCount; ++f) {
         if (c.type->fields[f].type != FieldType::Guid) continue;
+        if (strcmp(c.type->name, "Animation") == 0 && strcmp(c.type->fields[f].name, "clip") == 0) continue;  // checked once the clips are cooked
         std::string g = c.fields.value(c.type->fields[f].name, std::string());
         Guid parsed;
         if (!Guid::parse(g.c_str(), parsed) || parsed.isNull()) continue;
@@ -458,9 +482,224 @@ lightDone:
   budget.sceneAsset = sceneAsset.rel;
   budget.sceneGuid = sceneAsset.guid;
   const TypeInfo* mrType = TypeRegistry::instance().find("MeshRenderer");
+  const TypeInfo* smrType = TypeRegistry::instance().find("SkinnedMeshRenderer");
+  // F5 shared 3D state (empty for a project with no material and no skinned mesh: no new section is written).
+  std::vector<PackMeshLit> meshLit;  // parallel to meshRecs
+  std::vector<uint8_t> vtx3;
+  std::vector<PackBoneBatch> allBatches;
+  std::vector<MatEntry> mats;
+  std::map<std::string, uint32_t> matIndex;
+  std::vector<SkinEntry> skinsOut;
+  std::map<std::string, uint32_t> skinIndex;
+  std::map<std::string, LitCached> litCache;
+  std::map<std::string, GltfModel> gltfCache;
+  bool anyLit = false;
+  struct LitUse { size_t obj; float radius; Vector3 center; };
+  std::vector<LitUse> litUses;
+  PackMeshLit bakedLit = {};
+  bakedLit.material = bakedLit.skin = kInvalidIndex;
+  std::map<std::string, std::string> guidOfPath;  // canonical asset file path -> asset GUID (glTF material images)
+  for (const auto& kv : assets) {
+    std::error_code ec;
+    guidOfPath[fs::weakly_canonical(kv.second.path, ec).generic_string()] = kv.first;
+  }
+  const uint32_t maxBones = target.maxBonesPerDraw ? std::min<uint32_t>(target.maxBonesPerDraw, kMaxBatchBones) : kMaxBatchBones;
+  const bool ownCompact = plugin->isProfile() && plugin->hasCompactMeshes();
+
+  auto warnAsset = [&](const std::string& text, const Asset& a) { cx.msg(CookMessage::Warning, text + " ('" + a.rel + "')", a.rel, a.guid); };
+  auto addMaterial = [&](const Guid& g, const MaterialDef& d, const std::string& rel) -> uint32_t {
+    const std::string key = guidText(g);
+    auto it = matIndex.find(key);
+    if (it != matIndex.end()) return it->second;
+    matIndex[key] = static_cast<uint32_t>(mats.size());
+    mats.push_back({g, d, rel});
+    return matIndex[key];
+  };
+
+  // Lit / skinned renderer: MeshRenderer with a material, or a SkinnedMeshRenderer. Returns false after reporting an error.
+  auto cookLit = [&](size_t i, const ObjectDef::Comp& c, bool smr) -> bool {
+    const std::string who = (smr ? "SkinnedMeshRenderer" : "MeshRenderer") + std::string(" on '") + objs[i].name + "' (guid " + guidText(objs[i].guid) + ")";
+    const std::string mg = c.fields.value("mesh", std::string());
+    Guid matG, meshG;
+    Guid::parse(c.fields.value("material", std::string()).c_str(), matG);
+    if (smr && (!Guid::parse(mg.c_str(), meshG) || meshG.isNull())) {  // nothing to draw yet (Unity allows an empty mesh slot)
+      cx.msg(CookMessage::Warning, who + " has no mesh; it draws nothing", sceneAsset.rel, sceneAsset.guid);
+      return true;
+    }
+    auto ait = assets.find(mg);
+    const bool isGltf = ait != assets.end() && isGltfRel(ait->second.rel);
+    const bool isPrim = ait != assets.end() && ait->second.rel.find(".prim.json") != std::string::npos;
+    if (!isGltf && !isPrim) {
+      cx.error(who + " references mesh GUID " + mg + ", which is not a primitive or glTF asset", sceneAsset.rel, sceneAsset.guid);
+      return false;
+    }
+    if (smr && !isGltf) {
+      cx.error(who + " needs a glTF mesh with a skin; '" + ait->second.rel + "' is a primitive", ait->second.rel, mg);
+      return false;
+    }
+    const Asset& src = ait->second;
+    const std::string key = mg + (smr ? "|S" : "|M");
+    auto cit = litCache.find(key);
+    if (cit == litCache.end()) {
+      LitCached lc;
+      lc.desc.material = lc.desc.skin = kInvalidIndex;
+      LitMesh lm;
+      std::vector<SkinInfluences> influences;
+      if (isGltf) {
+        auto git = gltfCache.find(key);
+        if (git == gltfCache.end()) {
+          GltfModel gm;
+          ModelImport mi;
+          std::string merr;
+          if (!parseModelImport(src.importSettings, mi, merr)) {
+            cx.error("bad importSettings: " + merr, src.rel, mg);
+            return false;
+          }
+          std::string gerr;
+          if (!importGltfModel(src.path, mi, smr, 30, gm, gerr)) {
+            cx.error("glTF import failed: " + gerr, src.rel, mg);
+            return false;
+          }
+          for (const std::string& w : gm.warnings) warnAsset(w, src);
+          git = gltfCache.emplace(key, std::move(gm)).first;
+        }
+        const GltfModel& gm = git->second;
+        if (smr && !gm.skinned) {
+          cx.error(who + ": the glTF '" + src.rel + "' has no skin", src.rel, mg);
+          return false;
+        }
+        lm = gm.mesh;
+        if (smr) {
+          influences = gm.influences;
+          // One SKIN (and its CLP3 clips) per glTF.
+          if (!skinIndex.count(mg)) {
+            if (target.maxSkinnedJoints && gm.joints.size() > target.maxSkinnedJoints) {
+              cx.error("skinned mesh '" + src.rel + "' has " + std::to_string(gm.joints.size()) + " joints, the " + target.profile +
+                           " profile allows at most " + std::to_string(target.maxSkinnedJoints) + " (ConsoleTarget limits.maxSkinnedJoints)",
+                       src.rel, mg);
+              return false;
+            }
+            SkinEntry se;
+            Guid::parse(mg.c_str(), se.guid);
+            se.rel = src.rel;
+            se.joints = gm.joints;
+            se.clips = gm.clips;
+            skinIndex[mg] = static_cast<uint32_t>(skinsOut.size());
+            skinsOut.push_back(std::move(se));
+          }
+          lc.skin = skinIndex[mg];
+        }
+        if (gm.meshMaterial >= 0 && static_cast<size_t>(gm.meshMaterial) < gm.materials.size()) {
+          const GltfMaterialInfo& gi = gm.materials[static_cast<size_t>(gm.meshMaterial)];
+          lc.hasDerivedMaterial = true;
+          Guid g;
+          Guid::parse(mg.c_str(), g);
+          lc.derivedMaterial = deriveGuid(g, kDerivedMaterialSalt);
+          for (int k = 0; k < 4; ++k) lc.derivedDef.color[k] = static_cast<uint8_t>(std::lround(std::max(0.0f, std::min(1.0f, gi.color[k])) * 255.0f));
+          lc.derivedDef.unlit = gi.unlit;
+          lc.derivedDef.alphaTest = gi.alphaTest;
+          if (!gi.imagePath.empty()) {
+            std::error_code ec;
+            auto pit = guidOfPath.find(fs::weakly_canonical(gi.imagePath, ec).generic_string());
+            if (pit != guidOfPath.end()) lc.derivedDef.textureGuid = pit->second;
+            else lc.derivedWarning = "the glTF material's image '" + gi.imagePath.filename().string() + "' is not an asset of the project (add it, or set a .mat.json)";
+          }
+        }
+      } else {
+        std::string txt, perr;
+        readText(src.path, txt);
+        PrimitiveParams pp;
+        if (!parsePrimitive(txt, pp, perr)) {
+          cx.error("primitive parse error: " + perr, src.rel, mg);
+          return false;
+        }
+        lm = litMeshFromPrimitive(generatePrimitive(pp, target));
+      }
+      // Skin split into batches of at most maxBones joints.
+      uint32_t firstBatch = static_cast<uint32_t>(allBatches.size()), batchCount = 0;
+      if (smr) {
+        SkinSplitResult sr;
+        std::string warn, err;
+        if (!splitSkinnedMesh(lm, influences, maxBones, sr, warn, err)) {
+          cx.error("skin split failed: " + err, src.rel, mg);
+          return false;
+        }
+        if (!warn.empty()) warnAsset(warn, src);
+        if (sr.unweightedVertices) warnAsset(std::to_string(sr.unweightedVertices) + " vertices have no skin weight and follow the first bone of their batch", src);
+        lm = std::move(sr.mesh);
+        batchCount = static_cast<uint32_t>(sr.batches.size());
+        allBatches.insert(allBatches.end(), sr.batches.begin(), sr.batches.end());
+      }
+      std::string note;
+      const uint32_t flags = analyzeMeshFlags(lm, note);
+      if (!note.empty()) warnAsset(note, src);
+      const size_t before = vtx3.size();
+      PackMeshLit d = {};
+      std::string cerr;
+      if (!plugin->cookLitMesh(lm, vtx3, d, cerr)) {
+        cx.error("cookLitMesh failed for '" + src.rel + "': " + cerr, src.rel, mg);
+        return false;
+      }
+      if (ownCompact && !d.isC16())
+        warnAsset("UV coordinates leave the range [0, 2), so the mesh is stored with float vertices instead of the compact 16-bit form (about twice the vertex bytes); keep UVs inside [0, 2)", src);
+      d.vertexByteOffset = static_cast<uint32_t>(before);
+      d.material = kInvalidIndex;
+      d.skin = lc.skin;
+      d.firstBatch = firstBatch;
+      d.batchCount = batchCount;
+      d.flags = flags;
+      lc.desc = d;
+      cit = litCache.emplace(key, lc).first;
+    }
+    const LitCached& lc = cit->second;
+    PackMeshLit d = lc.desc;
+    if (!matG.isNull()) {
+      auto mit = assets.find(guidText(matG));
+      if (mit == assets.end() || !endsWith(mit->second.rel, ".mat.json")) {
+        cx.error(who + " references material GUID " + guidText(matG) + ", which is not a .mat.json asset", sceneAsset.rel, sceneAsset.guid);
+        return false;
+      }
+      std::string txt, merr;
+      MaterialDef md;
+      readText(mit->second.path, txt);
+      if (!parseMaterialJson(txt, md, merr)) {
+        cx.error("material parse error: " + merr, mit->second.rel, mit->first);
+        return false;
+      }
+      d.material = addMaterial(matG, md, mit->second.rel);
+    } else if (smr && lc.hasDerivedMaterial) {
+      if (!lc.derivedWarning.empty()) warnAsset(lc.derivedWarning, src);
+      d.material = addMaterial(lc.derivedMaterial, lc.derivedDef, src.rel);
+    }
+    PackMeshRec rec = {};
+    rec.objectIndex = static_cast<uint32_t>(i);
+    meshRecs.push_back(rec);
+    meshLit.push_back(d);
+    anyLit = true;
+    litUses.push_back({i, d.boundsRadius, Vector3(d.boundsCenter[0], d.boundsCenter[1], d.boundsCenter[2])});
+    if (objs[i].active) {
+      const uint64_t tris = d.vertexCount / 3;
+      budget.triangles += tris;
+      if (tris > budget.heaviestTriangles) {
+        budget.heaviestTriangles = tris;
+        budget.heaviestObjectName = objs[i].name;
+        budget.heaviestObjectGuid = guidText(objs[i].guid);
+      }
+    }
+    return true;
+  };
+
   for (size_t i = 0; i < objs.size(); ++i) {
     for (const auto& c : objs[i].comps) {
-      if (c.type != mrType) continue;
+      if (c.type != mrType && c.type != smrType) continue;
+      {
+        Guid mat;
+        Guid::parse(c.fields.value("material", std::string()).c_str(), mat);
+        if (c.type == smrType || !mat.isNull()) {
+          cookLit(i, c, c.type == smrType);
+          continue;
+        }
+      }
       std::string mg = c.fields.value("mesh", std::string());
       auto pit = primCache.find(mg);
       if (pit == primCache.end()) {
@@ -523,6 +762,7 @@ lightDone:
       rec.primitiveType = 0;
       rec.objectIndex = static_cast<uint32_t>(i);
       meshRecs.push_back(rec);
+      meshLit.push_back(bakedLit);
       if (objs[i].active) {
         uint64_t tris = count / 3;
         budget.triangles += tris;
@@ -535,6 +775,66 @@ lightDone:
     }
   }
   if (!R.errors.empty()) return R;
+
+  // ---- F5 validation: lights that reach one lit object (the profile draws at most maxLightsPerObject)
+  if (anyLit && target.maxLightsPerObject) {
+    struct Xf { Vector3 p, s; bool done = false; };
+    std::vector<Xf> wx(objs.size());
+    std::function<const Xf&(size_t, int)> xfOf = [&](size_t i, int depth) -> const Xf& {
+      Xf& o = wx[i];
+      if (o.done) return o;
+      const PackTransform& t = objs[i].xf;
+      Vector3 lp(t.position[0], t.position[1], t.position[2]), ls(t.scale[0], t.scale[1], t.scale[2]);
+      if (objs[i].parent >= 0 && depth < 64) {
+        const Xf& par = xfOf(static_cast<size_t>(objs[i].parent), depth + 1);
+        Quaternion pr = rotOf(static_cast<size_t>(objs[i].parent), 0);
+        o.p = par.p + pr * Vector3(lp.x * par.s.x, lp.y * par.s.y, lp.z * par.s.z);
+        o.s = Vector3(ls.x * par.s.x, ls.y * par.s.y, ls.z * par.s.z);
+      } else {
+        o.p = lp;
+        o.s = ls;
+      }
+      o.done = true;
+      return o;
+    };
+    auto blockOf = [&](size_t i) {
+      for (size_t b = 0; b < sceneBlocks.size(); ++b)
+        if (i >= sceneBlocks[b].first && i < static_cast<size_t>(sceneBlocks[b].first) + sceneBlocks[b].count) return b;
+      return size_t(0);
+    };
+    struct LightRef { size_t obj; int type; float range; };
+    std::vector<LightRef> lights;
+    const TypeInfo* lightType = TypeRegistry::instance().find("Light");
+    for (size_t i = 0; i < objs.size(); ++i)
+      for (const auto& c : objs[i].comps)
+        if (c.type == lightType && objs[i].active) {
+          Instance inst(c.type);
+          readBlob(*c.type, inst.mem, c.blob.data(), static_cast<u32>(c.blob.size()));
+          const Light* l = static_cast<const Light*>(inst.mem);
+          lights.push_back({i, l->type, l->range});
+        }
+    std::set<size_t> warned;
+    for (const LitUse& u : litUses) {
+      if (!objs[u.obj].active || warned.count(u.obj)) continue;
+      const Xf& ox = xfOf(u.obj, 0);
+      const Vector3 c = ox.p + rotOf(u.obj, 0) * Vector3(u.center.x * ox.s.x, u.center.y * ox.s.y, u.center.z * ox.s.z);
+      const float rad = u.radius * std::max(std::fabs(ox.s.x), std::max(std::fabs(ox.s.y), std::fabs(ox.s.z)));
+      const size_t blk = blockOf(u.obj);
+      uint32_t n = 0;
+      for (const LightRef& l : lights) {
+        if (blockOf(l.obj) != blk) continue;
+        if (l.type == 0) { ++n; continue; }
+        if ((xfOf(l.obj, 0).p - c).magnitude() <= l.range + rad) ++n;
+      }
+      if (n > target.maxLightsPerObject) {
+        warned.insert(u.obj);
+        cx.msg(CookMessage::Warning, "object '" + objs[u.obj].name + "' (guid " + guidText(objs[u.obj].guid) + ") is reached by " + std::to_string(n) +
+                                         " lights, the " + target.profile + " profile draws at most " + std::to_string(target.maxLightsPerObject) +
+                                         " per object (ConsoleTarget limits.maxLightsPerObject); the strongest are used",
+               sceneAsset.rel, sceneAsset.guid);
+      }
+    }
+  }
 
   // ---- compact meshes (F4.05): only when cooking for the profile's own target; a platform cook keeps float vertices
   PackMeshExt meshExt = {};
@@ -561,6 +861,8 @@ lightDone:
       a.rel = kv.second.rel;
       a.guid = kv.second.guid;
       a.importSettings = kv.second.importSettings;
+      if (opt.target == target.profile && a.rel.size() > 4 && a.rel.compare(a.rel.size() - 4, 4, ".wav") == 0)  // F5.17 (A6): console packs resample to the target rate; PC platform targets keep the source
+        a.importSettings = withTargetAudioRate(a.importSettings, target.audioSampleRate);
       srcs.push_back(std::move(a));
     }
     // Per-asset cache: Library/Cache/<target>/. The salt covers everything besides the asset itself that changes cooked bytes.
@@ -576,6 +878,25 @@ lightDone:
     cx.info("cook: cooked " + std::to_string(cache.cooked) + ", cached " + std::to_string(cache.cached));
   }
   if (!R.errors.empty()) return R;
+
+  // ---- F5: textures the cook scaled down (maxTextureSize of the profile, or the asset's own maxSize) are reported
+  for (const auto& kv : assets) {
+    if (!endsWith(kv.second.rel, ".png")) continue;
+    Guid tg;
+    Guid::parse(kv.first.c_str(), tg);
+    for (const PackTexRec& tr : cooked.textures) {
+      if (tr.guid != tg) continue;
+      std::string bytes;
+      uint32_t w = 0, h = 0;
+      if (readText(kv.second.path, bytes) && pngSize(std::vector<uint8_t>(bytes.begin(), bytes.end()), w, h) && (tr.width < w || tr.height < h))
+        cx.msg(CookMessage::Warning,
+               "texture '" + kv.second.rel + "' downscaled from " + std::to_string(w) + "x" + std::to_string(h) + " to " + std::to_string(tr.width) + "x" +
+                   std::to_string(tr.height) + " (box filter" +
+                   (target.maxTextureSize ? ", " + target.profile + " maxTextureSize " + std::to_string(target.maxTextureSize) : std::string()) + ")",
+               kv.second.rel, kv.first);
+      break;
+    }
+  }
 
   // ---- assemble the pack
   struct Sec { u32 fourcc; std::vector<uint8_t> data; u32 count; };
@@ -661,6 +982,77 @@ lightDone:
     ct.capabilities = target.rumble ? kTargetCapRumble : 0u;
   }
 
+  // ---- F5: materials, skins and clips (MATL, SKIN, CLP3; joints and poses live in BLOB)
+  std::vector<PackMaterial> pmats;
+  std::vector<PackSkin> pskins;
+  std::vector<PackClip3> pclips;
+  for (const MatEntry& m : mats) {
+    PackMaterial pm = {};
+    pm.guid = m.guid;
+    pm.texture = kInvalidIndex;
+    if (!m.def.textureGuid.empty()) {
+      Guid tg;
+      Guid::parse(m.def.textureGuid.c_str(), tg);
+      for (size_t t = 0; t < cooked.textures.size(); ++t)
+        if (cooked.textures[t].guid == tg) pm.texture = static_cast<uint32_t>(t);
+      if (pm.texture == kInvalidIndex) cx.error("material references texture GUID " + m.def.textureGuid + ", which is not a PNG asset of the project", m.rel, guidText(m.guid));
+    }
+    pm.colorABGR = colorAbgr(m.def.color);
+    pm.flags = materialFlags(m.def);
+    pmats.push_back(pm);
+  }
+  std::set<std::string> clipGuids;
+  {
+    auto blobAlign = [&]() { while (cooked.blob.size() % 16) cooked.blob.push_back(0); };
+    for (size_t si = 0; si < skinsOut.size(); ++si) {
+      const SkinEntry& se = skinsOut[si];
+      blobAlign();
+      PackSkin ps = {};
+      ps.guid = se.guid;
+      ps.jointCount = static_cast<u32>(se.joints.size());
+      ps.jointsOffset = static_cast<u32>(cooked.blob.size());
+      for (const GltfJoint& j : se.joints) {
+        PackJoint pj = {};
+        pj.parent = j.parent;
+        pj.nameStr = addStr(j.name);
+        memcpy(pj.t, j.t, sizeof pj.t);
+        memcpy(pj.r, j.r, sizeof pj.r);
+        memcpy(pj.s, j.s, sizeof pj.s);
+        memcpy(pj.invBind, j.invBind, sizeof pj.invBind);
+        const uint8_t* b = reinterpret_cast<const uint8_t*>(&pj);
+        cooked.blob.insert(cooked.blob.end(), b, b + sizeof pj);
+      }
+      pskins.push_back(ps);
+      for (size_t k = 0; k < se.clips.size(); ++k) {
+        const GltfClip& gc = se.clips[k];
+        blobAlign();
+        PackClip3 pc = {};
+        pc.guid = deriveGuid(se.guid, static_cast<uint32_t>(k));
+        pc.nameStr = addStr(gc.name);
+        pc.skin = static_cast<u32>(si);
+        pc.frameCount = gc.frameCount;
+        pc.fps = gc.fps;
+        pc.loop = gc.loop ? 1 : 0;
+        pc.dataOffset = static_cast<u32>(cooked.blob.size());
+        const uint8_t* b = reinterpret_cast<const uint8_t*>(gc.poses.data());
+        cooked.blob.insert(cooked.blob.end(), b, b + gc.poses.size() * sizeof(PackJointPose));
+        pclips.push_back(pc);
+        clipGuids.insert(guidText(pc.guid));
+      }
+    }
+  }
+  for (const ObjectDef& o : objs)
+    for (const auto& c : o.comps) {
+      if (strcmp(c.type->name, "Animation") != 0) continue;
+      const std::string g = c.fields.value("clip", std::string());
+      Guid parsed;
+      if (!Guid::parse(g.c_str(), parsed) || parsed.isNull() || clipGuids.count(g)) continue;
+      cx.error("'" + o.name + "' (guid " + guidText(o.guid) + ") Animation.clip references GUID " + g +
+                   ", which is not a skeletal clip of a glTF used by a SkinnedMeshRenderer (use the glTF asset GUID for its first animation)",
+               sceneAsset.rel, sceneAsset.guid);
+    }
+  if (!R.errors.empty()) return R;
+
   std::vector<PackSceneRec> pscenes;
   for (const SceneBlock& b : sceneBlocks) {
     PackSceneRec sr = {};
@@ -705,6 +1097,16 @@ lightDone:
     }
   }
 
+  if (anyLit) {  // F5: optional sections, written only when the project has a lit or skinned mesh
+    secs.push_back({pack_section::MSHL, bytesOf(meshLit.data(), meshLit.size() * sizeof(PackMeshLit)), static_cast<u32>(meshLit.size())});
+    secs.push_back({pack_section::VTX3, vtx3, static_cast<u32>(vtx3.size())});
+    if (!allBatches.empty())
+      secs.push_back({pack_section::BTCH, bytesOf(allBatches.data(), allBatches.size() * sizeof(PackBoneBatch)), static_cast<u32>(allBatches.size())});
+  }
+  if (!pmats.empty()) secs.push_back({pack_section::MATL, bytesOf(pmats.data(), pmats.size() * sizeof(PackMaterial)), static_cast<u32>(pmats.size())});
+  if (!pskins.empty()) secs.push_back({pack_section::SKIN, bytesOf(pskins.data(), pskins.size() * sizeof(PackSkin)), static_cast<u32>(pskins.size())});
+  if (!pclips.empty()) secs.push_back({pack_section::CLP3, bytesOf(pclips.data(), pclips.size() * sizeof(PackClip3)), static_cast<u32>(pclips.size())});
+
   const size_t packAlign = target.sectorAligned ? kPackSectorAlignment : kPackAlignment;
   auto align16 = [packAlign](size_t v) { return (v + packAlign - 1) & ~(packAlign - 1); };
   size_t cursor = align16(sizeof(PackHeader) + secs.size() * sizeof(PackSection));
@@ -743,8 +1145,39 @@ lightDone:
       R.usage.maxComponentsType = kv.first;
     }
   }
+  {  // F5.17 (A6): AudioSources that sound from scene load (loop, or playOnAwake when the component has it) vs the voice budget
+    for (const auto& o : objs)
+      for (const auto& c : o.comps)
+        if (c.type && c.type->name == std::string("AudioSource") && (c.fields.value("loop", false) || c.fields.value("playOnAwake", false)))
+          ++budget.audioStartingSources;
+    std::vector<CookMessage> audioWarn;
+    warnAudioVoices(target, budget, audioWarn);
+    for (const auto& w : audioWarn) cx.msg(CookMessage::Warning, w.text, w.asset, w.assetGuid);
+  }
   std::vector<CookMessage> budgetErrors;
   bool fits = validateBudgets(target, budget, budgetErrors);
+  if (!fits && target.vramBytes && budget.textureBytes > target.vramBytes) {  // F5: name the texture that costs the most
+    size_t big = 0;
+    uint64_t bigBytes = 0;
+    for (size_t t = 0; t < cooked.textures.size(); ++t) {
+      const uint64_t b = cooked.textures[t].pixelBytes + static_cast<uint64_t>(cooked.textures[t].paletteCount) * 4;
+      if (b > bigBytes) { bigBytes = b; big = t; }
+    }
+    std::string rel = "<default font>", g = "";
+    for (const auto& kv : assets) {
+      Guid tg;
+      Guid::parse(kv.first.c_str(), tg);
+      if (!cooked.textures.empty() && cooked.textures[big].guid == tg) { rel = kv.second.rel; g = kv.first; }
+    }
+    CookMessage m;
+    m.severity = CookMessage::Error;
+    m.asset = rel;
+    m.assetGuid = g;
+    m.text = "texture budget: the largest texture is '" + rel + "' with " + std::to_string(bigBytes) + " cooked bytes (" +
+             std::to_string(cooked.textures.size()) + " textures use " + std::to_string(budget.textureBytes) + " of " + std::to_string(target.vramBytes) +
+             " VRAM bytes); lower its maxSize or use clut4 / clut8";
+    budgetErrors.push_back(m);
+  }
   if (!fits && opt.budgetsAreWarnings) {  // play in editor: run it anyway, the editor shows the overrun
     for (const auto& e : budgetErrors) cx.msg(CookMessage::Warning, e.text, e.asset, e.assetGuid);
     budgetErrors.clear();

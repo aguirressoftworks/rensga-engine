@@ -47,6 +47,7 @@ bool Process::start(const ProcessSpec& spec, LineSink onLine) {
   fd_ = p[0];
   done_ = false;
   exitCode_ = -1;
+  exitSignal_ = 0;
   int fd = fd_;
   reader_ = std::thread([fd, onLine]() {
     std::string buf;
@@ -81,12 +82,23 @@ bool Process::poll(bool block) {
     exitCode_ = WEXITSTATUS(status);
   } else if (WIFSIGNALED(status)) {
     exitCode_ = 128 + WTERMSIG(status);
+    exitSignal_ = WTERMSIG(status);
   }
   done_ = true;
   return false;
 }
 
 bool Process::running() { return poll(false); }
+
+int Process::exitSignal() {
+  std::lock_guard<std::mutex> lock(mu_);
+  return exitSignal_;
+}
+
+bool Process::signalGroup(int sig) {
+  if (!running()) return false;
+  return killpg(pid_, sig) == 0;
+}
 
 int Process::wait() {
   poll(true);

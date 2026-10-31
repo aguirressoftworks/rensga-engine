@@ -233,17 +233,21 @@ TEST(psp_16bit_channel_layout) {
   CHECK(err.find("rgb565") != std::string::npos && err.find("rgba5551") != std::string::npos);
 }
 
-TEST(psp_oversize_texture_error_suggests_max_size) {
+// F5: a texture the GU cannot hold is scaled down (box filter) to the 512 limit instead of failing.
+TEST(psp_oversize_texture_is_downscaled) {
   CookedTexture t;
   std::string err;
-  CHECK(!pspCookTexture(solid(600, 20, 1, 2, 3, 255), "rgba8", t, err));
-  CHECK(err.find("600x20") != std::string::npos);
-  CHECK(err.find("512") != std::string::npos);
-  CHECK(err.find("maxSize") != std::string::npos);
-  CHECK(!pspCookTexture(solid(513, 8, 1, 2, 3, 255), "auto", t, err));
-  CHECK(!pspCookTexture(solid(8, 513, 1, 2, 3, 255), "auto", t, err));
-  CHECK(pspCookTexture(solid(512, 512, 1, 2, 3, 255), "clut4", t, err));  // the largest texture
+  CHECK(pspCookTexture(solid(600, 20, 1, 2, 3, 255), "rgba8", t, err));
+  CHECK_EQ(t.width, 512u);
+  CHECK_EQ(t.height, 17u);
   CHECK_EQ(t.storedWidth, 512u);
+  CHECK(pspCookTexture(solid(513, 8, 1, 2, 3, 255), "auto", t, err));
+  CHECK_EQ(t.width, 512u);
+  CHECK(pspCookTexture(solid(8, 513, 1, 2, 3, 255), "auto", t, err));
+  CHECK_EQ(t.height, 512u);
+  CHECK(pspCookTexture(solid(512, 512, 1, 2, 3, 255), "clut4", t, err));  // the largest texture, untouched
+  CHECK_EQ(t.storedWidth, 512u);
+  CHECK_EQ(t.width, 512u);
 }
 
 TEST(psp_cook_oversize_names_asset) {
@@ -253,19 +257,17 @@ TEST(psp_cook_oversize_names_asset) {
   fs::copy(pspFixture() / "ProjectSettings", tmp / "ProjectSettings", fs::copy_options::recursive);
   fs::copy(pspFixture() / "Assets", tmp / "Assets", fs::copy_options::recursive);
   writePng(tmp / "Assets/Tiles/noisy.png", 600, 20);  // replaces the 32x32 one
-  std::string err;
-  CookResult r = cookFor(tmp, "psp", &err);
-  CHECK(!r.ok);
-  CHECK(err.find("noisy.png") != std::string::npos);
-  CHECK(err.find("00000000-0000-4000-8000-0000000a2d02") != std::string::npos);
-  CHECK(err.find("maxSize") != std::string::npos);
-  // The suggested fix works: with maxSize 512 the same file cooks.
-  {
-    std::ofstream o(tmp / "Assets/Tiles/noisy.png.meta");
-    o << R"({"guid":"00000000-0000-4000-8000-0000000a2d02","importSettings":{"maxSize":512}})";
-  }
-  CookResult r2 = cookFor(tmp, "psp");
-  CHECK(r2.ok);
+  std::string warning;
+  CookOptions o;
+  o.project = tmp;
+  o.target = "psp";
+  o.force = true;
+  CookResult r = cookProject(o, [&](const CookMessage& m) {
+    if (m.severity == CookMessage::Warning && warning.empty()) warning = m.text;
+  });
+  CHECK(r.ok);  // F5: scaled down, not refused
+  CHECK(warning.find("noisy.png") != std::string::npos);
+  CHECK(warning.find("downscaled from 600x20 to 512x17") != std::string::npos);
   fs::remove_all(tmp);
 }
 

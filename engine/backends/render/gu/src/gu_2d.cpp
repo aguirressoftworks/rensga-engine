@@ -82,6 +82,8 @@ u32 GuRenderer::uploadTexture(const TextureDesc& d) {
   t.clutMask = mask;
   t.clutBlocks = blocks;
   t.swizzled = (d.flags & tex_flag::kSwizzled) ? 1 : 0;
+  t.srcW = static_cast<u16>(d.width);
+  t.srcH = static_cast<u16>(d.height);
 
   // Pixels: the first free range in the texture area, else sampled straight from the pack in RAM (needs 16-byte
   // alignment; the dcache is written back once before the next frame).

@@ -1,6 +1,7 @@
 // Built-in components. Registered through reflection like any script.
 // Physics (CharacterController::Move, trigger detection) lives in engine/api/src/physics.cpp.
 #pragma once
+#include "rensga/core/feature.h"
 #include "rensga/core/object.h"
 
 namespace rensga {
@@ -133,7 +134,10 @@ struct Animation : Component {
   u32 tick = 0;            // fixed steps since Play()
   u32 phase = 0;           // fractional carry for speed != 1 (animation system units)
   u32 paletteSlot = kInvalidIndex;
+  // F5.12: skeletal animation needs the "skinning" feature of the profile.
+  RENSGA_REQUIRES_FEATURE(SKINNING, "Skeletal animation is not available on this profile; use sprite or vertex animation, or add \"skinning\" to ConsoleTarget.json features.")
   void Play();             // restarts the clip from its first frame
+  RENSGA_REQUIRES_FEATURE(SKINNING, "Skeletal animation is not available on this profile; use sprite or vertex animation, or add \"skinning\" to ConsoleTarget.json features.")
   void Stop();
   bool isPlaying() const;
 };

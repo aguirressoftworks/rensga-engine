@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "rensga/Sim.h"
+#include "rensga/core/animation.h"
 #include "runtime_boot.h"
 
 using namespace rensga;
@@ -73,9 +74,13 @@ int main(int argc, char** argv) {
   const u32 pickups = liveCount(world, "Pickup");
   RLOG_INFO("game", "rensga: scene loaded objects=%u pickups=%u", world.objectCount(), pickups);
 
+  AnimationSystem::setTrace(topt.trace);  // F5: per-fixed-step "rensga: skin f=<n> h=<hex>" lines (determinism 3dlit)
   SimResult r = runSim(world, frames, inputPath ? &script : nullptr, pickups, &topt);
   const u64 allocs = heap::logAllocCheck();
-  if (printHash) printf("rensga: hash %08x\n", r.hash);
+  if (printHash) {
+    printf("rensga: hash %08x\n", r.hash);
+    if (AnimationSystem::stepCount()) printf("rensga: skinhash %08x\n", AnimationSystem::skinHash());
+  }
   world.shutdown();
   return allocs == 0 ? 0 : 4;
 }

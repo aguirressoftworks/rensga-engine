@@ -124,6 +124,21 @@ void SdlPlatform::pollInput(VirtualGamepad& pad) {
     if (e.type == SDL_FINGERMOTION) touch_.fingerMove(e.tfinger.fingerId, e.tfinger.x, e.tfinger.y);
     if (e.type == SDL_FINGERUP) touch_.fingerUp(e.tfinger.fingerId);
     if (e.type == SDL_QUIT) quit_ = true;
+    if (textActive_) {  // the on-screen keyboard owns Escape / Return / Backspace while it is open
+      if (e.type == SDL_TEXTINPUT) {
+        appendText(e.text.text);
+      } else if (e.type == SDL_KEYDOWN) {
+        if (e.key.keysym.sym == SDLK_RETURN) { textResult_ = 1; textActive_ = false; SDL_StopTextInput(); }
+        else if (e.key.keysym.sym == SDLK_ESCAPE) { textResult_ = 2; textActive_ = false; SDL_StopTextInput(); }
+        else if (e.key.keysym.sym == SDLK_BACKSPACE) {  // drop one UTF-8 character
+          while (textLen_ > 0 && (static_cast<unsigned char>(text_[textLen_ - 1]) & 0xC0) == 0x80) --textLen_;
+          if (textLen_ > 0) --textLen_;
+          text_[textLen_] = 0;
+        }
+      }
+      if (e.type == SDL_QUIT) quit_ = true;
+      continue;
+    }
     if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) quit_ = true;
     if ((e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) && e.key.keysym.scancode < 512)
       evKeys_[e.key.keysym.scancode] = e.type == SDL_KEYDOWN ? 1 : 0;
@@ -297,6 +312,75 @@ bool SdlPlatform::touchOverlayVisible() const {
 #else
   return touch_.used();
 #endif
+}
+
+// ---- F5 system seams ------------------------------------------------------------------------------------------------------
+u32 SdlPlatform::language() {
+  SDL_Locale* loc = SDL_GetPreferredLocales();
+  u32 r = 0xFFFFFFFFu;
+  if (loc && loc[0].language) {
+    const char* l = loc[0].language;
+    const char* c = loc[0].country ? loc[0].country : "";
+    // SystemLanguage values (application.h): English 0, Japanese 1, French 2, Spanish 3, German 4, Italian 5, Dutch 6,
+    // Portuguese 7, Russian 8, Korean 9, ChineseTraditional 10, ChineseSimplified 11.
+    static const struct { const char* code; u32 v; } kMap[] = {{"en", 0}, {"ja", 1}, {"fr", 2}, {"es", 3}, {"de", 4}, {"it", 5},
+                                                              {"nl", 6}, {"pt", 7}, {"ru", 8}, {"ko", 9}};
+    for (const auto& m : kMap)
+      if (strcmp(l, m.code) == 0) r = m.v;
+    if (strcmp(l, "zh") == 0) r = (strcmp(c, "TW") == 0 || strcmp(c, "HK") == 0) ? 10 : 11;
+  }
+  if (loc) SDL_free(loc);
+  return r;
+}
+
+i32 SdlPlatform::batteryPercent() {
+  int pct = -1;
+  const SDL_PowerState st = SDL_GetPowerInfo(nullptr, &pct);
+  return st == SDL_POWERSTATE_NO_BATTERY || st == SDL_POWERSTATE_UNKNOWN ? -1 : pct;
+}
+
+i32 SdlPlatform::batteryStatus() {
+  switch (SDL_GetPowerInfo(nullptr, nullptr)) {
+    case SDL_POWERSTATE_ON_BATTERY: return 2;
+    case SDL_POWERSTATE_CHARGING: return 1;
+    case SDL_POWERSTATE_CHARGED: return 4;
+    default: return 0;
+  }
+}
+
+u64 SdlPlatform::systemMemoryBytes() { return static_cast<u64>(SDL_GetSystemRAM()) * 1024ull * 1024ull; }
+
+bool SdlPlatform::beginTextInput(const char* initial, const char* title, u32 maxLen) {
+  (void)title;
+  if (textActive_) return false;
+  textMax_ = maxLen < sizeof(text_) - 1 ? maxLen : sizeof(text_) - 1;
+  textLen_ = 0;
+  for (const char* c = initial ? initial : ""; *c && textLen_ < textMax_; ++c) text_[textLen_++] = *c;
+  text_[textLen_] = 0;
+  textResult_ = 0;
+  textActive_ = true;
+  SDL_StartTextInput();
+  return true;
+}
+
+i32 SdlPlatform::pollTextInput(char* out, u32 outSize) {
+  if (textResult_ == 1 && out && outSize) {
+    strncpy(out, text_, outSize - 1);
+    out[outSize - 1] = 0;
+  }
+  return textResult_;
+}
+
+void SdlPlatform::appendText(const char* utf8) {
+  if (!textActive_ || !utf8) return;
+  // Whole characters only: stop before a UTF-8 sequence that would not fit.
+  while (*utf8) {
+    const unsigned char lead = static_cast<unsigned char>(*utf8);
+    const u32 n = lead < 0x80 ? 1 : (lead >= 0xF0 ? 4 : (lead >= 0xE0 ? 3 : 2));
+    if (textLen_ + n > textMax_ || textLen_ + n > sizeof(text_) - 1) break;
+    for (u32 i = 0; i < n && *utf8; ++i) text_[textLen_++] = *utf8++;
+  }
+  text_[textLen_] = 0;
 }
 
 double SdlPlatform::timeSeconds() { return static_cast<double>(SDL_GetPerformanceCounter()) / static_cast<double>(SDL_GetPerformanceFrequency()); }

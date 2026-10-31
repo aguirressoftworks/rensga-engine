@@ -6,6 +6,7 @@ namespace {
 AudioMixer* g_mixer = nullptr;
 struct Entry { Guid guid; AudioClip clip; bool used = false; };
 Entry g_clips[AudioSystem::kMaxClips];
+u8 prio(i32 p) { return static_cast<u8>(p < 0 ? 0 : (p > 255 ? 255 : p)); }  // AudioSource.priority, F5.17
 }  // namespace
 
 void AudioSystem::setMixer(AudioMixer* mixer) { g_mixer = mixer; }
@@ -37,7 +38,7 @@ void AudioSource::Play() {
   const AudioClip* c = AudioSystem::findClip(clip);
   if (!m || !c) return;
   if (voice) m->stop(voice);
-  voice = m->play(c, volume, panStereo, loop, pitch);
+  voice = m->play(c, volume, panStereo, loop, pitch, prio(priority));
 }
 void AudioSource::Stop() {
   if (AudioMixer* m = AudioSystem::mixer()) m->stop(voice);
@@ -46,7 +47,7 @@ void AudioSource::Stop() {
 void AudioSource::PlayOneShot(const Guid& other, Scalar volumeScale) {
   AudioMixer* m = AudioSystem::mixer();
   const AudioClip* c = AudioSystem::findClip(other);
-  if (m && c) m->play(c, volume * volumeScale, panStereo, false, pitch);
+  if (m && c) m->play(c, volume * volumeScale, panStereo, false, pitch, prio(priority));
 }
 bool AudioSource::isPlaying() const {
   AudioMixer* m = AudioSystem::mixer();

@@ -1,4 +1,7 @@
 rensga_reflect_scan(tests_cooker RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_cooker.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_primitives.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_assets.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_door.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_psp.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_f5_components.cpp)
+# --- F5 A6 begin ---
+list(APPEND RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_profile.cpp)
+# --- F5 A6 end ---
 add_executable(rensga_cooker_tests ../test_main.cpp ${RENSGA_COOKER_TEST_SRCS})
 target_link_libraries(rensga_cooker_tests PRIVATE rensga_cooker_lib rensga_api)
 target_include_directories(rensga_cooker_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. )
@@ -32,3 +35,18 @@ target_link_libraries(rensga_input_cook_tests PRIVATE rensga_core nlohmann_json:
 target_include_directories(rensga_input_cook_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_SOURCE_DIR}/tools/cooker/include)
 rensga_host_target(rensga_input_cook_tests)
 add_test(NAME input_cook COMMAND rensga_input_cook_tests)
+
+# --- F5 A1 begin ---
+add_executable(rensga_cook3d_tests ../test_main.cpp test_cook3d.cpp)
+target_link_libraries(rensga_cook3d_tests PRIVATE rensga_cooker_lib rensga_api)
+target_include_directories(rensga_cook3d_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+target_compile_definitions(rensga_cook3d_tests PRIVATE RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"
+                           RENSGA_ROOM_DIR="${CMAKE_SOURCE_DIR}/samples/psp3d_room"
+                           RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp-3d")
+rensga_runtime_target(rensga_cook3d_tests)
+add_test(NAME cook3d COMMAND rensga_cook3d_tests)
+add_test(NAME cooker_cli_psp3d_room_psp
+         COMMAND rensga-cooker cook --project ${CMAKE_SOURCE_DIR}/samples/psp3d_room --target psp --force)
+add_test(NAME cooker_cli_psp3d_room_linux
+         COMMAND rensga-cooker cook --project ${CMAKE_SOURCE_DIR}/samples/psp3d_room --target linux --force)
+# --- F5 A1 end ---

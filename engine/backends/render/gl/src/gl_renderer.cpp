@@ -37,7 +37,7 @@ constexpr GLenum GL_COLOR_BUFFER_BIT = 0x4000, GL_DEPTH_BUFFER_BIT = 0x100, GL_T
                  GL_FRAMEBUFFER = 0x8D40, GL_RENDERBUFFER = 0x8D41, GL_COLOR_ATTACHMENT0 = 0x8CE0,
                  GL_DEPTH_ATTACHMENT = 0x8D00, GL_DEPTH_COMPONENT24 = 0x81A6, GL_FRAMEBUFFER_COMPLETE = 0x8CD5,
                  GL_TEXTURE0 = 0x84C0, GL_UNPACK_ALIGNMENT = 0x0CF5, GL_VERSION = 0x1F02, GL_RENDERER = 0x1F01,
-                 GL_SCISSOR_TEST = 0x0C11;
+                 GL_SCISSOR_TEST = 0x0C11, GL_SHORT = 0x1402, GL_UNSIGNED_SHORT = 0x1403, GL_REPEAT = 0x2901;
 
 #define RG_GL_FUNCS(X)                                                                     \
   X(void, ClearColor, (float, float, float, float))                                       \
@@ -81,6 +81,11 @@ constexpr GLenum GL_COLOR_BUFFER_BIT = 0x4000, GL_DEPTH_BUFFER_BIT = 0x100, GL_T
   X(GLint, GetUniformLocation, (GLuint, const char*))                                      \
   X(void, Uniform1i, (GLint, GLint))                                                       \
   X(void, Uniform2f, (GLint, float, float))                                                \
+  X(void, Uniform1f, (GLint, float))                                                       \
+  X(void, Uniform3f, (GLint, float, float, float))                                         \
+  X(void, Uniform4f, (GLint, float, float, float, float))                                  \
+  X(void, Uniform4fv, (GLint, GLsizei, const float*))                                      \
+  X(void, Uniform3fv, (GLint, GLsizei, const float*))                                      \
   X(void, UniformMatrix4fv, (GLint, GLsizei, unsigned char, const float*))                 \
   X(void, GenFramebuffers, (GLsizei, GLuint*))                                             \
   X(void, DeleteFramebuffers, (GLsizei, const GLuint*))                                    \
@@ -132,6 +137,80 @@ const char* kMeshFs = R"(
 in vec4 vCol; out vec4 o;
 void main(){ o = vec4(vCol.rgb, 1.0); })";
 
+
+// F5 lit / skinned mesh shader (one source, SKIN defined for the skinned variant). Per-vertex lighting like the GU.
+// Attributes: 0 position (float, or i16 for C16: position = uDecOff + raw * uDecScale), 1 normal, 2 color (u8 normalized),
+// 3 uv (float, or u16 raw * uUvScale), 4/5 weights (u8 raw, /128).
+const char* kLitVs = R"(
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNrm;
+layout(location=2) in vec4 aCol;
+layout(location=3) in vec2 aUV;
+#ifdef SKIN
+layout(location=4) in vec4 aW0;
+layout(location=5) in vec4 aW1;
+uniform mat4 uBones[8];
+#endif
+uniform mat4 uVP, uWorld, uView;
+uniform vec3 uDecOff;
+uniform float uDecScale, uUvScale;
+uniform vec4 uMat;
+uniform vec3 uAmbient;
+uniform int uNumLights, uLit;
+uniform vec4 uLightPos[8];
+uniform vec4 uLightCol[8];
+out vec4 vCol; out vec2 vUV; out float vDepth;
+void main(){
+  vec3 p = uDecOff + aPos * uDecScale;
+  vec3 n = aNrm;
+#ifdef SKIN
+  float w[8] = float[8](aW0.x, aW0.y, aW0.z, aW0.w, aW1.x, aW1.y, aW1.z, aW1.w);
+  mat4 m = mat4(0.0);
+  float sum = 0.0;
+  for (int i = 0; i < 8; ++i) { m += (w[i] * (1.0 / 128.0)) * uBones[i]; sum += w[i]; }
+  if (sum <= 0.0) m = mat4(1.0);
+  p = (m * vec4(p, 1.0)).xyz;
+  n = mat3(m) * n;
+#endif
+  vec4 wp = uWorld * vec4(p, 1.0);
+  vec3 wn = normalize(mat3(uWorld) * n);
+  vec3 base = aCol.rgb * uMat.rgb;
+  vec3 c = base;
+  if (uLit != 0) {
+    vec3 l = uAmbient;
+    for (int i = 0; i < uNumLights; ++i) {
+      vec4 lp = uLightPos[i];
+      if (lp.w == 0.0) {
+        l += uLightCol[i].rgb * max(dot(wn, lp.xyz), 0.0);
+      } else {
+        vec3 d = lp.xyz - wp.xyz;
+        float dist = length(d);
+        float a = clamp(1.0 - dist / max(uLightCol[i].a, 0.0001), 0.0, 1.0);
+        l += uLightCol[i].rgb * (a * a) * max(dot(wn, d / max(dist, 0.0001)), 0.0);
+      }
+    }
+    c = base * l;
+  }
+  vCol = vec4(c, aCol.a * uMat.a);
+  vUV = aUV * uUvScale;
+  vDepth = -(uView * wp).z;
+  gl_Position = uVP * wp;
+})";
+const char* kLitFs = R"(
+in vec4 vCol; in vec2 vUV; in float vDepth; out vec4 o;
+uniform sampler2D uTex;
+uniform int uAlphaTest, uBlend, uFogOn;
+uniform vec3 uFogColor;
+uniform vec2 uFogRange;
+void main(){
+  vec4 t = texture(uTex, vUV);
+  vec4 c = t * vCol;
+  if (uAlphaTest != 0 && c.a < 0.5) discard;
+  vec3 rgb = c.rgb;
+  if (uFogOn != 0) rgb = mix(uFogColor, rgb, clamp((uFogRange.y - vDepth) / (uFogRange.y - uFogRange.x), 0.0, 1.0));
+  o = vec4(clamp(rgb, 0.0, 1.0), uBlend != 0 ? c.a : 1.0);
+})";
+
 const char* kSpriteVs = R"(
 layout(location=0) in vec2 aPos;
 layout(location=1) in vec2 aUV;
@@ -172,20 +251,24 @@ void GlRenderer::shutdown() {
   gl.DeleteVertexArrays(1, &vaoMesh_);
   gl.DeleteVertexArrays(1, &vaoSprite_);
   gl.DeleteVertexArrays(1, &vaoEmpty_);
+  freeLitMeshes();
+  gl.DeleteBuffers(1, &vboLit_);
+  gl.DeleteProgram(progLit_);
+  gl.DeleteProgram(progSkin_);
   gl.DeleteProgram(progMesh_);
   gl.DeleteProgram(progSprite_);
   gl.DeleteProgram(progPresent_);
 }
 
-bool GlRenderer::compile(u32& program, const char* vs, const char* fs) {
+bool GlRenderer::compile(u32& program, const char* vs, const char* fs, const char* defines) {
   char log[512];
   GLuint sh[2];
   const char* src[2] = {vs, fs};
   const GLenum kinds[2] = {GL_VERTEX_SHADER, GL_FRAGMENT_SHADER};
   for (int i = 0; i < 2; ++i) {
-    const char* parts[2] = {kHeader, src[i]};
+    const char* parts[3] = {kHeader, defines, src[i]};
     sh[i] = gl.CreateShader(kinds[i]);
-    gl.ShaderSource(sh[i], 2, parts, nullptr);
+    gl.ShaderSource(sh[i], 3, parts, nullptr);
     gl.CompileShader(sh[i]);
     GLint ok = 0;
     gl.GetShaderiv(sh[i], GL_COMPILE_STATUS, &ok);
@@ -249,8 +332,12 @@ bool GlRenderer::init(u32 width, u32 height) {
     return false;
   }
   if (!compile(progMesh_, kMeshVs, kMeshFs) || !compile(progSprite_, kSpriteVs, kSpriteFs) ||
-      !compile(progPresent_, kPresentVs, kPresentFs))
+      !compile(progPresent_, kPresentVs, kPresentFs) || !compile(progLit_, kLitVs, kLitFs) ||
+      !compile(progSkin_, kLitVs, kLitFs, "#define SKIN 1\n"))
     return false;
+  lookupLitUniforms(progLit_, uLit_);
+  lookupLitUniforms(progSkin_, uSkin_);
+  gl.GenBuffers(1, &vboLit_);
   uMvp_ = gl.GetUniformLocation(progMesh_, "uMVP");
   uInvVirt_ = gl.GetUniformLocation(progSprite_, "uInvVirt");
   gl.UseProgram(progSprite_);
@@ -307,9 +394,101 @@ void GlRenderer::setVirtualResolution(u32 w, u32 h) {
   }
 }
 
+void GlRenderer::lookupLitUniforms(u32 p, LitUniforms& u) {
+  u.vp = gl.GetUniformLocation(p, "uVP");
+  u.world = gl.GetUniformLocation(p, "uWorld");
+  u.view = gl.GetUniformLocation(p, "uView");
+  u.decOff = gl.GetUniformLocation(p, "uDecOff");
+  u.decScale = gl.GetUniformLocation(p, "uDecScale");
+  u.uvScale = gl.GetUniformLocation(p, "uUvScale");
+  u.mat = gl.GetUniformLocation(p, "uMat");
+  u.ambient = gl.GetUniformLocation(p, "uAmbient");
+  u.numLights = gl.GetUniformLocation(p, "uNumLights");
+  u.lightPos = gl.GetUniformLocation(p, "uLightPos[0]");
+  u.lightCol = gl.GetUniformLocation(p, "uLightCol[0]");
+  u.lit = gl.GetUniformLocation(p, "uLit");
+  u.tex = gl.GetUniformLocation(p, "uTex");
+  u.alphaTest = gl.GetUniformLocation(p, "uAlphaTest");
+  u.blend = gl.GetUniformLocation(p, "uBlend");
+  u.fogOn = gl.GetUniformLocation(p, "uFogOn");
+  u.fogColor = gl.GetUniformLocation(p, "uFogColor");
+  u.fogRange = gl.GetUniformLocation(p, "uFogRange");
+  u.bones = gl.GetUniformLocation(p, "uBones[0]");
+  gl.UseProgram(p);
+  gl.Uniform1i(u.tex, 0);
+}
+
+// The texture must be bound to GL_TEXTURE_2D already.
+void GlRenderer::setWrap(Tex& t, bool repeat) {
+  if (t.repeat == repeat) return;
+  t.repeat = repeat;
+  gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+  gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+}
+
+void GlRenderer::freeLitMeshes() {
+  if (litVao_) {
+    for (u32 i = 0; i < litVaoCount_; ++i)
+      if (litVao_[i]) gl.DeleteVertexArrays(1, &litVao_[i]);
+    free(litVao_);
+  }
+  litVao_ = nullptr;
+  litVaoCount_ = 0;
+}
+
 void GlRenderer::setMeshes(const MeshTable& table) {
   meshes_ = table;
-  if (!ready_ || !table.vertices || !table.vertexCount) return;
+  if (!ready_) return;
+  freeLitMeshes();
+  if (table.lit && table.vtx3 && table.vtx3Size && table.meshes) {  // pack load time: the only allocation of the lit path
+    gl.BindBuffer(GL_ARRAY_BUFFER, vboLit_);
+    gl.BufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(table.vtx3Size), table.vtx3, GL_STATIC_DRAW);
+    litVao_ = static_cast<u32*>(calloc(table.meshCount, sizeof(u32)));
+    litVaoCount_ = litVao_ ? table.meshCount : 0;
+    for (u32 i = 0; i < litVaoCount_; ++i) {
+      const PackMeshLit& ml = table.lit[i];
+      const u32 stride = packVertexStride(ml.vertexFormat);
+      if (ml.isBaked() || !stride) continue;
+      if (static_cast<u64>(ml.vertexByteOffset) + static_cast<u64>(ml.vertexCount) * stride > table.vtx3Size) {
+        RLOG_ERROR("gl", "mesh %u: vertices past the end of VTX3", i);
+        continue;
+      }
+      gl.GenVertexArrays(1, &litVao_[i]);
+      gl.BindVertexArray(litVao_[i]);
+      gl.BindBuffer(GL_ARRAY_BUFFER, vboLit_);
+      const auto at = [&](u32 off) { return reinterpret_cast<const void*>(static_cast<uintptr_t>(ml.vertexByteOffset + off)); };
+      const GLsizei st = static_cast<GLsizei>(stride);
+      // Field offsets per format (pack_format.h): weights 8 bytes (skin only) then uv, color, normal, position.
+      const u32 wb = ml.isSkinned() ? 8u : 0u;
+      if (ml.isC16()) {
+        gl.EnableVertexAttribArray(3);
+        gl.VertexAttribPointer(3, 2, GL_UNSIGNED_SHORT, 0, st, at(wb));
+        gl.EnableVertexAttribArray(2);
+        gl.VertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, st, at(wb + 4));
+        gl.EnableVertexAttribArray(1);
+        gl.VertexAttribPointer(1, 3, GL_SHORT, 1, st, at(wb + 8));
+        gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(0, 3, GL_SHORT, 0, st, at(wb + 14));
+      } else {
+        gl.EnableVertexAttribArray(3);
+        gl.VertexAttribPointer(3, 2, GL_FLOAT, 0, st, at(wb));
+        gl.EnableVertexAttribArray(2);
+        gl.VertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, st, at(wb + 8));
+        gl.EnableVertexAttribArray(1);
+        gl.VertexAttribPointer(1, 3, GL_FLOAT, 0, st, at(wb + 12));
+        gl.EnableVertexAttribArray(0);
+        gl.VertexAttribPointer(0, 3, GL_FLOAT, 0, st, at(wb + 24));
+      }
+      if (ml.isSkinned()) {
+        gl.EnableVertexAttribArray(4);
+        gl.VertexAttribPointer(4, 4, GL_UNSIGNED_BYTE, 0, st, at(0));
+        gl.EnableVertexAttribArray(5);
+        gl.VertexAttribPointer(5, 4, GL_UNSIGNED_BYTE, 0, st, at(4));
+      }
+    }
+    gl.BindVertexArray(0);
+  }
+  if (!table.vertices || !table.vertexCount) return;
   gl.BindVertexArray(vaoMesh_);
   gl.BindBuffer(GL_ARRAY_BUFFER, vboMesh_);
   gl.BufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(table.vertexCount) * sizeof(PackVertex), table.vertices,
@@ -321,6 +500,9 @@ void GlRenderer::beginFrame(Color32 c) {
   batch_.clear();
   cameraSet_ = false;
   lastDraws_ = 0;
+  lightCount_ = 0;
+  fogOn_ = false;
+  ambient_[0] = ambient_[1] = ambient_[2] = 0;
   gl.BindFramebuffer(GL_FRAMEBUFFER, fbo_);
   gl.Viewport(0, 0, static_cast<GLsizei>(w_), static_cast<GLsizei>(h_));
   gl.Disable(GL_SCISSOR_TEST);
@@ -350,6 +532,138 @@ void GlRenderer::drawMesh(u32 meshIndex, const Matrix4& world, u32) {
   gl.BindVertexArray(vaoMesh_);
   gl.DrawArrays(GL_TRIANGLES, static_cast<GLint>(m.vertexOffset), static_cast<GLsizei>(m.vertexCount));
   ++lastDraws_;
+}
+
+
+void GlRenderer::setFrameLights(const RenderLight* l, u32 n, Color32 amb) {
+  lightCount_ = (l && n < kMaxFrameLights) ? n : (l ? kMaxFrameLights : 0);
+  for (u32 i = 0; i < lightCount_; ++i) lights_[i] = l[i];
+  ambient_[0] = amb.r / 255.0f;
+  ambient_[1] = amb.g / 255.0f;
+  ambient_[2] = amb.b / 255.0f;
+}
+
+void GlRenderer::setFog(bool on, Color32 c, Scalar start, Scalar end) {
+  fogOn_ = on && static_cast<float>(end) > static_cast<float>(start);
+  fogColor_[0] = c.r / 255.0f;
+  fogColor_[1] = c.g / 255.0f;
+  fogColor_[2] = c.b / 255.0f;
+  fogStart_ = static_cast<float>(start);
+  fogEnd_ = static_cast<float>(end);
+}
+
+void GlRenderer::drawLitBatch(u32 vao, u32 first, u32 count) {
+  gl.BindVertexArray(vao);
+  gl.DrawArrays(GL_TRIANGLES, static_cast<GLint>(first), static_cast<GLsizei>(count));
+  ++lastDraws_;
+}
+
+void GlRenderer::drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, const DrawParams& p) {
+  if (!cameraSet_ || meshIndex >= meshes_.meshCount || !meshes_.meshes) return;
+  if (!meshes_.lit || meshIndex >= litVaoCount_ || !litVao_[meshIndex] || meshes_.lit[meshIndex].isBaked()) {
+    drawMesh(meshIndex, world, sortKey);  // baked: the exact old path
+    return;
+  }
+  const PackMeshLit& ml = meshes_.lit[meshIndex];
+  const bool skinned = ml.isSkinned();
+  const LitUniforms& u = skinned ? uSkin_ : uLit_;
+  gl.UseProgram(skinned ? progSkin_ : progLit_);
+  const Matrix4 vp = proj_ * view_;
+  gl.UniformMatrix4fv(u.vp, 1, 0, vp.m);
+  gl.UniformMatrix4fv(u.world, 1, 0, world.m);
+  gl.UniformMatrix4fv(u.view, 1, 0, view_.m);
+  if (ml.isC16()) {
+    gl.Uniform3f(u.decOff, ml.decodeOffset[0], ml.decodeOffset[1], ml.decodeOffset[2]);
+    gl.Uniform1f(u.decScale, ml.decodeScale);
+    gl.Uniform1f(u.uvScale, 1.0f / 32768.0f);
+  } else {
+    gl.Uniform3f(u.decOff, 0, 0, 0);
+    gl.Uniform1f(u.decScale, 1.0f);
+    gl.Uniform1f(u.uvScale, 1.0f);
+  }
+  gl.Uniform4f(u.mat, p.matColor.r / 255.0f, p.matColor.g / 255.0f, p.matColor.b / 255.0f, p.matColor.a / 255.0f);
+  const bool unlit = (p.matFlags & kMatUnlit) != 0;
+  gl.Uniform1i(u.lit, unlit ? 0 : 1);
+  gl.Uniform3f(u.ambient, ambient_[0], ambient_[1], ambient_[2]);
+  // Lights: DrawParams.lights are indices into the frame lights.
+  float pos[kMaxDrawLights * 4], col[kMaxDrawLights * 4];
+  i32 nl = 0;
+  const u32 want = p.lightCount < kMaxDrawLights ? p.lightCount : kMaxDrawLights;
+  for (u32 i = 0; i < want && !unlit; ++i) {
+    if (p.lights[i] >= lightCount_) continue;
+    const RenderLight& L = lights_[p.lights[i]];
+    const float k = static_cast<float>(L.intensity);
+    float* lp = pos + nl * 4;
+    float* lc = col + nl * 4;
+    if (L.type == 0) {  // directional: shader wants the direction TO the light
+      lp[0] = -static_cast<float>(L.vec.x);
+      lp[1] = -static_cast<float>(L.vec.y);
+      lp[2] = -static_cast<float>(L.vec.z);
+      lp[3] = 0;
+      lc[3] = 1;
+    } else {
+      lp[0] = static_cast<float>(L.vec.x);
+      lp[1] = static_cast<float>(L.vec.y);
+      lp[2] = static_cast<float>(L.vec.z);
+      lp[3] = 1;
+      lc[3] = static_cast<float>(L.range);
+    }
+    lc[0] = L.color.r / 255.0f * k;
+    lc[1] = L.color.g / 255.0f * k;
+    lc[2] = L.color.b / 255.0f * k;
+    ++nl;
+  }
+  gl.Uniform1i(u.numLights, nl);
+  if (nl) {
+    gl.Uniform4fv(u.lightPos, nl, pos);
+    gl.Uniform4fv(u.lightCol, nl, col);
+  }
+  gl.Uniform1i(u.alphaTest, (p.matFlags & kMatAlphaTest) ? 1 : 0);
+  const bool blend = p.matColor.a < 255;
+  gl.Uniform1i(u.blend, blend ? 1 : 0);
+  if (blend) {
+    gl.Enable(GL_BLEND);
+    gl.BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  }
+  gl.Uniform1i(u.fogOn, fogOn_ ? 1 : 0);
+  gl.Uniform3f(u.fogColor, fogColor_[0], fogColor_[1], fogColor_[2]);
+  gl.Uniform2f(u.fogRange, fogStart_, fogEnd_);
+  gl.ActiveTexture(GL_TEXTURE0);
+  Tex& tx = (p.texture && p.texture <= texCount_) ? tex_[p.texture - 1] : tex_[whiteTex_ - 1];
+  gl.BindTexture(GL_TEXTURE_2D, tx.id);
+  setWrap(tx, true);
+
+  const u32 vao = litVao_[meshIndex];
+  if (!skinned) {
+    drawLitBatch(vao, 0, ml.vertexCount);
+  } else {
+    const bool haveBatches = meshes_.batches && ml.batchCount && ml.firstBatch + ml.batchCount <= meshes_.batchCount;
+    const u32 nb = haveBatches ? ml.batchCount : 1;
+    for (u32 b = 0; b < nb; ++b) {
+      PackBoneBatch fallback = {};
+      if (!haveBatches) {  // no batches: the whole mesh is one batch with bones 0..7
+        fallback.vertexCount = ml.vertexCount;
+        for (u32 i = 0; i < 8; ++i) fallback.bones[i] = static_cast<u8>(i);
+        fallback.boneCount = 8;
+      }
+      const PackBoneBatch& bt = haveBatches ? meshes_.batches[ml.firstBatch + b] : fallback;
+      if (bt.firstVertex + bt.vertexCount > ml.vertexCount) continue;
+      for (u32 i = 0; i < kMaxBatchBones; ++i) {
+        float* dst = boneBuf_ + i * 16;
+        const u32 j = bt.bones[i];
+        if (j != kBatchBoneUnused && p.palette && j < p.paletteCount) {
+          memcpy(dst, p.palette[j].m, sizeof(float) * 16);
+        } else {
+          static const float kId[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
+          memcpy(dst, kId, sizeof(kId));
+        }
+      }
+      gl.UniformMatrix4fv(u.bones, kMaxBatchBones, 0, boneBuf_);
+      drawLitBatch(vao, bt.firstVertex, bt.vertexCount);
+    }
+  }
+  if (blend) gl.Disable(GL_BLEND);
+  gl.BindVertexArray(0);
 }
 
 void GlRenderer::drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 color) {
@@ -459,6 +773,7 @@ void GlRenderer::flush2d() {
   for (u32 i = 0; i < batch_.runCount(); ++i) {
     const BatchRun& r = batch_.runs()[i];
     gl.BindTexture(GL_TEXTURE_2D, tex_[r.tex - 1].id);
+    setWrap(tex_[r.tex - 1], false);
     gl.DrawArrays(GL_TRIANGLES, static_cast<GLint>(r.first), static_cast<GLsizei>(r.count));
     ++lastDraws_;
   }

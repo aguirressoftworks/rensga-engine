@@ -39,8 +39,22 @@ class SdlPlatform : public IPlatform {
   void injectDemo(unsigned frame);
   static void virtualRumbleSink(void* user, unsigned short low, unsigned short high);
 
+  // ---- F5 system seams. Language from SDL_GetPreferredLocales, battery from SDL_GetPowerInfo, text input through SDL text
+  // input (typed text; Backspace deletes, Return finishes, Escape cancels instead of quitting). No CPU clock: setCpuClock stays false.
+  u32 language() override;
+  i32 batteryPercent() override;
+  i32 batteryStatus() override;
+  u64 systemMemoryBytes() override;
+  bool beginTextInput(const char* initial, const char* title, u32 maxLen) override;
+  i32 pollTextInput(char* out, u32 outSize) override;
+  bool textInputActive() const { return textActive_; }
+  // Test hook: feeds typed text as an SDL_TEXTINPUT event would (appended to the keyboard while it is open). It does not push an SDL
+  // event: SDL3's sdl2-compat crashes on a pushed text event with an embedded text array.
+  void injectText(const char* utf8) { appendText(utf8); }
+
  private:
   void openFirstController();
+  void appendText(const char* utf8);
   void* pad_ = nullptr;  // SDL_GameController*
   void* window_ = nullptr;
   void* gl_ = nullptr;
@@ -50,6 +64,10 @@ class SdlPlatform : public IPlatform {
   unsigned char evKeys_[512] = {};  // keys held according to SDL_KEYDOWN / SDL_KEYUP events (covers injected events)
   int virtualId_ = -1;
   unsigned short vrLow_ = 0, vrHigh_ = 0;
+  bool textActive_ = false;
+  i32 textResult_ = 0;  // 0 running, 1 done, 2 cancelled
+  u32 textLen_ = 0, textMax_ = 0;
+  char text_[64] = {};
 };
 
 }  // namespace rensga

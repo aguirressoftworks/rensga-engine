@@ -1,4 +1,4 @@
-add_library(rensga_platform_psp STATIC src/psp_platform.cpp src/psp_filesystem.cpp src/psp_log.cpp)
+add_library(rensga_platform_psp STATIC src/psp_platform.cpp src/psp_filesystem.cpp src/psp_log.cpp src/psp_system.cpp)
 target_include_directories(rensga_platform_psp PUBLIC include)
 target_link_libraries(rensga_platform_psp PUBLIC rensga_core)  # PSP system libs are linked once, in order, by the executable
 # Release (PRX/EBOOT) builds read data from ms0:/PSP/GAME/<id>/; dev builds use host0:/. The editor passes

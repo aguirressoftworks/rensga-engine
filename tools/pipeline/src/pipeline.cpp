@@ -3,6 +3,7 @@
 #include "rensga/pipeline/pipeline.h"
 
 #include <atomic>
+#include <chrono>
 #include <fstream>
 #include <mutex>
 
@@ -10,6 +11,7 @@
 
 #include "rensga/cooker/cooker.h"
 #include "rensga/editor/target_module.h"
+#include "rensga/pipeline/emulator_launcher.h"
 
 namespace rensga {
 namespace pipeline {
@@ -62,6 +64,15 @@ void emit(const EventSink& sink, Stage st, Status s, std::string msg, std::strin
   sink(e);
 }
 
+using Clock = std::chrono::steady_clock;
+long msSince(Clock::time_point t) {
+  return static_cast<long>(std::chrono::duration_cast<std::chrono::milliseconds>(Clock::now() - t).count());
+}
+// F5.21: 'pipeline: stage <name> <ms>' after every stage; the editor console and the pipeline tests read them.
+void stageTime(const EventSink& sink, Stage st, Clock::time_point t0) {
+  emit(sink, st, Status::Progress, std::string("pipeline: stage ") + stageName(st) + " " + std::to_string(msSince(t0)) + " ms");
+}
+
 bool readTargetFromProject(const fs::path& project, std::string& target, std::string& err) {
   std::ifstream f(project / "ProjectSettings" / "Project.json");
   if (!f) {
@@ -94,6 +105,8 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
   stop();  // a previous Launch may still be alive
   impl_->cancel = false;
 
+  const Clock::time_point tStart = Clock::now();
+  Clock::time_point tStage = tStart;
   std::error_code ec;
   fs::path project = fs::absolute(request.project, ec);
   std::string target = request.target, err;
@@ -127,6 +140,8 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
     return false;
   }
   emit(sink, Stage::Validate, Status::Succeeded, "project is valid for target " + target);
+  stageTime(sink, Stage::Validate, tStage);
+  tStage = Clock::now();
   if (request.lastStage == Stage::Validate) return true;
 
   // ---- Cook ----
@@ -154,6 +169,8 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
              (unsigned long long)cr.usage.triangles, (unsigned long long)cr.usage.objects);
     emit(sink, Stage::Cook, Status::Succeeded, buf);
   }
+  stageTime(sink, Stage::Cook, tStage);
+  tStage = Clock::now();
   if (request.lastStage == Stage::Cook) return true;
 
   // ---- Compile ----
@@ -165,11 +182,13 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
     return false;
   }
   emit(sink, Stage::Compile, Status::Succeeded, "runtime built in " + ctx.buildDir.string());
+  stageTime(sink, Stage::Compile, tStage);
+  tStage = Clock::now();
   if (request.lastStage == Stage::Compile) return true;
 
   // ---- Package ----
   if (!request.release) {
-    emit(sink, Stage::Package, Status::Skipped, "dev build boots the ELF directly, assets load from host0:");
+    emit(sink, Stage::Package, Status::Skipped, "dev build boots the ELF directly, the game reads Library/Cooked in place through host0:");
   } else {
     emit(sink, Stage::Package, Status::Started, "packaging");
     if (!module->package(ctx, sink)) {
@@ -185,7 +204,12 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
   LaunchSpec spec;
   spec.workingDir = ctx.buildDir;
   spec.configDir = project / "Library" / "Emulators";
+  spec.logPath = project / "Library" / "Logs" / "last-play.log";
   spec.quitAfterSeconds = request.quitAfterSeconds;
+  spec.headless = request.headless;
+  spec.debugger = request.debugger;
+  spec.embed = request.embed;
+  spec.hangTimeoutSeconds = request.hangTimeoutSeconds;
   if (!module->launcher().start(spec, sink)) {
     emit(sink, Stage::Launch, Status::Failed, "could not start the emulator");
     return false;
@@ -194,6 +218,8 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
     std::lock_guard<std::mutex> lock(impl_->mu);
     impl_->launched = module;
   }
+  stageTime(sink, Stage::Launch, tStage);
+  emit(sink, Stage::Launch, Status::Progress, "pipeline: ready " + std::to_string(msSince(tStart)) + " ms after Play");
   emit(sink, Stage::Launch, Status::Succeeded, "emulator running");
   return true;
 }
@@ -213,6 +239,27 @@ bool Session::running() const {
   std::lock_guard<std::mutex> lock(impl_->mu);
   return impl_->launched && impl_->launched->launcher().running();
 }
+
+namespace {
+editor::TargetModule* launchedOf(std::mutex& mu, editor::TargetModule* const& m) {
+  std::lock_guard<std::mutex> lock(mu);
+  return m;
+}
+}  // namespace
+
+bool Session::pause() { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().pause(); }
+bool Session::resume() { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().resume(); }
+bool Session::step(int frames) { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().step(frames); }
+bool Session::command(const std::string& raw) { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().sendCommand(raw); }
+bool Session::paused() const { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().paused(); }
+ExitState Session::exitState() const {
+  auto* m = launchedOf(impl_->mu, impl_->launched);
+  return m ? m->launcher().exitState() : ExitState::Exited;
+}
+int Session::exitCode() const { auto* m = launchedOf(impl_->mu, impl_->launched); return m ? m->launcher().exitCode() : -1; }
+int Session::exitSignal() const { auto* m = launchedOf(impl_->mu, impl_->launched); return m ? m->launcher().exitSignal() : 0; }
+std::string Session::exitDetail() const { auto* m = launchedOf(impl_->mu, impl_->launched); return m ? m->launcher().exitDetail() : std::string(); }
+bool Session::saveLog(const std::filesystem::path& path) const { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().saveLog(path); }
 
 std::vector<std::string> Session::drainGameLog() {
   editor::TargetModule* m;

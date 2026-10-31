@@ -10,8 +10,13 @@
 #include <pspdisplay.h>
 #include <pspiofilemgr.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "rensga/Rensga.h"
+#include "rensga/core/app_events.h"
+#include "rensga/core/dev_control.h"
+#include "rensga/core/system.h"
 #include "rensga/platform/psp.h"
 #include "rensga/render/gu.h"
 #include "profiler.h"
@@ -83,6 +88,49 @@ bool createArena(Arena& arena, size_t ram) {
   return false;
 }
 
+// F5.15: the savedata dialog blocks inside Save::SaveFile, so the platform needs a way to produce frames: one full frame, GE idle.
+struct DialogPump {
+  World* world = nullptr;
+  IRenderer* target = nullptr;  // the ProfilingRenderer
+  GuRenderer* gu = nullptr;
+};
+DialogPump g_pump;
+void pumpOneFrame(void*) {
+  renderWorld(*g_pump.world, *g_pump.target);  // read-only on the world; it may run inside a script's Update
+  g_pump.gu->flush();
+}
+u32 arenaUsed(void* user) { return static_cast<u32>(static_cast<Arena*>(user)->used()); }
+u32 vramUsed(void* user) {
+  return gu_vram::kTexBegin + static_cast<GuRenderer*>(user)->vramTextureBytes();  // buffers + textures
+}
+
+#ifndef RENSGA_RELEASE
+// Dev / CI only: "host0:/rensga_test.txt" holds "key=value" lines that drive the system-service tests in an emulator that cannot
+// raise the events itself. pause_at=<frame>: inject OnApplicationPause(true) at that frame and (false) 30 frames later.
+// savedata=auto: the savedata dialog runs as AUTOSAVE / AUTOLOAD (no UI), for PPSSPPHeadless.
+struct TestFlags {
+  u32 pauseAt = 0;
+  bool saveAuto = false;
+};
+TestFlags readTestFlags(PspFileSystem& fs) {
+  TestFlags t;
+  const i32 h = fs.openStream("host0:/rensga_test.txt");
+  if (h < 0) return t;
+  char buf[256] = {};
+  const u32 n = fs.readStream(h, buf, sizeof(buf) - 1);
+  fs.closeStream(h);
+  buf[n] = 0;
+  for (const char* p = buf; *p;) {
+    if (strncmp(p, "pause_at=", 9) == 0) t.pauseAt = static_cast<u32>(atoi(p + 9));
+    if (strncmp(p, "savedata=auto", 13) == 0) t.saveAuto = true;
+    while (*p && *p != '\n') ++p;
+    while (*p == '\n' || *p == '\r') ++p;
+  }
+  RLOG_INFO("game", "rensga: test flags pause_at=%u savedata_auto=%d", static_cast<unsigned>(t.pauseAt), t.saveAuto ? 1 : 0);
+  return t;
+}
+#endif
+
 }  // namespace
 
 int main(int, char** argv) {
@@ -94,6 +142,7 @@ int main(int, char** argv) {
   static GuRenderer renderer;
   static RuntimeAudio audio;
   platform.init();
+  system_services::bind(&platform);  // Application::SetCpuClock, SystemInfo, TouchScreenKeyboard, Save::setMode talk to this platform
 
   // Data root: argv[0]'s folder, ms0:, umd0:, host0: (logged), then the arena from the pack's own RAM budget.
   char root[128];
@@ -179,6 +228,14 @@ int main(int, char** argv) {
   g_prof.init(clockUs);
   static ProfilingRenderer profRenderer(renderer, g_prof);
   profRenderer.setEndHook(endHook);
+  g_pump.world = &world; g_pump.target = &profRenderer; g_pump.gu = &renderer;
+  platform.setFramePump(pumpOneFrame, nullptr);
+  platform.setGraphicsProbe(vramUsed, &renderer);
+  platform.setMemoryProbe(arena.capacity(), arenaUsed, &arena);
+#ifndef RENSGA_RELEASE
+  const TestFlags testFlags = readTestFlags(fs);
+  platform.setSaveDialogAuto(testFlags.saveAuto);
+#endif
   GameLoop loop;
   loop.init(world);
   loop.setFixedStepHook(physics::fixedStep, nullptr);
@@ -189,7 +246,7 @@ int main(int, char** argv) {
 
   double last = platform.timeSeconds();
   VirtualGamepad pad;
-  u32 frame = 0, lastResumes = PspPlatform::resumeCount(), lastSuspends = PspPlatform::suspendCount();
+  u32 frame = 0, lastResumes = PspPlatform::resumeCount(), lastSuspends = PspPlatform::suspendCount(), lastAppResumes = applicationResumeCount();
   while (!platform.shouldQuit() && !Application::quitRequested()) {
     g_prof.frameBegin();
     if (PspPlatform::suspendCount() != lastSuspends || PspPlatform::resumeCount() != lastResumes) {  // set by the power callback thread
@@ -200,7 +257,20 @@ int main(int, char** argv) {
     }
     double now = platform.timeSeconds();
     platform.pollInput(pad);
-    loop.frame(static_cast<Scalar>(now - last), pad);
+#ifndef RENSGA_RELEASE
+    if (testFlags.pauseAt && frame == testFlags.pauseAt) injectApplicationPause(true);
+    if (testFlags.pauseAt && frame == testFlags.pauseAt + 30) injectApplicationPause(false);
+#endif
+    pumpApplicationEvents(world);  // suspend / Home / injected -> Behaviour::OnApplicationPause
+    if (applicationResumeCount() != lastAppResumes) {
+      lastAppResumes = applicationResumeCount();
+      last = now = platform.timeSeconds();  // resume: the time spent paused must not become one huge frame step
+    }
+    {  // F5.20 (A7): the editor's Pause / Step through host0:/rensga.ctl. 1 = normal frame, 0 = paused (still draws), N = run N fixed frames.
+      const u32 toRun = devControlPoll();
+      if (toRun == 1) loop.frame(static_cast<Scalar>(now - last), pad);
+      else for (u32 i = 0; i < toRun; ++i) loop.frame(loop.config().fixedDelta, pad);
+    }
     last = now;
     if (!havePack) {
       GameObject* cube = world.findByName("Cube");
@@ -212,6 +282,10 @@ int main(int, char** argv) {
     g_prof.mark(ProfSection::Update);
     renderWorld(world, profRenderer);  // the Render mark is taken in ProfilingRenderer::endFrame, just before the swap
     g_prof.mark(ProfSection::Present);
+    if (platform.dialogActive()) {  // OSK: after this frame's list is finished and the GE idle, before the next endFrame swaps
+      renderer.flush();
+      platform.updateDialogs();
+    }
     audio.update();
     g_prof.mark(ProfSection::Audio);
     g_prof.frameEnd();

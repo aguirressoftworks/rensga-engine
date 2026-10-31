@@ -1,5 +1,8 @@
 #include "rensga/core/loop.h"
 #include "rensga/core/application.h"
+#include "rensga/core/animation.h"
+#include "rensga/core/cull.h"
+#include "rensga/core/lighting.h"
 #include "rensga/core/app_events.h"
 #include "rensga/core/dev_control.h"
 #include "rensga/core/system.h"
@@ -37,6 +40,7 @@ bool GameLoop::frame(Scalar realDt, const VirtualGamepad& pad) {
     world_->fixedUpdate();
     if (hook_) hook_(*world_, config_.fixedDelta, hookUser_);
     Gameplay2D::fixedStep(*world_);
+    AnimationSystem::fixedStep(*world_);  // F5: skeletal clips advance on the fixed step (integer ticks)
     world_->scheduler().runFixed();  // WaitForFixedUpdate resumes after the fixed step
     accumulator_ -= config_.fixedDelta;
     ++steps;
@@ -113,6 +117,18 @@ void drawMemoryOverlay(IRenderer& r, const MemoryBudget& budget, u32 refreshHz) 
 static OverlayHook g_overlayHook = nullptr;
 void setOverlayHook(OverlayHook hook) { g_overlayHook = hook; }
 
+namespace {
+Color32 color32FromABGR(u32 v) {
+  return Color32(static_cast<u8>(v & 255), static_cast<u8>((v >> 8) & 255), static_cast<u8>((v >> 16) & 255), static_cast<u8>(v >> 24));
+}
+u8 mulU8(u8 a, u8 b) { return static_cast<u8>((static_cast<u32>(a) * b + 127) / 255); }
+Scalar maxScale(const Matrix4& w) {
+  Vector3 s = w.lossyScale();
+  Scalar m = s.x > s.y ? s.x : s.y;
+  return m > s.z ? m : s.z;
+}
+}  // namespace
+
 void renderWorld(World& world, IRenderer& renderer, Color32 clear) {
   renderer.beginFrame(clear);
   Camera* cam = nullptr;
@@ -120,20 +136,82 @@ void renderWorld(World& world, IRenderer& renderer, Color32 clear) {
     if (!cam && c.gameObject() && c.gameObject()->activeInHierarchy()) cam = &c;
   });
   Matrix4 view;
+  Frustum frustum;  // invalid = never cull
   if (cam) {
     Scalar aspect = renderer.height() ? static_cast<Scalar>(renderer.width()) / static_cast<Scalar>(renderer.height()) : 1.0f;
     view = cam->transform()->localToWorld().inverse();
-    renderer.setCamera(view, Matrix4::perspective(cam->fov, aspect, cam->nearClip, cam->farClip));
+    Matrix4 proj = Matrix4::perspective(cam->fov, aspect, cam->nearClip, cam->farClip);
+    renderer.setCamera(view, proj);
+    frustum = frustumFromViewProj(proj * view);
   }
+
+  // F5: the shared-3D tables (MSHL parallel to MESH). Without them every mesh takes the baked drawMesh path below.
+  const PackMeshLit* lit = nullptr;
+  u32 litCount = 0, maxLights = 4;
+  const PackAssets* assets = nullptr;
+  if (GfxAssets::bound()) {
+    if (const PackView* pv = GfxAssets::pack()) {
+      lit = pv->records<PackMeshLit>(pack_section::MSHL, &litCount);
+      maxLights = resolveMaxLights(pv->consoleTargetExt(), Application::platform());
+    }
+    assets = &GfxAssets::assets();
+  }
+  LightSet lights;
+  gatherLights(world, lights);
+  if (lit || lights.fogOn) {  // a pack of only baked meshes (MSHL absent, no fog) sees exactly the old call sequence
+    renderer.setFrameLights(lights.lights, lights.count, lights.ambient);
+    renderer.setFog(lights.fogOn, lights.fogColor, lights.fogStart, lights.fogEnd);
+  }
+
+  // One draw of a mesh that has an MSHL record. `matGuid` overrides the record's material when it names a MATL entry.
+  auto drawLit = [&](u32 meshIndex, const Guid& matGuid, Color32 tint, const Matrix4& w, u32 sortKey, const SkinnedMeshRenderer* smr) {
+    const PackMeshLit& m = lit[meshIndex];
+    const Vector3 center = w.transformPoint(Vector3(m.boundsCenter[0], m.boundsCenter[1], m.boundsCenter[2]));
+    const Scalar radius = m.boundsRadius * maxScale(w);
+    if (m.boundsRadius > 0 && !sphereInFrustum(frustum, center, radius)) return;
+    DrawParams dp;
+    const PackMaterial* mat = nullptr;
+    if (assets) {
+      mat = assets->findMaterial(matGuid);
+      if (!mat && m.material != kInvalidIndex && m.material < assets->materialCount) mat = &assets->materials[m.material];
+    }
+    dp.matColor = tint;
+    if (mat) {
+      if (mat->texture != kInvalidIndex) dp.texture = GfxAssets::handle(mat->texture);
+      Color32 mc = color32FromABGR(mat->colorABGR);
+      dp.matColor = Color32(mulU8(mc.r, tint.r), mulU8(mc.g, tint.g), mulU8(mc.b, tint.b), mulU8(mc.a, tint.a));
+      dp.matFlags = mat->flags;
+    }
+    if (!(dp.matFlags & kMatUnlit)) {
+      u8 idx[kMaxDrawLights];
+      dp.lightCount = static_cast<u8>(selectLights(lights, center, radius, maxLights, idx));
+      for (u32 i = 0; i < dp.lightCount; ++i) dp.lights[i] = idx[i];
+    }
+    if (smr && m.isSkinned()) dp.palette = AnimationSystem::palette(world, *smr, &dp.paletteCount);
+    renderer.drawMeshEx(meshIndex, w, sortKey, dp);
+  };
+  auto sortKeyOf = [&](const Matrix4& w) {
+    Scalar depth = -view.transformPoint(w.translationPart()).z;
+    if (depth < 0) depth = 0;
+    Scalar key = depth * 16.0f;
+    return key > 16777215.0f ? 16777215u : static_cast<u32>(key);
+  };
+
   world.forEach<MeshRenderer>([&](MeshRenderer& mr) {
     GameObject* go = mr.gameObject();
     if (!go || mr.meshIndex == kInvalidIndex || !go->activeInHierarchy() || !mr.enabled()) return;
     Matrix4 w = go->transform.localToWorld();
-    Scalar depth = -view.transformPoint(w.translationPart()).z;
-    if (depth < 0) depth = 0;
-    Scalar key = depth * 16.0f;
-    u32 sortKey = key > 16777215.0f ? 16777215u : static_cast<u32>(key);
-    renderer.drawMesh(mr.meshIndex, w, sortKey);
+    const u32 sortKey = sortKeyOf(w);
+    if (lit && mr.meshIndex < litCount && !lit[mr.meshIndex].isBaked()) drawLit(mr.meshIndex, mr.material, mr.color, w, sortKey, nullptr);
+    else renderer.drawMesh(mr.meshIndex, w, sortKey);
+  });
+  world.forEach<SkinnedMeshRenderer>([&](SkinnedMeshRenderer& sr) {
+    GameObject* go = sr.gameObject();
+    if (!go || sr.meshIndex == kInvalidIndex || !go->activeInHierarchy() || !sr.enabled()) return;
+    Matrix4 w = go->transform.localToWorld();
+    const u32 sortKey = sortKeyOf(w);
+    if (lit && sr.meshIndex < litCount && !lit[sr.meshIndex].isBaked()) drawLit(sr.meshIndex, sr.material, Color32(255, 255, 255, 255), w, sortKey, &sr);
+    else renderer.drawMesh(sr.meshIndex, w, sortKey);
   });
   renderGameplay2D(world, renderer);  // sprites, tilemaps and UI draw after the 3D pass
   if (g_overlayHook) g_overlayHook(renderer);

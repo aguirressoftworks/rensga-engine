@@ -1,5 +1,6 @@
 // F4.05: PSP texture padding, swizzle and compact vertices. See include/rensga/cooker/psp_format.h.
 #include "rensga/cooker/psp_format.h"
+#include "rensga/cooker/model3d.h"
 
 #include <math.h>
 #include <string.h>
@@ -54,7 +55,17 @@ void pspUnswizzle(const uint8_t* swizzled, uint32_t pitchBytes, uint32_t rows, u
       }
 }
 
-bool pspCookTexture(const ImageRgba& image, const std::string& fmt, CookedTexture& out, std::string& error) {
+bool pspCookTexture(const ImageRgba& imageIn, const std::string& fmt, CookedTexture& out, std::string& error) {
+  // F5: an image the GU cannot hold is scaled down (box filter) to the texture limit instead of failing; the cooked record's
+  // width / height are the scaled size and the cook reports the change.
+  ImageRgba scaled;
+  const ImageRgba* use = &imageIn;
+  if (imageIn.width > kPspMaxTextureSize || imageIn.height > kPspMaxTextureSize) {
+    const double k = static_cast<double>(kPspMaxTextureSize) / std::max(imageIn.width, imageIn.height);
+    scaled = boxDownscale(imageIn, std::max(1u, static_cast<uint32_t>(imageIn.width * k)), std::max(1u, static_cast<uint32_t>(imageIn.height * k)));
+    use = &scaled;
+  }
+  const ImageRgba& image = *use;
   CookedTexture src;  // source-sized pixels in the target format, not yet padded or swizzled
   uint32_t format = 0;
   if (fmt == "auto") src = makeClut(image, 0);      // the PS2 palette code, shared

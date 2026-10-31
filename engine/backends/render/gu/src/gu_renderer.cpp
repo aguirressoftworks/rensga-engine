@@ -15,6 +15,7 @@ namespace rensga {
 
 namespace {
 using namespace gu_vram;
+inline unsigned U32(u32 v) { return static_cast<unsigned>(v); }
 constexpr int kBufWidth = static_cast<int>(kStride);
 constexpr int kScreenWi = static_cast<int>(kScreenW), kScreenHi = static_cast<int>(kScreenH);
 // 5650 is the framebuffer format of F4; 8888 only while the frame dump of main_psp still wants it (see kFbBytesPerPixel).
@@ -113,6 +114,23 @@ void GuRenderer::drawMesh(u32 meshIndex, const Matrix4& world, u32 sortKey) {
   d.key = sortKey;
   d.mesh = meshIndex;
   d.world = world;
+  d.ex = false;
+  d.params = DrawParams();
+  // A lit or skinned mesh drawn without parameters is shown with its vertex colors only.
+  if (table_.lit && !table_.lit[meshIndex].isBaked()) {
+    d.ex = true;
+    d.params.matFlags = kMatUnlit;
+  }
+}
+
+void GuRenderer::drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, const DrawParams& params) {
+  if (drawCount_ >= kMaxDraws || meshIndex >= table_.meshCount) return;
+  Draw& d = draws_[drawCount_++];
+  d.key = sortKey;
+  d.mesh = meshIndex;
+  d.world = world;
+  d.params = params;
+  d.ex = table_.lit && !table_.lit[meshIndex].isBaked();  // a baked mesh behaves exactly like drawMesh
 }
 
 void GuRenderer::setState3D() {
@@ -122,6 +140,20 @@ void GuRenderer::setState3D() {
   sceGuDisable(GU_TEXTURE_2D);  // 3D meshes are vertex colored; no state from the 2D pass may leak in
   sceGuDisable(GU_ALPHA_TEST);
   sceGuEnable(GU_DITHER);
+  mode3D_ = 0;
+  curTex_ = 0;
+  lightSig_ = 0;
+  for (int i = 0; i < 4; ++i) sceGuDisable(GU_LIGHT0 + i);
+  hwMask_ = 0;
+  cullState_ = 0xFF;
+  alphaTest3D_ = false;
+  if (fogOn_) {
+    sceGuFog(fogStart_, fogEnd_, fogColor_.packedABGR());
+    sceGuEnable(GU_FOG);
+  } else {
+    sceGuDisable(GU_FOG);
+  }
+  sceGuTexFlush();
 }
 
 void GuRenderer::drawMeshes() {
@@ -139,11 +171,17 @@ void GuRenderer::drawMeshes() {
   }
   const PackVertexCompact* compactVerts = reinterpret_cast<const PackVertexCompact*>(table_.vertices);
   triangles_ = 0;
-  for (u32 i = 0; i < drawCount_; ++i) {
-    const Draw& d = draws_[i];
+  litDraws_ = batchesDrawn_ = clipped_ = litSlots_ = 0;
+  for (u32 oi = 0; oi < drawCount_; ++oi) {
+    const Draw& d = draws_[order_[oi]];
+    if (static_cast<u32>(sceGuCheckList()) + kGuListMargin > kGuListBytes) { ++listOverflows_; break; }
+    if (d.ex) {
+      drawLit(d, table_.lit[d.mesh]);
+      continue;
+    }
     const PackMeshRec& m = table_.meshes[d.mesh];
     if (m.vertexOffset + m.vertexCount > table_.vertexCount) continue;
-    if (static_cast<u32>(sceGuCheckList()) + kGuListMargin > kGuListBytes) { ++listOverflows_; break; }
+    enterBakedState();
     sceGumMatrixMode(GU_MODEL);
     if (compact_) {
       const Matrix4 model = d.world * unpack;
@@ -161,6 +199,7 @@ void GuRenderer::drawMeshes() {
     }
     triangles_ += m.vertexCount / 3;
   }
+  leave3DState();
 }
 
 #ifdef RENSGA_GU_SELFTEST
@@ -199,12 +238,14 @@ void GuRenderer::endFrame() {
 #ifdef RENSGA_GU_SELFTEST
   guSelfTest(*this, frame_);  // dev only: queues a 2D test panel on top of the scene (see gu_selftest.cpp)
 #endif
-  // Insertion sort by key, front to back (small N, no heap).
+  // Insertion sort of indices by key, front to back, stable (small N, no heap; the draws themselves stay put).
+  for (u32 i = 0; i < drawCount_; ++i) order_[i] = static_cast<u16>(i);
   for (u32 i = 1; i < drawCount_; ++i) {
-    Draw t = draws_[i];
+    const u16 t = order_[i];
+    const u32 k = draws_[t].key;
     u32 j = i;
-    while (j > 0 && draws_[j - 1].key > t.key) { draws_[j] = draws_[j - 1]; --j; }
-    draws_[j] = t;
+    while (j > 0 && draws_[order_[j - 1]].key > k) { order_[j] = order_[j - 1]; --j; }
+    order_[j] = t;
   }
 
   // Frame order: sync (the previous frame's list is done), vblank, swap, start(list N&1), build, finish.
@@ -230,6 +271,10 @@ void GuRenderer::endFrame() {
   lastListBytes_ = static_cast<u32>(sceGuCheckList());
   sceGuFinish();
   lastDrawnFb_ = drawFb_;
+  if (litDraws_ && frame_ % 60 == 0) {
+    RLOG_INFO("gu", "rensga: gu draws=%u lights=%u batches=%u clipped=%u hwlights=%u tris=%u", U32(drawCount_), U32(lightCount_),
+              U32(batchesDrawn_), U32(clipped_), U32(litSlots_), U32(triangles_));
+  }
   ++frame_;
 }
 

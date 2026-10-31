@@ -29,6 +29,10 @@ void fixedStep(World& world);
 const Matrix4* palette(const World& world, const SkinnedMeshRenderer& smr, u32* count);
 // FNV-1a over every palette's float bits, printed as "rensga: skinhash=%08x" by the headless / PSP mains.
 u32 skinHash();
+// Debug / determinism: with trace on, every fixed step logs "rensga: skin f=<step> h=<skinHash>". Off by default.
+void setTrace(bool on);
+// Number of fixed steps AnimationSystem has run since the last shutdown.
+u32 stepCount();
 }  // namespace AnimationSystem
 
 }  // namespace rensga

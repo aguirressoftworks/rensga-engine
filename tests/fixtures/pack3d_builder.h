@@ -168,6 +168,7 @@ class Pack3dBuilder {
       lit[0].vertexCount = 36;
       lit[0].material = 0;
       lit[0].skin = kInvalidIndex;
+      lit[0].flags = kMeshWindingCCW;  // writeBox winds counter-clockwise seen from outside
       lit[0].boundsRadius = 0.8660254f;
       if (c16Cube) {
         lit[0].decodeScale = 1.0f / 16384.0f;  // power of two: i16 16384 = 1.0, so +-0.5 is +-8192
@@ -183,6 +184,7 @@ class Pack3dBuilder {
       lit[1].skin = 0;
       lit[1].firstBatch = 0;
       lit[1].batchCount = 1;
+      lit[1].flags = kMeshWindingCCW;
       lit[1].boundsCenter[1] = 1;
       lit[1].boundsRadius = 1.0607f;
       writeBox(vtx3, lit[1], -0.25f, 0.25f, 0, 1, -0.25f, 0.25f, true, 0, 1);

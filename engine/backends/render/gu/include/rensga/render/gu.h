@@ -21,6 +21,12 @@ class GuRenderer : public IRenderer {
   void beginFrame(Color32 clear) override;
   void setCamera(const Matrix4& view, const Matrix4& proj) override;
   void drawMesh(u32 meshIndex, const Matrix4& world, u32 sortKey) override;
+  // ---- F5.01 shared 3D: up to 4 hardware lights per draw, material color, 3D textures, fog, back-face culling, near-plane
+  // clipping, hardware skinning (8 bones per batch). Baked meshes keep the F4 path. The palette of a draw must stay valid until
+  // endFrame (the draws are recorded there). Lights and fog stay set until changed.
+  void setFrameLights(const RenderLight* lights, u32 count, Color32 ambient) override;
+  void setFog(bool on, Color32 color, Scalar start, Scalar end) override;
+  void drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, const DrawParams& params) override;
   void drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 color) override;
   void endFrame() override;
   u32 width() const override { return w_; }
@@ -53,9 +59,13 @@ class GuRenderer : public IRenderer {
   u32 lastTriangles() const { return triangles_; }
   u32 lastListBytes() const { return lastListBytes_; }  // display list bytes the last frame used
   u32 listOverflows() const { return listOverflows_; }  // frames cut short because the list was nearly full
+  // F5.01 counters of the last finished frame.
+  u32 lastLitDraws() const { return litDraws_; }
+  u32 lastBatches() const { return batchesDrawn_; }
+  u32 lastClipped() const { return clipped_; }
 
  private:
-  struct Draw { u32 key, mesh; Matrix4 world; };
+  struct Draw { u32 key, mesh; Matrix4 world; DrawParams params; bool ex; };
   struct Tex {
     const void* pixels = nullptr;  // address the GE reads (VRAM 0x04..., or the pack in RAM)
     const void* clut = nullptr;    // palette address (VRAM or pack), null for direct color
@@ -66,12 +76,20 @@ class GuRenderer : public IRenderer {
     u8 swizzled = 0;
     u32 vramOff = 0, vramBytes = 0;         // pixel block in VRAM (bytes 0 = in RAM)
     u32 clutVramOff = 0, clutVramBytes = 0;  // palette block in VRAM
+    u16 srcW = 0, srcH = 0;                  // source size (UV space); 3D meshes scale their UVs by src / stored
   };
 
   void bindTexture(const Tex& t);
   void setState3D();
   void setState2D();
   void drawMeshes();
+  // gu_3d.cpp
+  void enterBakedState();
+  void enterLitState();
+  void leave3DState();
+  void drawLit(const Draw& d, const PackMeshLit& ml);
+  void bind3DTexture(u32 handle);
+  void applyLights(const DrawParams& p, bool unlit);
   void drawSprites();
 
   u32 w_ = 480, h_ = 272;  // virtual (2D) size; the screen is always 480x272
@@ -93,6 +111,22 @@ class GuRenderer : public IRenderer {
   u32 drawFb_ = 0;       // VRAM offset of the buffer the current frame is drawn into
   u32 lastDrawnFb_ = 0;  // VRAM offset of the last finished frame (what dumpFrame reads)
   bool ready_ = false;
+
+  // F5.01 state. Lights are copied when set; the draws read them at endFrame.
+  u16 order_[kMaxDraws];
+  RenderLight lights_[kMaxFrameLights];
+  u32 lightCount_ = 0;
+  Color32 ambient_ = Color32(0, 0, 0, 255);
+  bool fogOn_ = false;
+  Color32 fogColor_ = Color32(0, 0, 0, 255);
+  Scalar fogStart_ = 0, fogEnd_ = 0;
+  u32 litDraws_ = 0, batchesDrawn_ = 0, clipped_ = 0, litSlots_ = 0, nearClipFallbacks_ = 0;
+  u8 mode3D_ = 0;           // 0 none, 1 baked state, 2 lit state
+  u32 curTex_ = 0;          // 3D texture handle bound (0 = none)
+  u32 lightSig_ = 0;        // signature of the light setup last sent
+  u32 hwMask_ = 0;          // hardware light slots enabled
+  u32 cullState_ = 0xFF;    // 0 off, 1 front CW, 2 front CCW
+  bool alphaTest3D_ = false;
 };
 
 }  // namespace rensga

@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 
 #include "rensga/cooker/plugin.h"
+#include "rensga/cooker/resample.h"  // F5.17 (A6)
 
 namespace rensga {
 
@@ -100,22 +101,7 @@ void applyModelImport(PrimitiveMesh& m, const ModelImport& s) {
   }
 }
 
-void audioResample(PcmAudio& pcm, uint32_t newRate) {
-  if (!newRate || !pcm.sampleRate || newRate >= pcm.sampleRate || !pcm.channels) return;
-  const uint32_t ch = pcm.channels, inFrames = pcm.frames();
-  const uint64_t outFrames = static_cast<uint64_t>(inFrames) * newRate / pcm.sampleRate;
-  if (!outFrames) return;
-  std::vector<int16_t> o(static_cast<size_t>(outFrames) * ch);
-  for (uint64_t f = 0; f < outFrames; ++f) {
-    const double pos = static_cast<double>(f) * pcm.sampleRate / newRate;
-    const uint32_t i0 = static_cast<uint32_t>(pos), i1 = std::min(i0 + 1, inFrames - 1);
-    const double t = pos - i0;
-    for (uint32_t c = 0; c < ch; ++c)
-      o[f * ch + c] = static_cast<int16_t>(std::lround(pcm.samples[i0 * ch + c] * (1.0 - t) + pcm.samples[i1 * ch + c] * t));
-  }
-  pcm.samples.swap(o);
-  pcm.sampleRate = newRate;
-}
+void audioResample(PcmAudio& pcm, uint32_t newRate) { audioResampleSinc(pcm, newRate); }  // F5.17 (A6): windowed sinc, tools/cooker/src/resample.cpp
 
 bool cookTextureImage(ICookerFormatPlugin& plugin, const ImageRgba& image, const TextureImport& s, CookedTexture& out, std::string& error) {
   if (s.maxSize <= 0 && !s.opaque) return plugin.cookTexture(image, s, out, error);

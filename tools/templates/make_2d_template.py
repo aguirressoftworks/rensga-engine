@@ -32,6 +32,7 @@ SCENE_OBJECTS = ("Tilemap", "Player", "Camera", "HudPanelL", "HudPanelC", "HudPa
                  "HudTime", "HudMessage", "Hud") + tuple("Coin%d" % i for i in range(1, 8))
 COMPONENTS = ["SpriteRenderer", "SpriteAnimator", "Tilemap", "TilemapCollider2D", "BoxCollider2D", "Rigidbody2D", "UIText", "UIImage",
               "UIButton", "Camera2D", "PlayerController2D", "Coin", "HudController"]
+SHARED_3D = ["Light", "RenderSettings", "SkinnedMeshRenderer", "Animation"]   # F5.12: kept when the profile allows them
 
 
 def read_json(path):
@@ -74,7 +75,8 @@ def generate(profile, out):
         write_json(os.path.join(out, "Assets/Scenes/Main.scene.meta"), {"guid": SCENE_GUID, "importSettings": {}})
         # Settings: the sample's ConsoleTarget for this profile, restricted to the components the template uses.
         ct = read_json(os.path.join(src, "ProjectSettings/ConsoleTarget.json"))
-        ct["allowedComponents"] = [c for c in ct["allowedComponents"] if c in COMPONENTS]
+        # The shared 3D components (F5.12) stay allowed where the profile has them.
+        ct["allowedComponents"] = [c for c in ct["allowedComponents"] if c in COMPONENTS or c in SHARED_3D]
         missing = [c for c in COMPONENTS if c not in ct["allowedComponents"] and c != "Rigidbody2D"]
         assert not missing, "ConsoleTarget lacks %s" % missing
         if "Rigidbody2D" not in ct["allowedComponents"]:

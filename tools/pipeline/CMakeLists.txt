@@ -10,7 +10,7 @@ target_link_libraries(rensga_process PUBLIC Threads::Threads)
 rensga_host_target(rensga_process)
 
 # Where a build tool runs: native build support module, Docker (contributor fallback), or a clear error.
-add_library(rensga_toolchain STATIC src/toolchain.cpp)
+add_library(rensga_toolchain STATIC src/toolchain.cpp src/compile_cache.cpp)
 target_link_libraries(rensga_toolchain PUBLIC rensga_pipeline_headers rensga_modules rensga_process)
 rensga_host_target(rensga_toolchain)
 

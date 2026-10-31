@@ -38,6 +38,7 @@ bool AudioMixer::init(u32 sampleRate, IFileSystem* fs) {
   music_.handle = -1;
   serial_ = 0;
   stolen_ = 0;
+  limit_ = kMaxVoices;
   stats_ = MixStats();
   master_ = kUnity;
   return true;
@@ -65,16 +66,25 @@ void AudioMixer::computeGains(Voice& v) {
   v.gainR = toQ15(v.volume * Mathf::Sin(angle), 2.0f);
 }
 
-u32 AudioMixer::play(const AudioClip* clip, Scalar volume, Scalar pan, bool loop, Scalar pitch) {
+u32 AudioMixer::play(const AudioClip* clip, Scalar volume, Scalar pan, bool loop, Scalar pitch, u8 priority) {
   if (!clip || !clip->samples || clip->frames == 0 || rate_ == 0 || (clip->channels != 1 && clip->channels != 2)) return 0;
   u32 slot = kMaxVoices;
-  for (u32 i = 0; i < kMaxVoices; ++i)
+  for (u32 i = 0; i < limit_; ++i)
     if (!voices_[i].active) { slot = i; break; }
   if (slot == kMaxVoices) {
-    // Steal the oldest non-looping voice.
+    // Steal the least important voice (highest priority number), the oldest among equals. Never a more important one.
     u32 best = 0xFFFFFFFFu;
-    for (u32 i = 0; i < kMaxVoices; ++i)
-      if (!voices_[i].loop && voices_[i].serial < best) { best = voices_[i].serial; slot = i; }
+    int bestPrio = -1;
+    for (u32 i = 0; i < limit_; ++i) {
+      const Voice& o = voices_[i];
+      const bool stealable = o.priority > priority || (o.priority == priority && !o.loop);
+      if (!stealable) continue;
+      if (int(o.priority) > bestPrio || (int(o.priority) == bestPrio && o.serial < best)) {
+        bestPrio = o.priority;
+        best = o.serial;
+        slot = i;
+      }
+    }
     if (slot == kMaxVoices) return 0;
     ++stolen_;
   }
@@ -85,6 +95,7 @@ u32 AudioMixer::play(const AudioClip* clip, Scalar volume, Scalar pan, bool loop
   v.clip = clip;
   v.active = true;
   v.loop = loop;
+  v.priority = priority;
   v.serial = ++serial_;
   v.volume = volume;
   v.pan = pan;
@@ -120,6 +131,12 @@ u32 AudioMixer::activeVoices() const {
   u32 n = 0;
   for (u32 i = 0; i < kMaxVoices; ++i) n += voices_[i].active ? 1 : 0;
   return n;
+}
+void AudioMixer::setVoiceLimit(u32 voices) {
+  if (voices < 1) voices = 1;
+  if (voices > kMaxVoices) voices = kMaxVoices;
+  for (u32 i = voices; i < kMaxVoices; ++i) voices_[i].active = false;
+  limit_ = voices;
 }
 void AudioMixer::setMasterVolume(Scalar volume) { master_ = toQ15(volume, 2.0f); }
 

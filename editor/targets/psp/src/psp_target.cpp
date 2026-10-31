@@ -6,6 +6,7 @@
 
 #include "rensga/cooker/cooker.h"
 #include "rensga/editor/target_module.h"
+#include "rensga/pipeline/compile_cache.h"
 #include "rensga/pipeline/process.h"
 #include "rensga/pipeline/toolchain.h"
 #include "ppsspp_launcher.h"
@@ -152,16 +153,67 @@ class PspTargetModule : public TargetModule {
     return true;
   }
 
+  // The PRX (release only) and the cooked pack next to the ELF. Dev builds boot the ELF with host0: = the build dir and the game reads
+  // game.rpak from there; the file is a link to Library/Cooked/psp/game.rpak, so a re-cook is seen without copying (F5.21). A copy
+  // is the fallback where links are not allowed. Release packaging wants a real file.
+  bool placeOutputs(const BuildContext& ctx, const fs::path& cmakeElf, const fs::path& elfOut, EventSink& sink) {
+    std::error_code ec;
+    if (ctx.release) {
+      fs::copy_file(cmakeElf.string() + ".prx", ctx.buildDir / "rensga_game.prx", fs::copy_options::overwrite_existing, ec);
+      if (ec) {
+        note(sink, Stage::Compile, Status::Failed, "missing PRX output " + cmakeElf.string() + ".prx");
+        return false;
+      }
+    }
+    (void)elfOut;
+    const fs::path dst = ctx.buildDir / "game.rpak";
+    const fs::path src = fs::absolute(ctx.cookedPack, ec);
+    if (!ctx.release) {
+      if (fs::is_symlink(dst, ec) && fs::read_symlink(dst, ec) == src && fs::exists(src, ec)) return true;
+      fs::remove(dst, ec);
+      fs::create_symlink(src, dst, ec);
+      if (!ec) return true;
+    }
+    fs::remove(dst, ec);
+    fs::copy_file(ctx.cookedPack, dst, fs::copy_options::overwrite_existing, ec);
+    if (ec) {
+      note(sink, Stage::Compile, Status::Failed, "cannot copy cooked pack " + ctx.cookedPack.string());
+      return false;
+    }
+    return true;
+  }
+
   bool compile(const BuildContext& ctx, EventSink sink) override {
     pipeline::ToolchainRunner tr = makeRunner();
     if (!resolveToolchain(tr, Stage::Compile, sink)) return false;
     // Native and Docker builds keep separate CMake trees (generator and toolchain paths differ).
     const bool native = tr.backend() == pipeline::ToolchainBackend::Native;
     fs::path cmakeDir = ctx.buildDir.parent_path() / ((native ? "cmake-native-" : "cmake-") + ctx.buildDir.filename().string());
-    note(sink, Stage::Compile, Status::Progress, "configuring psp preset (" + cmakeDir.string() + ")");
+    std::error_code ec;
+    fs::create_directories(ctx.buildDir, ec);
+    const fs::path elfOut = ctx.buildDir / "rensga_game.elf";
+
+    // F5.21: everything the compiled game depends on. When none of it changed since the last good compile, the ELF is reused as it is
+    // (no reflection scan, no CMake, no ninja). Scripts are hashed by content, the engine tree by name + size + mtime.
+    pipeline::InputHasher in;
+    in.addString(ctx.release ? "release" : "dev");
+    in.addString(pipeline::toolchainBackendName(tr.backend()));
+    in.addString(exitAfterFrames());
+    in.addFileContent(ctx.generatedDir / "console_target.gen.h", "console_target.gen.h");
+    in.addFileContent(ctx.project / "ProjectSettings" / "ConsoleTarget.json", "ConsoleTarget.json");
+    const std::vector<std::string> scripts = in.addTreeContent(ctx.project / "Assets", {".cpp", ".h", ".hpp", ".cc"});
+    for (const char* dir : {"engine", "cmake", "tools/reflect"}) in.addTreeStat(repoRoot() / dir, {".cpp", ".c", ".h", ".hpp", ".txt", ".cmake", ".py", ".in", ".sh"});
+    in.addFileContent(repoRoot() / "CMakeLists.txt", "CMakeLists.txt");
+    in.addFileContent(repoRoot() / "CMakePresets.json", "CMakePresets.json");
+    const std::string fingerprint = in.hex();
+    const fs::path stamp = ctx.buildDir.parent_path() / (cmakeDir.filename().string() + ".compile-stamp");
+    if (fs::exists(elfOut, ec) && pipeline::stampMatches(stamp, fingerprint)) {
+      note(sink, Stage::Compile, Status::Progress, "compile skipped: no script, engine or build option changed since the last build");
+      return placeOutputs(ctx, elfOut, elfOut, sink);
+    }
+
     note(sink, Stage::Compile, Status::Progress, "reflection codegen");
     if (!prescanReflection(ctx, sink, cmakeDir / "reflect")) return false;
-    // Native builds use Ninja from the Build Tools module, so the host needs no make.
     std::vector<std::string> cfg = {"cmake", "--preset", "psp", "-B", cmakeDir.string(),
                                     "-DRENSGA_REFLECT_DIR=" + (cmakeDir / "reflect").string(),
                                     "-DRENSGA_PROJECT_DIR=" + ctx.project.string(),
@@ -171,31 +223,31 @@ class PspTargetModule : public TargetModule {
                                     // frames so a headless emulator run ends. Always passed (0 = never) so the cache never keeps a stale value.
                                     "-DRENSGA_EXIT_AFTER_FRAMES=" + exitAfterFrames()};
     if (native) cfg.insert(cfg.begin() + 5, {"-G", "Ninja"});
-    if (!toolRun(tr, ctx, Stage::Compile, sink, cfg)) return false;
+    // CMake only needs to run again when its arguments or the set of script files changed; edits to a script are picked up by the build.
+    pipeline::InputHasher ch;
+    for (const std::string& c : cfg) ch.addString(c);
+    for (const std::string& n : scripts) ch.addString(n);
+    const fs::path cfgStamp = ctx.buildDir.parent_path() / (cmakeDir.filename().string() + ".configure-stamp");
+    const bool treeExists = fs::exists(cmakeDir / "build.ninja", ec) || fs::exists(cmakeDir / "Makefile", ec);
+    if (treeExists && pipeline::stampMatches(cfgStamp, ch.hex())) {
+      note(sink, Stage::Compile, Status::Progress, "configure skipped (" + cmakeDir.string() + " is up to date)");
+    } else {
+      note(sink, Stage::Compile, Status::Progress, "configuring psp preset (" + cmakeDir.string() + ")");
+      if (!toolRun(tr, ctx, Stage::Compile, sink, cfg)) return false;
+      pipeline::writeStamp(cfgStamp, ch.hex());
+    }
     note(sink, Stage::Compile, Status::Progress, "building rensga_game");
     if (!toolRun(tr, ctx, Stage::Compile, sink, {"cmake", "--build", cmakeDir.string(), "--target", "rensga_game", "-j" + std::to_string(buildJobs())}))
       return false;
 
-    std::error_code ec;
     fs::path elf = cmakeDir / "engine" / "runtime" / "rensga_game.elf";
-    fs::create_directories(ctx.buildDir, ec);
-    fs::copy_file(elf, ctx.buildDir / "rensga_game.elf", fs::copy_options::overwrite_existing, ec);
+    fs::copy_file(elf, elfOut, fs::copy_options::overwrite_existing, ec);
     if (ec) {
       note(sink, Stage::Compile, Status::Failed, "missing build output " + elf.string());
       return false;
     }
-    if (ctx.release) {
-      fs::copy_file(elf.string() + ".prx", ctx.buildDir / "rensga_game.prx", fs::copy_options::overwrite_existing, ec);
-      if (ec) {
-        note(sink, Stage::Compile, Status::Failed, "missing PRX output " + elf.string() + ".prx");
-        return false;
-      }
-    }
-    fs::copy_file(ctx.cookedPack, ctx.buildDir / "game.rpak", fs::copy_options::overwrite_existing, ec);
-    if (ec) {
-      note(sink, Stage::Compile, Status::Failed, "cannot copy cooked pack " + ctx.cookedPack.string());
-      return false;
-    }
+    if (!placeOutputs(ctx, elf, elfOut, sink)) return false;
+    pipeline::writeStamp(stamp, fingerprint);
     return true;
   }
 

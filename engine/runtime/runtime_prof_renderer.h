@@ -21,6 +21,9 @@ class ProfilingRenderer : public IRenderer {
   void beginFrame(Color32 clear) override { in_.beginFrame(clear); }
   void setCamera(const Matrix4& v, const Matrix4& p) override { in_.setCamera(v, p); }
   void drawMesh(u32 mesh, const Matrix4& world, u32 key) override { in_.drawMesh(mesh, world, key); }
+  void setFrameLights(const RenderLight* lights, u32 count, Color32 ambient) override { in_.setFrameLights(lights, count, ambient); }
+  void setFog(bool on, Color32 color, Scalar start, Scalar end) override { in_.setFog(on, color, start, end); }
+  void drawMeshEx(u32 mesh, const Matrix4& world, u32 key, const DrawParams& p) override { in_.drawMeshEx(mesh, world, key, p); }
   void drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 c) override { in_.drawOverlayQuad(x, y, w, h, c); }
   void endFrame() override {
     if (hook_) hook_(in_, user_);

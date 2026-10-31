@@ -25,6 +25,13 @@ class GlRenderer : public IRenderer {
   void beginFrame(Color32 clear) override;
   void setCamera(const Matrix4& view, const Matrix4& proj) override;
   void drawMesh(u32 meshIndex, const Matrix4& world, u32 sortKey) override;
+  // F5: lit / textured / skinned meshes (MSHL + VTX3). The lighting is per vertex (Gouraud, like the PSP GU) so the desktop
+  // build looks like the PSP one: ambient + up to 8 directional / point lights (point: intensity * clamp01(1 - d / range)^2),
+  // times vertex color x material color, times the texture (nearest), then linear fog by view-space depth. Skinning is on the
+  // GPU: 8 weights per vertex, weight slot i uses DrawParams.palette[batch.bones[i]]. A baked mesh takes the drawMesh path.
+  void setFrameLights(const RenderLight* lights, u32 count, Color32 ambient) override;
+  void setFog(bool on, Color32 color, Scalar start, Scalar end) override;
+  void drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, const DrawParams& params) override;
   void drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 color) override;
   void endFrame() override;
   u32 width() const override { return w_; }
@@ -54,11 +61,15 @@ class GlRenderer : public IRenderer {
  private:
   struct Tex {
     u32 id = 0, w = 0, h = 0;
+    bool repeat = false;  // wrap mode currently set: sprites clamp (atlas edges), 3D meshes repeat (tiled UVs)
   };
   bool createTarget();
   void destroyTarget();
   void flush2d();
-  bool compile(u32& program, const char* vs, const char* fs);
+  bool compile(u32& program, const char* vs, const char* fs, const char* defines = "");
+  void freeLitMeshes();
+  void setWrap(Tex& t, bool repeat);
+  void drawLitBatch(u32 vao, u32 first, u32 count);
 
   u32 w_ = 0, h_ = 0;
   bool ready_ = false;
@@ -70,6 +81,26 @@ class GlRenderer : public IRenderer {
   u32 whiteTex_ = 0;  // handle of the 1x1 white texture used by rects
   Tex tex_[kMaxTextures];
   u32 texCount_ = 0;
+
+  // F5 lit path. One VBO holds VTX3; every non-baked mesh has its own VAO (attribute offsets differ per mesh), created in
+  // setMeshes() and freed on the next one. Uniform locations are resolved once in init().
+  struct LitUniforms {
+    i32 vp, world, view, decOff, decScale, uvScale, mat, ambient, numLights, lightPos, lightCol, lit, tex, alphaTest, blend,
+        fogOn, fogColor, fogRange, bones;
+  };
+  void lookupLitUniforms(u32 program, LitUniforms& u);
+  u32 progLit_ = 0, progSkin_ = 0;
+  LitUniforms uLit_ = {}, uSkin_ = {};
+  u32 vboLit_ = 0;
+  u32* litVao_ = nullptr;  // meshes_.meshCount entries, 0 = none
+  u32 litVaoCount_ = 0;
+  RenderLight lights_[kMaxFrameLights];
+  u32 lightCount_ = 0;
+  float ambient_[3] = {0, 0, 0};
+  bool fogOn_ = false;
+  float fogColor_[3] = {0, 0, 0};
+  float fogStart_ = 0, fogEnd_ = 1;
+  float boneBuf_[kMaxBatchBones * 16];
 
   MeshTable meshes_;
   Matrix4 view_, proj_;

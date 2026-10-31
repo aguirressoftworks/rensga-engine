@@ -37,3 +37,16 @@ if(TARGET rensga_desktop)
   set_tests_properties(hot_reload_desktop PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 90 LABELS "slow;gl"
                       DEPENDS pipeline_cooked_pack_pickup)  # DEPENDS matches by test name across directories; no if(TEST) guard
 endif()
+
+# --- F5 psp-sys begin ---
+# F5.15 / F5.16: SDL desktop seams (text input for TouchScreenKeyboard, language, no CPU clock). Needs a window: xvfb-run.
+if(TARGET rensga_platform_sdl AND RENSGA_XVFB_RUN)
+  add_executable(rensga_sdl_services_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp test_sdl_services.cpp)
+  target_link_libraries(rensga_sdl_services_tests PRIVATE rensga_core rensga_platform_sdl)
+  target_include_directories(rensga_sdl_services_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+  rensga_runtime_target(rensga_sdl_services_tests)
+  add_test(NAME sdl_services_seams COMMAND ${CMAKE_COMMAND} -E env --unset=WAYLAND_DISPLAY SDL_VIDEODRIVER=x11
+           ${RENSGA_XVFB_RUN} -a -s "-screen 0 1280x720x24" $<TARGET_FILE:rensga_sdl_services_tests> sdl_services_)
+  set_tests_properties(sdl_services_seams PROPERTIES TIMEOUT 60 LABELS "gl")
+endif()
+# --- F5 psp-sys end ---

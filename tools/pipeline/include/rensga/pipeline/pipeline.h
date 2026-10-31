@@ -9,6 +9,8 @@
 namespace rensga {
 namespace pipeline {
 
+enum class ExitState;  // defined in emulator_launcher.h
+
 enum class Stage { Validate, Cook, Compile, Package, Launch };
 enum class Status { Started, Progress, Succeeded, Failed, Skipped };
 
@@ -26,6 +28,11 @@ struct BuildRequest {
   bool launch = false;
   int quitAfterSeconds = 0;  // 0 = run until closed
   Stage lastStage = Stage::Launch;  // stop after this stage (validate/cook/build commands)
+  // F5.19-F5.22 (Launch only): handed to the emulator launcher.
+  bool headless = false;         // no emulator window (CI)
+  bool debugger = false;         // start the emulator with its debugger on ("Relaunch with debugger")
+  bool embed = false;            // the editor reparents the emulator window into a docked view
+  int hangTimeoutSeconds = 15;   // no heartbeat for this long = Hung (0 = off)
 };
 
 using EventSink = std::function<void(const Event&)>;
@@ -47,6 +54,19 @@ class Session {
   void stop();                 // stops the launched emulator / cancels a running build
   bool running() const;
   std::vector<std::string> drainGameLog();  // lines captured since the last call
+
+  // F5.20 / F5.22: control and state of the launched emulator session. False / defaults when nothing is launched or the emulator
+  // cannot do it.
+  bool pause();
+  bool resume();
+  bool step(int frames);
+  bool paused() const;
+  bool command(const std::string& raw);  // raw dev-control command (apppause 1, quit, ...)
+  ExitState exitState() const;
+  int exitCode() const;
+  int exitSignal() const;
+  std::string exitDetail() const;
+  bool saveLog(const std::filesystem::path& path) const;
 
  private:
   struct Impl;

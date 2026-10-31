@@ -14,8 +14,11 @@
 //
 // Pan law: constant power. angle = (pan + 1) * pi / 4, gainL = cos(angle), gainR = sin(angle), so
 // centre is 0.7071 per side and the perceived loudness stays the same across the pan range.
-// Voice stealing: when all voices are busy, the oldest NON-looping voice is replaced. If every voice
-// is looping, play() fails and returns 0.
+// Voice stealing (F5.17): when all voices are busy, play() steals from the voices of lower or equal importance. Priority is
+// Unity's: 0 = most important .. 255 = least. The victim is the voice with the highest priority number, then the oldest.
+// A voice of higher importance (a smaller number) is never stolen. A looping voice of EQUAL priority is kept, so with every
+// priority at the default 128 this is the old rule: the oldest non-looping voice is replaced, and play() returns 0 when every
+// voice loops. The voice budget comes from the ConsoleTarget (CTGT audioVoices): setVoiceLimit().
 #pragma once
 #include "rensga/core/backends.h"
 #include "rensga/core/types.h"
@@ -48,7 +51,7 @@ class AudioMixer {
 
   // ---- sound effects. Returns a voice id (non-zero), or 0 when nothing could be started.
   // volume 0..2, pan -1 (left) .. 1 (right), pitch 0.25..4 (1 = unchanged).
-  u32 play(const AudioClip* clip, Scalar volume = 1.0f, Scalar pan = 0.0f, bool loop = false, Scalar pitch = 1.0f);
+  u32 play(const AudioClip* clip, Scalar volume = 1.0f, Scalar pan = 0.0f, bool loop = false, Scalar pitch = 1.0f, u8 priority = 128);
   void stop(u32 voice);
   void stopAll();
   bool isPlaying(u32 voice) const;  // false for stale ids (the voice ended or was stolen)
@@ -56,6 +59,9 @@ class AudioMixer {
   void setPan(u32 voice, Scalar pan);
   void setPitch(u32 voice, Scalar pitch);
   u32 activeVoices() const;
+  // F5.17: voices this target may use (CTGT audioVoices); clamped to 1..kMaxVoices. Voices above the new limit are stopped.
+  void setVoiceLimit(u32 voices);
+  u32 voiceLimit() const { return limit_; }
   u32 stolenVoices() const { return stolen_; }
 
   // ---- one streamed music voice (extra to the effect voices). `path` is a virtual path ("data:/music/a.wav").
@@ -94,6 +100,7 @@ class AudioMixer {
     i32 gainL = 0, gainR = 0;  // Q15
     u32 serial = 0;     // start order (voice stealing)
     u16 generation = 0;
+    u8 priority = 128;  // 0 = most important
     bool active = false, loop = false;
     Scalar volume = 1, pan = 0, pitch = 1;
   };
@@ -127,6 +134,7 @@ class AudioMixer {
   u32 rate_ = 0;
   u32 serial_ = 0;
   u32 stolen_ = 0;
+  u32 limit_ = kMaxVoices;
   i32 master_ = 32768;  // Q15
   IFileSystem* fs_ = nullptr;
   Voice voices_[kMaxVoices];

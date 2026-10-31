@@ -32,7 +32,7 @@ TEST(cooker_f5_components_features_and_ctg2) {
   json ct = readJson(dst / "ProjectSettings/ConsoleTarget.json");
   for (const char* c : {"Light", "RenderSettings", "SkinnedMeshRenderer", "Animation", "AudioSource"}) ct["allowedComponents"].push_back(c);
   ct["limits"] = {{"maxLightsPerObject", 3}, {"maxTextureSize", 256}};
-  ct["features"] = json::array({"lighting", "fog"});
+  ct["features"] = json::array({"lighting", "skinning", "fog"});  // the skinned object needs "skinning" (budget check)
   writeJson(dst / "ProjectSettings/ConsoleTarget.json", ct);
 
   json scene = readJson(dst / "Assets/Scenes/test.scene");
@@ -56,6 +56,7 @@ TEST(cooker_f5_components_features_and_ctg2) {
   CookResult r = cookProject(o, [](const CookMessage& m) { fprintf(stderr, "    [cook] %s\n", m.text.c_str()); });
   CHECK(r.ok);
   CHECK(fs::exists(dst / "Library/Cooked/psp/game.rpak"));
+  if (!r.ok) return;
 
   std::ifstream in(r.packPath, std::ios::binary);
   std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -71,7 +72,7 @@ TEST(cooker_f5_components_features_and_ctg2) {
     CHECK_EQ(e->maxLightsPerObject, 3u);
     CHECK_EQ(e->maxBonesPerDraw, 8u);        // psp default from profile_defaults.json
     CHECK_EQ(e->maxTextureSize, 256u);       // project override
-    CHECK_EQ(e->features, kTargetFeatLighting | kTargetFeatFog);
+    CHECK_EQ(e->features, kTargetFeatLighting | kTargetFeatSkinning | kTargetFeatFog);
   }
   // CTGT keeps its 48-byte layout and values.
   const PackSection* ctgt = view.find(pack_section::CTGT);
@@ -86,6 +87,10 @@ TEST(cooker_f5_components_features_and_ctg2) {
   CHECK(world.init(cfg, warena));
   LoadedPack lp;
   CHECK(world.loadPack(view, &lp));
+  if (!world.findByName("Lamp") || !world.findByName("Env") || !world.findByName("Speaker")) {
+    CHECK(false);
+    return;
+  }
   Light* li = world.findByName("Lamp")->GetComponent<Light>();
   CHECK(li && li->type == 1 && li->intensity == 2.0f && li->renderMode == 1);
   RenderSettings* rs = world.findByName("Env")->GetComponent<RenderSettings>();

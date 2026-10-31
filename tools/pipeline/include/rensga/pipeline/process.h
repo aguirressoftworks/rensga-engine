@@ -31,12 +31,16 @@ class Process {
   bool running();                  // polls; false once the child exited
   int wait();                      // blocks until exit and the output is drained; exit code, or 128+signal
   void terminate(int graceMs = 2000);  // SIGTERM to the process group, SIGKILL after graceMs
+  int exitSignal();                // signal number that ended the child, 0 = it exited normally (valid once running() is false)
+  long pid() const { return pid_; }  // -1 before the first start
+  bool signalGroup(int sig);       // kill(-pgid, sig) while the child lives (SIGSTOP / SIGCONT fallback for emulators without a control channel)
 
  private:
   bool poll(bool block);
   int pid_ = -1;
   int fd_ = -1;
   int exitCode_ = -1;
+  int exitSignal_ = 0;
   bool done_ = true;
   std::thread reader_;
   std::mutex mu_;
