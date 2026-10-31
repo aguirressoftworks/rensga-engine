@@ -133,7 +133,7 @@ One codebase, one game: the same scripts and the same scenes run on PS2, PSP, Wi
 | Windows | llvm-mingw cross build of `rensga_desktop.exe` with the sample scripts; the pack is cooked in the job and copied next to the exe with the music | the exe under wine + Xvfb, `TitleBot`: `game complete`, `alloc-check allocs=0`, Results screenshot | `tools/ci/windows.sh`, `windows_run.sh` (public CI) |
 | Android | NDK + SDLActivity + `libmain.so` (the player with the sample scripts); the APK carries `game.rpak` and every `music*.wav` | APK built in public CI; exits 77 locally without the `android-build` module (Google's SDK license is yours to accept). The phone run is deferred. | `tools/ci/android.sh`, `android_device.sh` ("built, not run" without a phone) |
 | PS2 | ps2dev cross build with the sample scripts; the pack is cooked for the ps2 profile; ISO with `GAME.RPK` and `MUSIC*.WAV`, refused if the GS cannot draw the pack (`tools/ci/pack_check.py`) | build only in public CI; locally in PCSX2 (your own BIOS): `game complete`, `prof` lines, `icon.sys ok`, a card save read back, `alloc-check allocs=0`, no texture upload error, Results screenshot | `tools/ci/ps2.sh` (public CI), `ps2_check.sh` (local) |
-| PSP | the generated PSP project (`make_sample.py --profile psp`), cooked for psp (swizzled textures, compact meshes), EBOOT / ELF | PPSSPP headless: `game complete`, a screenshot per room, `allocs=0` | `tools/ci/psp_2d.sh` (PSP slice task) |
+| PSP | the generated PSP project (`make_sample.py --profile psp`), cooked for psp (swizzled textures, compact meshes), EBOOT / ELF | PPSSPP headless: `game complete`, a screenshot per room, `allocs=0` | `tools/ci/psp_2d.sh` |
 
 Manual pass, once per release candidate, on each target that has a screen (about 5 minutes each; the bot only proves the happy path):
 
@@ -151,15 +151,15 @@ Known differences, not bugs: the bot's game time differs per target (wall-clock 
 bot may miss a coin when frames are very slow (the wine run under softpipe collected 18 of 19). The headless test is the deterministic one.
 Desktop alloc-checks run with `GALLIUM_DRIVER=softpipe`: llvmpipe's shader JIT allocates through `operator new` (a Mesa artefact, 147 allocations once).
 
-### Evidence (Stage 2, 2026-10-31, `RENSGA_TOOLCHAIN=native`)
+### Evidence (Stage 3 acceptance, 2026-10-31, `RENSGA_TOOLCHAIN=native tools/ci/run_local.sh`)
 
 | Target | Result |
 | --- | --- |
-| PS2 (PCSX2 2.8.2, ISO 3.8 MB, `ps2_check.sh`) | `game complete coins=19 time=2090`, `bot finished the game`, `rensga: prof` lines, `icon.sys ok, rensga.ico ok`, `memory card ready`, `save selftest previous=-1 wrote=1 readback=1020`, `alloc-check frames=3000 allocs=0`, no texture upload error. Screenshot: the Results scene. |
-| Windows (wine + Xvfb, `windows_run.sh`) | `game complete coins=18 time=2167`, `alloc-check frames=1499 allocs=0`. Screenshot: the Results scene. |
-| Linux desktop (xvfb, softpipe, `linux_host.sh` slice step) | `room cleared 1/2/3`, `game complete coins=19 time=2004`, `bot finished the game`, `alloc-check frames=1499 allocs=0`. Screenshots: Title and Results. |
+| PS2 (PCSX2 2.8.2, ISO 3.8 MB, `ps2_check.sh`) | `game complete coins=19 time=2020`, `bot finished the game`, `rensga: prof` lines, `icon.sys ok, rensga.ico ok`, `memory card ready`, `save selftest previous=-1 wrote=1 readback=1020`, `alloc-check frames=3000 allocs=0`, no texture upload error. Screenshot: the Results scene. |
+| Windows (wine + Xvfb, `windows_run.sh`) | `game complete coins=19 time=1903`, `alloc-check frames=1499 allocs=0` (an earlier slow run collected 18 of 19). Screenshot: the Results scene. |
+| Linux desktop (xvfb, softpipe, `linux_host.sh` slice step) | `room cleared 1/2/3`, `game complete coins=19 time=1890`, `bot finished the game`, `alloc-check frames=1499 allocs=0`. Screenshots: Title and Results. |
 | Android | APK step reaches the module check and exits 77 here (module not installed); the build runs in public CI; phone run deferred |
-| PSP | the PSP slice task (`psp_2d.sh`) |
+| PSP (PPSSPPHeadless 1.20.4, `psp_2d.sh slice`) | `game complete coins=19 time=2004`, `alloc-check frames=3499 allocs=0`, `vram tex=19328/1261568 ram_tex=0`, six saves, a screenshot of the title, each room and the results; `psp_2d.sh gles` completes with no `Unknown syscall` and no GPU errors (its pixels are a manual check). Linux vs PSP: `tools/ci/determinism.sh 2d` per-frame trace equal over 2700 frames (`MATCH hash=e634f035`). |
 
 ## Tests
 

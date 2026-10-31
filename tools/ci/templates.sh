@@ -55,7 +55,8 @@ if want linux; then
     step "$t: cook for linux, run headless"
     flock /tmp/rensga-cook-$t.lock "$HT/tools/cooker/rensga-cooker" cook --project "$W/$t" --target linux --force > "$W/$t.cook.log" 2>&1 || { tail_log "$W/$t.cook.log"; fail "$t: cook for linux"; }
     PACK="$W/$t/Library/Cooked/linux/game.rpak"; [ -s "$PACK" ] || fail "$t: no linux pack"
-    "$HT/engine/runtime/rensga_headless" --pack "$PACK" --frames "$FRAMES" --hash > "$W/$t.headless.log" 2>&1 || { tail_log "$W/$t.headless.log"; fail "$t: headless run"; }
+    mkdir -p "$W/$t.saves"
+    "$HT/engine/runtime/rensga_headless" --pack "$PACK" --frames "$FRAMES" --hash --save-dir "$W/$t.saves" > "$W/$t.headless.log" 2>&1 || { tail_log "$W/$t.headless.log"; fail "$t: headless run"; }
     grep -qE "rensga: alloc-check frames=[1-9][0-9]* allocs=0" "$W/$t.headless.log" || { tail_log "$W/$t.headless.log"; fail "$t: headless alloc-check is not allocs=0"; }
     grep -E "alloc-check|hash" "$W/$t.headless.log" | tail -2
     step "$t: desktop player screenshot"

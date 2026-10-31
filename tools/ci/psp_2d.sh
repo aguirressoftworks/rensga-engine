@@ -177,7 +177,7 @@ for m in $MODES; do
       done; echo >> "$EXLOG";;
     determinism)
       step "determinism 2D: Linux headless vs the PSP sim ELF, TitleBot"
-      "$REPO/tools/ci/determinism.sh" 2d;;
+      env PATH="$HOST_PATH" "$REPO/tools/ci/determinism.sh" 2d;;   # HOST_PATH: determinism.sh builds the host tree with the system cmake, not the module cmake 3.28 this script put first
   esac
 done
 [ -s "$EXLOG" ] && { echo; cat "$EXLOG"; }
