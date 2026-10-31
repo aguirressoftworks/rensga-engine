@@ -7,6 +7,7 @@
 #include <cstring>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -621,6 +622,10 @@ bool modulesUiHolds(App&, const std::string& e) {
   waiting.clear();
   return false;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(modules_window, "Build Support Modules", drawModulesWindow, modulesHook, modulesUiHolds, 20, 30, ::rensga::editor::PanelDraw::OverlayEditor)
+RENSGA_EDITOR_PANEL(module_dialogs, "Module dialogs", drawModuleDialogs, nullptr, nullptr, 30, 0, ::rensga::editor::PanelDraw::Overlay)
 
 }  // namespace editor
 }  // namespace rensga

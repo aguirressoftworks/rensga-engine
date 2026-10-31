@@ -3,6 +3,7 @@
 // during Play in editor. Also the PPSSPP debugger button: the emulator's WebSocket debugger (ws://127.0.0.1:<port>/debugger) when it
 // runs with RemoteDebuggerOnStartup, else a relaunch with the debugger flag.
 #include <algorithm>
+#include "panel_registry.h"
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -593,6 +594,9 @@ bool profilerUiHook(App& a, const std::string& act, const std::string& arg) {
   }
   return false;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(profiler, "Profiler", drawProfiler, profilerUiHook, profilerUiHolds, 90, 50, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

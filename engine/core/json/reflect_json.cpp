@@ -111,6 +111,24 @@ bool eventFromJson(const json& v, UnityEvent& out, std::string& why) {
 template <class json>
 json colorToJson(const Color32& c) { return json::array({c.r, c.g, c.b, c.a}); }
 
+// Array elements: i32, Scalar, Guid, Vector3.
+template <class json>
+json elemToJson(FieldType t, const u8* p) {
+  switch (t) {
+    case FieldType::I32: return *reinterpret_cast<const i32*>(p);
+    case FieldType::Guid: {
+      char text[Guid::kTextLength + 1];
+      reinterpret_cast<const Guid*>(p)->format(text);
+      return std::string(text);
+    }
+    case FieldType::Vector3: {
+      const Vector3* v = reinterpret_cast<const Vector3*>(p);
+      return json::array({v->x, v->y, v->z});
+    }
+    default: return *reinterpret_cast<const Scalar*>(p);
+  }
+}
+
 template <class json>
 json toJsonT(const TypeInfo& type, const void* object) {
   json out = json::object();
@@ -140,6 +158,23 @@ json toJsonT(const TypeInfo& type, const void* object) {
         break;
       }
       case FieldType::UnityEvent: out[f.name] = eventToJson<json>(*reinterpret_cast<const UnityEvent*>(p)); break;
+      case FieldType::String: out[f.name] = std::string(reinterpret_cast<const char*>(p), strnlen(reinterpret_cast<const char*>(p), String32::kCapacity)); break;
+      case FieldType::Enum: out[f.name] = *reinterpret_cast<const i32*>(p); break;
+      case FieldType::Vector2: {
+        const Vector2* v = reinterpret_cast<const Vector2*>(p);
+        out[f.name] = json::array({v->x, v->y});
+        break;
+      }
+      case FieldType::Array: {
+        u32 count;
+        memcpy(&count, p, 4);
+        if (count > f.arrayCap) count = f.arrayCap;
+        json arr = json::array();
+        const u32 es = fieldBlobSize(f.elemType);
+        for (u32 k = 0; k < count; ++k) arr.push_back(elemToJson<json>(f.elemType, p + 4 + k * es));
+        out[f.name] = arr;
+        break;
+      }
     }
   }
   return out;
@@ -153,6 +188,35 @@ bool numArray(const json& j, size_t n, Scalar* out) {
     out[i] = j[i].template get<Scalar>();
   }
   return true;
+}
+
+template <class json>
+bool numArray(const json& j, size_t n, Scalar* out);
+
+template <class json>
+bool elemFromJson(FieldType t, const json& v, u8* p) {
+  switch (t) {
+    case FieldType::I32:
+      if (!v.is_number_integer()) return false;
+      *reinterpret_cast<i32*>(p) = v.template get<i32>();
+      return true;
+    case FieldType::Guid: {
+      Guid g;
+      if (!v.is_string() || !Guid::parse(v.template get<std::string>().c_str(), g)) return false;
+      *reinterpret_cast<Guid*>(p) = g;
+      return true;
+    }
+    case FieldType::Vector3: {
+      Scalar a[3];
+      if (!numArray<json>(v, 3, a)) return false;
+      *reinterpret_cast<Vector3*>(p) = Vector3(a[0], a[1], a[2]);
+      return true;
+    }
+    default:
+      if (!v.is_number()) return false;
+      *reinterpret_cast<Scalar*>(p) = v.template get<Scalar>();
+      return true;
+  }
 }
 
 template <class json>
@@ -220,6 +284,46 @@ bool fromJsonT(const TypeInfo& type, void* object, const json& fields, std::stri
         UnityEvent e;
         if (!eventFromJson<json>(v, e, why)) return fail(it.key(), why.c_str());
         *reinterpret_cast<UnityEvent*>(p) = e;
+        break;
+      }
+      case FieldType::String: {
+        if (!v.is_string()) return fail(it.key(), "expected a string");
+        const std::string str = v.template get<std::string>();
+        if (str.size() >= String32::kCapacity) return fail(it.key(), "string longer than 31 characters");
+        reinterpret_cast<String32*>(p)->Set(str.c_str());
+        break;
+      }
+      case FieldType::Enum: {
+        if (v.is_number_integer()) {
+          *reinterpret_cast<i32*>(p) = v.template get<i32>();
+        } else if (v.is_string()) {
+          i32 idx = enumIndexOf(*f, v.template get<std::string>().c_str());
+          if (idx < 0) return fail(it.key(), "unknown enum label");
+          *reinterpret_cast<i32*>(p) = idx;
+        } else {
+          return fail(it.key(), "expected an integer or an enum label");
+        }
+        break;
+      }
+      case FieldType::Vector2: {
+        Scalar a[2];
+        if (!numArray<json>(v, 2, a)) return fail(it.key(), "expected [x,y]");
+        *reinterpret_cast<Vector2*>(p) = Vector2(a[0], a[1]);
+        break;
+      }
+      case FieldType::Array: {
+        if (!v.is_array()) return fail(it.key(), "expected an array");
+        if (v.size() > f->arrayCap) return fail(it.key(), "array longer than its capacity");
+        const u32 es = fieldBlobSize(f->elemType);
+        u8 tmp[4 + 16 * 64];
+        // Capacity is at most 64 elements of 16 bytes; larger arrays are refused at registration time by SERIALIZE_ARRAY users.
+        if (4 + f->arrayCap * es > sizeof(tmp)) return fail(it.key(), "array capacity too large");
+        memset(tmp, 0, sizeof(tmp));
+        u32 count = static_cast<u32>(v.size());
+        memcpy(tmp, &count, 4);
+        for (u32 k = 0; k < count; ++k)
+          if (!elemFromJson<json>(f->elemType, v[k], tmp + 4 + k * es)) return fail(it.key(), "bad array element");
+        memcpy(p, tmp, 4 + f->arrayCap * es);
         break;
       }
     }

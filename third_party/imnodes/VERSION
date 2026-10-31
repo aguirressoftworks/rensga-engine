@@ -1,0 +1,5 @@
+imnodes (Nelarius/imnodes, MIT, see LICENSE)
+commit 2d0c280 (2026-10-18), the first commit after v0.5 that compiles against Dear ImGui 1.93 (third_party/imgui).
+Tag v0.5 (2022-03) does not build with 1.93 (ImDrawCmd::TextureId, ImDrawList::_TextureIdStack changed); upstream fixed it in 211634c.
+Files copied unmodified: imnodes.cpp imnodes.h imnodes_internal.h. Builds with IMGUI_DEFINE_MATH_OPERATORS (set in third_party/CMakeLists.txt).
+Update to the next release tag when upstream cuts one.

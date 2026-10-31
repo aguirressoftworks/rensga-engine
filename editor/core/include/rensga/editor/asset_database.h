@@ -29,7 +29,10 @@ namespace editor {
 
 constexpr const char* kAssetGuidPayload = "RENSGA_ASSET_GUID";
 
-enum class AssetKind { Folder, Texture, Audio, Model, Scene, Script, Primitive, Tilemap, Animation, Font, Data, Other };
+enum class AssetKind { Folder, Texture, Audio, Model, Scene, Script, Primitive, Tilemap, Animation, Font, Data, Prefab, Material, AnimatorController, PropertyClip, DataAsset, Other };
+// F6 kinds (file name decides): .prefab = Prefab, .mat.json = Material (was Data), .controller.json = AnimatorController,
+// .clip.json = PropertyClip (property animation; .anim.json stays the 2D sprite Animation), .asset.json = DataAsset.
+// Every other .json is still Data. Existing .meta files keep their "importer" text; the kind is derived from the name on every scan.
 const char* assetKindName(AssetKind k);  // "texture", "audio", ... (also the "importer" value written to new .meta files)
 AssetKind assetKindOf(const std::filesystem::path& file);
 

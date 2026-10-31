@@ -52,6 +52,13 @@ constexpr u32 MATL = makeFourCC('M', 'A', 'T', 'L');  // PackMaterial[count]
 constexpr u32 SKIN = makeFourCC('S', 'K', 'I', 'N');  // PackSkin[count]; joints live in BLOB
 constexpr u32 CLP3 = makeFourCC('C', 'L', 'P', '3');  // PackClip3[count]; poses live in BLOB
 constexpr u32 CTG2 = makeFourCC('C', 'T', 'G', '2');  // PackConsoleTargetExt (one record)
+// F6 content sections (all optional; a pack without them is read exactly as before; none is written until its Stage 1/2/3 agent
+// lands: PCLP/ANIC by B1, DATA by D3, RSRC by A3, PHY3 by A2). Payload offsets point into BLOB like the F5 tables.
+constexpr u32 PCLP = makeFourCC('P', 'C', 'L', 'P');  // PackPropClip[count]: property clips; curves, keys and events live in BLOB
+constexpr u32 ANIC = makeFourCC('A', 'N', 'I', 'C');  // PackAnimController[count]; params, states, transitions, conditions live in BLOB
+constexpr u32 DATA = makeFourCC('D', 'A', 'T', 'A');  // PackDataAsset[count]: data assets (type hash + reflected blob in BLOB)
+constexpr u32 RSRC = makeFourCC('R', 'S', 'R', 'C');  // PackResource[count]: Resources.Load names -> GUID + kind, sorted by nameHash
+constexpr u32 PHY3 = makeFourCC('P', 'H', 'Y', '3');  // PackPhysics3D (one record): gravity, layer matrix
 }  // namespace pack_section
 
 struct PackHeader {
@@ -509,6 +516,213 @@ struct PackConsoleTargetExt {
 };
 static_assert(sizeof(PackConsoleTargetExt) == 32, "PackConsoleTargetExt is 32 bytes");
 
+// ---- F6 content records (spec: docs/rensga-engine/pack-format.md, "F6 content sections"). Time in clips is an integer count of
+// "ticks" at the clip's own integer `fps` (no float time, deterministic on every profile). Offsets are byte offsets from the
+// start of BLOB, 16-byte aligned. ----
+
+// PCLP: a property clip. Curves are PackPropCurve[curveCount] at curvesOffset, events PackPropEvent[eventCount] at eventsOffset
+// (sorted by tick).
+constexpr u32 kPropClipLoop = 1u << 0;
+struct PackPropClip {
+  Guid guid;
+  u32 nameStr;      // byte offset in STRS
+  u32 fps;          // ticks per second, > 0
+  u32 lengthTicks;  // clip length
+  u32 flags;        // kPropClip*
+  u32 curveCount;
+  u32 curvesOffset;
+  u32 eventCount;
+  u32 eventsOffset;
+};
+static_assert(sizeof(PackPropClip) == 48, "PackPropClip is 48 bytes");
+
+// One animated channel: component `componentType` (type name hash) on the object `pathStr` (STRS offset of a relative child
+// path such as "Arm/Hand", "" = the object of the Animator), field `fieldHash` (FNV-1a 32 of the field name), channel `part`
+// (-1 whole field of a Scalar/I32/Bool/Enum, 0..3 = x y z w or r g b a of Vector2/Vector3/Quaternion/Color32; Color32 channels
+// are 0..255). Keys are PackPropKey[keyCount] at keysOffset, sorted by tick. interp 0 = linear, 1 = step (Bool, I32, Enum
+// fields are always step).
+constexpr u32 kPropInterpLinear = 0, kPropInterpStep = 1;
+struct PackPropCurve {
+  u32 pathStr;
+  u32 componentType;
+  u32 fieldHash;
+  i8 part;
+  u8 interp;
+  u8 valueType;  // FieldType of the field
+  u8 pad;
+  u32 keyCount;
+  u32 keysOffset;
+  u32 reserved[2];
+};
+static_assert(sizeof(PackPropCurve) == 32, "PackPropCurve is 32 bytes");
+struct PackPropKey {
+  u32 tick;
+  Scalar value;
+  Scalar inTangent;   // per tick; used by smooth interpolation (B1 decides), ignored by linear and step
+  Scalar outTangent;
+};
+static_assert(sizeof(PackPropKey) == 16, "PackPropKey is 16 bytes");
+// An animation event: calls AnimationEvents::dispatch with these arguments when the clip time passes `tick`.
+struct PackPropEvent {
+  u32 tick;
+  u32 functionStr;  // STRS offset
+  i32 intParameter;
+  Scalar floatParameter;
+  u32 stringStr;  // STRS offset of the string parameter ("" if none)
+  u32 reserved[3];
+};
+static_assert(sizeof(PackPropEvent) == 32, "PackPropEvent is 32 bytes");
+
+// ANIC: an animator controller. Tables in BLOB: params PackAnimParam[paramCount] at paramsOffset, states PackAnimState[stateCount]
+// at statesOffset, transitions PackAnimTransition[transitionCount] at transitionsOffset (grouped by source state through
+// PackAnimState::firstTransition / transitionCount; any-state transitions follow, listed in `anyFirst` / `anyCount`), conditions
+// PackAnimCondition[conditionCount] at conditionsOffset (a transition owns a contiguous run).
+struct PackAnimController {
+  Guid guid;
+  u32 nameStr;
+  u32 defaultState;  // state index entered at start
+  u32 paramCount;
+  u32 paramsOffset;
+  u32 stateCount;
+  u32 statesOffset;
+  u32 transitionCount;
+  u32 transitionsOffset;
+  u32 conditionCount;
+  u32 conditionsOffset;
+  u32 anyFirst;  // first any-state transition (index into the transition table)
+  u32 anyCount;
+};
+static_assert(sizeof(PackAnimController) == 64, "PackAnimController is 64 bytes");
+enum class PackAnimParamType : u32 { Float = 0, Int = 1, Bool = 2, Trigger = 3 };
+struct PackAnimParam {
+  u32 nameHash;  // FNV-1a 32 of the name (Animator::StringToHash)
+  u32 nameStr;
+  u32 type;         // PackAnimParamType
+  u32 defaultBits;  // Float: the Scalar's bit pattern; Int: the value; Bool/Trigger: 0 or 1
+};
+static_assert(sizeof(PackAnimParam) == 16, "PackAnimParam is 16 bytes");
+enum class PackAnimStateKind : u32 { PropClip = 0, Clip3 = 1, Empty = 2 };
+constexpr u32 kAnimStateLoop = 1u << 0;
+struct PackAnimState {
+  u32 nameHash;
+  u32 nameStr;
+  u32 kind;   // PackAnimStateKind
+  u32 flags;  // kAnimState*
+  Guid clip;  // PCLP guid (PropClip) or CLP3 guid (Clip3); null for Empty
+  Scalar speed;
+  u32 firstTransition;
+  u32 transitionCount;
+  u32 speedParam;  // index into params that multiplies the speed, kInvalidIndex = none
+};
+static_assert(sizeof(PackAnimState) == 48, "PackAnimState is 48 bytes");
+constexpr u32 kAnimTransHasExitTime = 1u << 0;
+struct PackAnimTransition {
+  i32 toState;      // state index
+  u32 flags;        // kAnimTrans*
+  Scalar exitTime;  // normalized time of the source state when hasExitTime
+  u32 durationTicks;  // cross-fade length in fixed-step ticks (0 = cut)
+  u32 firstCondition;
+  u32 conditionCount;
+  i32 fromState;  // -1 for any-state transitions
+  u32 reserved;
+};
+static_assert(sizeof(PackAnimTransition) == 32, "PackAnimTransition is 32 bytes");
+enum class PackAnimCondMode : u32 { If = 0, IfNot = 1, Greater = 2, Less = 3, Equals = 4, NotEqual = 5 };
+struct PackAnimCondition {
+  u32 param;          // index into params
+  u32 mode;           // PackAnimCondMode
+  u32 thresholdBits;  // Float: Scalar bit pattern; Int: the value
+  u32 reserved;
+};
+static_assert(sizeof(PackAnimCondition) == 16, "PackAnimCondition is 16 bytes");
+
+// DATA: a data asset (ScriptableObject equivalent). The blob is the reflected field blob of the reflected type `typeHash`
+// (writeBlob / readBlob, so appended fields stay readable) at blobOffset in BLOB.
+struct PackDataAsset {
+  Guid guid;
+  u32 typeHash;
+  u32 nameStr;
+  u32 blobOffset;
+  u32 blobSize;
+};
+static_assert(sizeof(PackDataAsset) == 32, "PackDataAsset is 32 bytes");
+
+// RSRC: Resources.Load names. nameHash = FNV-1a 32 of the lower-case path under a Resources folder without extension
+// ("sfx/jump"); the table is sorted by nameHash (ties by the order written) so a lookup can bisect. kind says which table the
+// guid lives in.
+enum class PackResourceKind : u32 { Texture = 0, Audio = 1, Material = 2, Mesh = 3, Font = 4, DataAsset = 5, Prefab = 6,
+                                   AnimatorController = 7, PropClip = 8, Scene = 9 };
+struct PackResource {
+  Guid guid;
+  u32 nameHash;
+  u32 nameStr;
+  u32 kind;  // PackResourceKind
+  u32 reserved;
+};
+static_assert(sizeof(PackResource) == 32, "PackResource is 32 bytes");
+
+// PHY3: 3D physics settings (ProjectSettings/Physics.json). masks[a] bit b set = layer a collides with layer b (kept symmetric by
+// the cooker). Absent = gravity (0, -9.81, 0) and every layer collides with every layer.
+constexpr u32 kPhy3QueriesHitTriggers = 1u << 0;
+struct PackPhysics3D {
+  Scalar gravity[3];
+  u32 flags;  // kPhy3*
+  u32 masks[32];
+  Scalar bounceThreshold;
+  Scalar sleepThreshold;
+  u32 reserved[2];
+};
+static_assert(sizeof(PackPhysics3D) == 160, "PackPhysics3D is 160 bytes");
+
+// Typed pointers into the F6 content sections (empty without them). Valid while the pack memory lives.
+struct PackContent {
+  const PackPropClip* propClips = nullptr;
+  u32 propClipCount = 0;
+  const PackAnimController* controllers = nullptr;
+  u32 controllerCount = 0;
+  const PackDataAsset* data = nullptr;
+  u32 dataCount = 0;
+  const PackResource* resources = nullptr;
+  u32 resourceCount = 0;
+  const PackPhysics3D* physics3d = nullptr;
+  const u8* blob = nullptr;
+  u32 blobSize = 0;
+
+  const PackPropClip* findPropClip(const Guid& g) const {
+    for (u32 i = 0; i < propClipCount; ++i) if (propClips[i].guid == g) return &propClips[i];
+    return nullptr;
+  }
+  const PackAnimController* findController(const Guid& g) const {
+    for (u32 i = 0; i < controllerCount; ++i) if (controllers[i].guid == g) return &controllers[i];
+    return nullptr;
+  }
+  const PackDataAsset* findData(const Guid& g) const {
+    for (u32 i = 0; i < dataCount; ++i) if (data[i].guid == g) return &data[i];
+    return nullptr;
+  }
+  // Bisects the sorted table by name hash; returns the first record with that hash (the caller compares the string on a clash).
+  const PackResource* findResource(u32 nameHash) const {
+    u32 lo = 0, hi = resourceCount;
+    while (lo < hi) {
+      u32 mid = (lo + hi) / 2;
+      if (resources[mid].nameHash < nameHash) lo = mid + 1; else hi = mid;
+    }
+    return lo < resourceCount && resources[lo].nameHash == nameHash ? &resources[lo] : nullptr;
+  }
+  const PackPropCurve* curves(const PackPropClip& c) const { return reinterpret_cast<const PackPropCurve*>(blob + c.curvesOffset); }
+  const PackPropKey* keys(const PackPropCurve& c) const { return reinterpret_cast<const PackPropKey*>(blob + c.keysOffset); }
+  const PackPropEvent* events(const PackPropClip& c) const { return reinterpret_cast<const PackPropEvent*>(blob + c.eventsOffset); }
+  const PackAnimParam* params(const PackAnimController& c) const { return reinterpret_cast<const PackAnimParam*>(blob + c.paramsOffset); }
+  const PackAnimState* states(const PackAnimController& c) const { return reinterpret_cast<const PackAnimState*>(blob + c.statesOffset); }
+  const PackAnimTransition* transitions(const PackAnimController& c) const {
+    return reinterpret_cast<const PackAnimTransition*>(blob + c.transitionsOffset);
+  }
+  const PackAnimCondition* conditions(const PackAnimController& c) const {
+    return reinterpret_cast<const PackAnimCondition*>(blob + c.conditionsOffset);
+  }
+  const u8* dataBlob(const PackDataAsset& d) const { return blob + d.blobOffset; }
+};
+
 // Typed pointers into a v2 pack's asset sections. Valid while the pack memory lives.
 struct PackAssets {
   const u8* blob = nullptr;
@@ -595,6 +809,9 @@ struct PackView {
     if (count) *count = s ? s->count : 0;
     return s ? reinterpret_cast<const T*>(base + s->offset) : nullptr;
   }
+  // F6: the content sections (PCLP, ANIC, DATA, RSRC, PHY3); every pointer is null / count 0 when the section is absent. The
+  // bounds were checked by validateAssets, so readers index without checks.
+  PackContent content() const;
   // F5: the CTG2 record, nullptr when absent (packs cooked before F5).
   const PackConsoleTargetExt* consoleTargetExt() const { return records<PackConsoleTargetExt>(pack_section::CTG2); }
   const char* string(u32 byteOffset) const;  // from STRS, "" if out of range

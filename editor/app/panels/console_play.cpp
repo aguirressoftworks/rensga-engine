@@ -5,6 +5,7 @@
 #include <cstdlib>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -125,6 +126,9 @@ bool consoleUiHook(App& a, const std::string& act, const std::string& arg) {
   }
   return false;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(console_play, "Console play (verbs)", nullptr, consoleUiHook, consoleUiHolds, 0, 60, ::rensga::editor::PanelDraw::None)
 
 }  // namespace editor
 }  // namespace rensga

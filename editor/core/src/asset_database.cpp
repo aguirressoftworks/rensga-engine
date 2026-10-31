@@ -44,6 +44,11 @@ const char* assetKindName(AssetKind k) {
     case AssetKind::Animation: return "animation";
     case AssetKind::Font: return "font";
     case AssetKind::Data: return "data";
+    case AssetKind::Prefab: return "prefab";
+    case AssetKind::Material: return "material";
+    case AssetKind::AnimatorController: return "animatorcontroller";
+    case AssetKind::PropertyClip: return "propertyclip";
+    case AssetKind::DataAsset: return "dataasset";
     default: return "other";
   }
 }
@@ -65,6 +70,11 @@ AssetKind assetKindOf(const fs::path& file) {
   if (endsWith(n, ".tilemap.json")) return AssetKind::Tilemap;
   if (endsWith(n, ".anim.json")) return AssetKind::Animation;
   if (endsWith(n, ".font.json")) return AssetKind::Font;
+  if (endsWith(n, ".prefab")) return AssetKind::Prefab;
+  if (endsWith(n, ".mat.json")) return AssetKind::Material;
+  if (endsWith(n, ".controller.json")) return AssetKind::AnimatorController;
+  if (endsWith(n, ".clip.json")) return AssetKind::PropertyClip;
+  if (endsWith(n, ".asset.json")) return AssetKind::DataAsset;
   if (endsWith(n, ".json")) return AssetKind::Data;
   return AssetKind::Other;
 }

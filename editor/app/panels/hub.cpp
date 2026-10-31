@@ -15,6 +15,7 @@
 #include <map>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "modules.h"
 #include "panels/thumbnails.h"
 #include "rensga/cooker/assets.h"
@@ -724,6 +725,10 @@ void drawSaveLayoutDialog(App& a) {
   ImGui::EndDisabled();
   ImGui::EndPopup();
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(hub_verbs, "Hub (verbs)", nullptr, hubHook, nullptr, 0, 10, ::rensga::editor::PanelDraw::None)
+RENSGA_EDITOR_PANEL(create_dialogs, "Create dialogs", drawCreateDialogs, nullptr, nullptr, 10, 0, ::rensga::editor::PanelDraw::Overlay)
 
 }  // namespace editor
 }  // namespace rensga

@@ -1,6 +1,7 @@
 // F4.08 part 2: Tile Palette window, tile painting in the 2D Scene view, tilemap edits shared with the undo stack, the
 // "tile:" --ui-event verbs. See tile_tools.h.
 #include "panels/tile_tools.h"
+#include "panel_registry.h"
 
 #include <imgui_internal.h>
 
@@ -875,6 +876,9 @@ bool tileUiHook(App& a, const std::string& act, const std::string& arg) {
   }
   return false;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(tile_palette, "Tile Palette", drawTilePalette, tileUiHook, [](App&, const std::string&) { return tileSimHolds(); }, 140, 110, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

@@ -15,6 +15,16 @@
 // temporary detached instance (gameObject is null there), so they may touch only the component's own fields.
 // Every macro ends with its own ';', so a trailing ';' after it is harmless.
 //
+// F6 field types (appended to FieldType, so older numbers keep their meaning):
+//   String   SERIALIZE_FIELD(String32, label, String32("x"))   fixed 32 bytes in memory and in the blob, NUL terminated
+//   Enum     SERIALIZE_ENUM(mode, 0, "Horizontal|Vertical|Grid")   an i32 whose labels are declared once; the inspector shows a
+//            dropdown, JSON accepts the number or the label. Labels are editor metadata (stripped in runtime builds).
+//   Vector2  SERIALIZE_FIELD(Vector2, size, Vector2(1, 1))
+//   Array    SERIALIZE_ARRAY(Vector3, positions, 16)   FixedArray<T, N> with T = i32, Scalar, Guid or Vector3: a u32 count and N
+//            slots. The blob is [u32 count][N * element], the unused slots written as zeros, so a cook is reproducible.
+// APPENDED_FIELDS() before a SERIALIZE_FIELD marks where fields were appended after the type shipped: the cooker drops
+// trailing appended fields that still hold their default from the blob, so packs of old scenes stay byte-identical.
+//
 // F1.05: the macros only declare. tools/reflect/reflect_scan.py reads the source at build time and writes
 // <file>.reflect.gen.cpp, which #includes the file and registers the type table (names, offsets, editor metadata).
 // A thin static registrar in the generated file calls that table. A reflected type that was never scanned
@@ -23,6 +33,7 @@
 // Reflected types must be default-constructible, hold at most kMaxFields fields, and not use multiple inheritance.
 #pragma once
 #include <new>
+#include <stddef.h>
 
 #include "rensga/core/guid.h"
 #include "rensga/core/math.h"
@@ -34,9 +45,52 @@ class Component;
 class Behaviour;
 struct UnityEvent;  // unity_event.h (F3.05)
 
-enum class FieldType : u8 { Scalar, I32, Bool, Vector3, Quaternion, Color32, Guid, UnityEvent };
+enum class FieldType : u8 { Scalar, I32, Bool, Vector3, Quaternion, Color32, Guid, UnityEvent, String, Enum, Vector2, Array };
 
-// Byte size of a field value in the pack blob (and in memory for all but Bool padding rules).
+// F6: a string field. 32 bytes including the NUL; longer text is cut. Copyable, comparable, usable as const char*.
+struct String32 {
+  static constexpr u32 kCapacity = 32;
+  char s[kCapacity] = {};
+  String32() {}
+  String32(const char* text) { Set(text); }
+  void Set(const char* text) {
+    u32 i = 0;
+    for (; text && text[i] && i < kCapacity - 1; ++i) s[i] = text[i];
+    for (; i < kCapacity; ++i) s[i] = 0;
+  }
+  const char* c_str() const { return s; }
+  operator const char*() const { return s; }
+  bool empty() const { return s[0] == 0; }
+  bool operator==(const String32& o) const {
+    for (u32 i = 0; i < kCapacity; ++i) {
+      if (s[i] != o.s[i]) return false;
+      if (!s[i]) return true;
+    }
+    return true;
+  }
+  bool operator!=(const String32& o) const { return !(*this == o); }
+};
+static_assert(sizeof(String32) == 32, "String32 is 32 bytes");
+
+// F6: fixed-capacity array field (SERIALIZE_ARRAY). T = i32, Scalar, Guid or Vector3. No heap.
+template <class T, u32 N>
+struct FixedArray {
+  static constexpr u32 kCapacity = N;
+  u32 count = 0;
+  T items[N] = {};
+  u32 size() const { return count; }
+  bool Add(const T& v) {
+    if (count >= N) return false;
+    items[count++] = v;
+    return true;
+  }
+  void Clear() { count = 0; }
+  T& operator[](u32 i) { return items[i]; }
+  const T& operator[](u32 i) const { return items[i]; }
+};
+
+// Byte size of a field value in the pack blob (and in memory for all but Bool padding rules). Array needs the descriptor (below);
+// this overload returns 0 for it.
 u32 fieldBlobSize(FieldType t);
 const char* fieldTypeName(FieldType t);
 
@@ -51,7 +105,22 @@ struct FieldDesc {
   const char* tooltip = nullptr;  // editor metadata
   bool hideInInspector = false;   // editor metadata: HIDE_IN_INSPECTOR (still serialized and cooked)
   u8 space = 0;                   // editor metadata: SPACE(n) pixels of gap above the field
+  // F6.
+  const char* enumLabels = nullptr;  // Enum: "A|B|C" (index = value); editor metadata, null when stripped
+  FieldType elemType = FieldType::Scalar;  // Array: I32, Scalar, Guid or Vector3
+  u16 arrayCap = 0;                        // Array: N
+  bool isEnum() const { return type == FieldType::Enum; }
+  bool isArray() const { return type == FieldType::Array; }
 };
+
+// Byte size of this field's value in the pack blob (handles Array). The in-memory bytes of every type are identical, except
+// that the unused slots of an Array and the bytes after a String's NUL are zeroed when written.
+u32 fieldBlobSize(const FieldDesc& f);
+// Number of labels of an Enum field and the n-th label copied into `out` (NUL terminated, "" if out of range).
+u32 enumLabelCount(const FieldDesc& f);
+bool enumLabel(const FieldDesc& f, u32 index, char* out, u32 cap);
+// Index of `label` (exact, case sensitive) or -1.
+i32 enumIndexOf(const FieldDesc& f, const char* label);
 
 // CONTEXT_MENU("Label") on a void() method: an entry in the component's header menu (editor metadata).
 struct ContextMenuDesc {
@@ -61,6 +130,7 @@ struct ContextMenuDesc {
 constexpr u32 kMaxContextMenus = 8;
 
 constexpr u32 kMaxFields = 32;
+constexpr u32 kNoTrim = 0xFFFFFFFFu;
 
 struct TypeInfo {
   const char* name = nullptr;
@@ -80,10 +150,13 @@ struct TypeInfo {
   Component* (*asComponent)(void* obj) = nullptr;  // null if not a Component
   Behaviour* (*asBehaviour)(void* obj) = nullptr;  // null if not a Behaviour
   i32 executionOrder = 0;  // script execution order: lower runs first (EXECUTION_ORDER(n) in the class body)
+  // F6: fields from this index on were appended after the type shipped (APPENDED_FIELDS()). The cooker writes a blob without the
+  // trailing appended fields that still hold their default. kNoTrim = write every field.
+  u32 trimFloor = kNoTrim;
   bool isBehaviour() const { return asBehaviour != nullptr; }
 };
 
-constexpr u32 kMaxTypes = 128;
+constexpr u32 kMaxTypes = 192;  // F6: was 128; engine types ~75 after F6, the rest is for scripts
 
 class TypeRegistry {
  public:
@@ -118,6 +191,9 @@ class TypeRegistry {
 
 // Total size of a type's blob (sum of fieldBlobSize).
 u32 blobSize(const TypeInfo& t);
+// F6: size of the blob without trailing appended fields that equal the defaults of a default-constructed object (see
+// TypeInfo::trimFloor). Equal to blobSize(t) for a type with no APPENDED_FIELDS(). `defaults` must be a default-constructed object.
+u32 trimmedBlobSize(const TypeInfo& t, const void* obj, const void* defaults);
 // Writes `obj`'s fields in declaration order. `out` must hold blobSize(t) bytes.
 void writeBlob(const TypeInfo& t, const void* obj, u8* out);
 // Reads fields into `obj`. F5: a blob SHORTER than blobSize(t) is accepted when it ends exactly on a field boundary; the
@@ -138,11 +214,13 @@ u32 saveState(const TypeInfo& t, const void* obj, u8* out, u32 cap);
 // matches. Returns the number of fields restored, or -1 when the blob is malformed (object untouched).
 int loadState(const TypeInfo& t, void* obj, const u8* data, u32 size);
 
-// Field path syntax: "<field>" or "<field>.<part>" with part x|y|z|w (Vector3, Quaternion) or r|g|b|a (Color32).
+// Field path syntax: "<field>" or "<field>.<part>" with part x|y|z|w (Vector2, Vector3, Quaternion) or r|g|b|a (Color32).
+// F6: an Array field takes "<field>.<index>" and "<field>.<index>.<part>" (Vector3 elements).
 // Scene-level paths prepend "<ComponentType>." (prefab overrides, Editor 6).
 struct FieldPath {
   const FieldDesc* field = nullptr;
-  int part = -1;  // -1 = whole field
+  int part = -1;   // -1 = whole field (or whole element)
+  int index = -1;  // F6: array element, -1 = the whole array (or not an array)
 };
 bool parseFieldPath(const TypeInfo& t, const char* path, FieldPath& out);
 
@@ -159,6 +237,8 @@ template <> struct FieldTypeOf<Quaternion> { static constexpr FieldType value = 
 template <> struct FieldTypeOf<Color32> { static constexpr FieldType value = FieldType::Color32; };
 template <> struct FieldTypeOf<Guid> { static constexpr FieldType value = FieldType::Guid; };
 template <> struct FieldTypeOf<UnityEvent> { static constexpr FieldType value = FieldType::UnityEvent; };
+template <> struct FieldTypeOf<String32> { static constexpr FieldType value = FieldType::String; };
+template <> struct FieldTypeOf<Vector2> { static constexpr FieldType value = FieldType::Vector2; };
 
 // Reads `static constexpr i32 kExecutionOrder` from a class (see EXECUTION_ORDER); 0 when absent.
 template <class C, class = void>
@@ -207,6 +287,27 @@ FieldDesc* addField(TypeInfo* info, const char* name, FieldType type, T C::*memb
   return addFieldDesc(info, name, type, offsetOfMember<C, T>(member), sizeof(T));
 }
 
+// SERIALIZE_ARRAY: the element type and capacity come from the member's FixedArray<E, N> type.
+template <class C, class E, u32 N>
+FieldDesc* addArrayField(TypeInfo* info, const char* name, FixedArray<E, N> C::*member) {
+  static_assert(sizeof(E) == 4 || sizeof(E) == 12 || sizeof(E) == 16, "array elements: i32, Scalar, Guid or Vector3");
+  static_assert(FieldTypeOf<E>::value == FieldType::I32 || FieldTypeOf<E>::value == FieldType::Scalar ||
+                    FieldTypeOf<E>::value == FieldType::Guid || FieldTypeOf<E>::value == FieldType::Vector3,
+                "array elements: i32, Scalar, Guid or Vector3");
+  using Arr = FixedArray<E, N>;
+  static_assert(offsetof(Arr, items) == 4 && sizeof(Arr) == 4 + N * sizeof(E), "array items follow the count");
+  FieldDesc* f = addFieldDesc(info, name, FieldType::Array, offsetOfMember<C, Arr>(member), sizeof(Arr));
+  if (f) {
+    f->elemType = FieldTypeOf<E>::value;
+    f->arrayCap = static_cast<u16>(N);
+  }
+  return f;
+}
+// APPENDED_FIELDS(): the fields declared so far shipped before; later ones are trimmed from the cooked blob when default.
+inline void setTrimFloor(TypeInfo* info) {
+  if (info) info->trimFloor = info->fieldCount;
+}
+
 }  // namespace reflect
 }  // namespace rensga
 
@@ -219,6 +320,9 @@ FieldDesc* addField(TypeInfo* info, const char* name, FieldType type, T C::*memb
 
 // Declarations only: the scanner reads these lines. They expand to nothing a compiler needs.
 #define SERIALIZE_FIELD(type, name, def) type name = def;
+#define SERIALIZE_ENUM(name, def, labels) ::rensga::i32 name = (def);
+#define SERIALIZE_ARRAY(type, name, capacity) ::rensga::FixedArray<type, capacity> name;
+#define APPENDED_FIELDS() static_assert(true, "");
 #define RANGE(lo, hi) static_assert(true, "");
 #define HEADER(text) static_assert(true, "");
 #define TOOLTIP(text) static_assert(true, "");

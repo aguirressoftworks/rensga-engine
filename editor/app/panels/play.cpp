@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "panels/asset_ui.h"
 #include "panels/tile_tools.h"
 #include "rensga/core/reflect_json.h"
@@ -211,6 +212,9 @@ bool playUiHolds(App& a, const std::string& event) {
   const uint64_t n = static_cast<uint64_t>(std::atoll(event.c_str() + 9));
   return a.session.active() && a.session.state() == PlayState::Playing && a.session.frames() < n;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(play_verbs, "Play in editor (verbs)", nullptr, playUiHook, playUiHolds, 0, 70, ::rensga::editor::PanelDraw::None)
 
 }  // namespace editor
 }  // namespace rensga

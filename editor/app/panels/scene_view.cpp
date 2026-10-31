@@ -9,6 +9,7 @@
 #include <cstdio>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "panels/asset_ui.h"
 #include "panels/tile_tools.h"
 #include "rensga/core/gizmos.h"
@@ -659,6 +660,9 @@ bool sceneUiHook(App& a, const std::string& act, const std::string& arg) {
   std::fflush(stdout);
   return true;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(scene_view, "Scene", drawSceneView, sceneUiHook, nullptr, 60, 90, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

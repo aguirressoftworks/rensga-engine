@@ -10,6 +10,10 @@ if(RENSGA_BUILD_EDITOR)
   add_library(imguizmo STATIC imguizmo/ImGuizmo.cpp)
   target_include_directories(imguizmo SYSTEM PUBLIC imguizmo)
   target_link_libraries(imguizmo PUBLIC imgui)
+  # imnodes (MIT, node editor for Animator / material graphs; commit pinned in imnodes/VERSION), static like imguizmo.
+  add_library(imnodes STATIC imnodes/imnodes.cpp)
+  target_include_directories(imnodes SYSTEM PUBLIC imnodes)
+  target_link_libraries(imnodes PUBLIC imgui)
   add_library(imgui STATIC
     imgui/imgui.cpp imgui/imgui_draw.cpp imgui/imgui_tables.cpp imgui/imgui_widgets.cpp
     imgui/imgui_demo.cpp imgui/imgui_stdlib.cpp

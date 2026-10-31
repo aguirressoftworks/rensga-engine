@@ -387,6 +387,12 @@ CookResult cookProject(const CookOptions& optIn, const CookSink& sink) {
         c.type = ti;
         c.blob.resize(blobSize(*ti));
         writeBlob(*ti, inst.mem, c.blob.data());
+        // F6: fields appended after a type shipped (APPENDED_FIELDS) are left out of the blob while they hold their default, so
+        // a scene that never touches them cooks to the same bytes as before they existed.
+        if (ti->trimFloor != kNoTrim) {
+          Instance defaults(ti);
+          c.blob.resize(trimmedBlobSize(*ti, inst.mem, defaults.mem));
+        }
         c.fields = fieldsToJson(*ti, inst.mem);
         c.srcFields = cj.value("fields", json::object());  // as written: error messages name methods, not hashes
         o.comps.push_back(std::move(c));
@@ -412,15 +418,24 @@ CookResult cookProject(const CookOptions& optIn, const CookSink& sink) {
   for (const ObjectDef& o : objs)
     for (const auto& c : o.comps)
       for (u32 f = 0; f < c.type->fieldCount; ++f) {
-        if (c.type->fields[f].type != FieldType::Guid) continue;
-        if (strcmp(c.type->name, "Animation") == 0 && strcmp(c.type->fields[f].name, "clip") == 0) continue;  // checked once the clips are cooked
-        std::string g = c.fields.value(c.type->fields[f].name, std::string());
-        Guid parsed;
-        if (!Guid::parse(g.c_str(), parsed) || parsed.isNull()) continue;
-        if (!objIndex.count(g) && !assets.count(g))
-          cx.error("'" + o.name + "' (guid " + guidText(o.guid) + ") " + c.type->name + "." + c.type->fields[f].name +
-                       " references missing GUID " + g,
-                   sceneAsset.rel, sceneAsset.guid);
+        const FieldDesc& fd = c.type->fields[f];
+        const bool guidArray = fd.type == FieldType::Array && fd.elemType == FieldType::Guid;  // F6: SERIALIZE_ARRAY(Guid, ...)
+        if (fd.type != FieldType::Guid && !guidArray) continue;
+        if (strcmp(c.type->name, "Animation") == 0 && strcmp(fd.name, "clip") == 0) continue;  // checked once the clips are cooked
+        std::vector<std::string> refs;
+        if (guidArray) {
+          if (c.fields.contains(fd.name) && c.fields[fd.name].is_array())
+            for (const auto& e : c.fields[fd.name]) refs.push_back(e.is_string() ? e.get<std::string>() : std::string());
+        } else {
+          refs.push_back(c.fields.value(fd.name, std::string()));
+        }
+        for (const std::string& g : refs) {
+          Guid parsed;
+          if (!Guid::parse(g.c_str(), parsed) || parsed.isNull()) continue;
+          if (!objIndex.count(g) && !assets.count(g))
+            cx.error("'" + o.name + "' (guid " + guidText(o.guid) + ") " + c.type->name + "." + fd.name + " references missing GUID " + g,
+                     sceneAsset.rel, sceneAsset.guid);
+        }
       }
   // UnityEvent listeners must name an object of this scene, a component type on it and a METHOD of that type.
   for (const ObjectDef& o : objs)
@@ -1229,8 +1244,14 @@ std::string reflectionLayoutHash() {
   for (u32 i = 0; i < reg.count(); ++i) {
     const TypeInfo* ti = reg.byId(i);
     layout += std::string(ti->name) + ":";
-    for (u32 f = 0; f < ti->fieldCount; ++f)
-      layout += std::string(ti->fields[f].name) + "," + std::to_string(static_cast<int>(ti->fields[f].type)) + ";";
+    for (u32 f = 0; f < ti->fieldCount; ++f) {
+      const FieldDesc& fd = ti->fields[f];
+      layout += std::string(fd.name) + "," + std::to_string(static_cast<int>(fd.type));
+      // F6: array shape and the appended-fields boundary change the cooked bytes, so they are part of the layout.
+      if (fd.type == FieldType::Array) layout += "[" + std::to_string(static_cast<int>(fd.elemType)) + "x" + std::to_string(fd.arrayCap) + "]";
+      layout += ";";
+    }
+    if (ti->trimFloor != kNoTrim) layout += "trim" + std::to_string(ti->trimFloor) + ";";
   }
   return hex64(fnv64(layout));
 }

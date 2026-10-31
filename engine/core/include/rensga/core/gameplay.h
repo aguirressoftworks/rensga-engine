@@ -14,6 +14,7 @@
 #include "rensga/core/backends.h"
 #include "rensga/core/object.h"
 #include "rensga/core/pack_format.h"
+#include "rensga/core/unity_event.h"
 
 namespace rensga {
 
@@ -284,6 +285,16 @@ struct UIButton : Component {
   SERIALIZE_FIELD(Color32, focusColor, Color32(240, 160, 30, 255))
   SERIALIZE_FIELD(bool, interactable, true)
   SERIALIZE_FIELD(i32, sortingOrder, 0)
+  // F6 (appended; D1): Unity's Navigation. Automatic = the reading-order focus above. Explicit = the select* targets (UIButton,
+  // Slider or Toggle objects) in the four directions, a null target means "stay". None = the pad never moves the focus off it.
+  APPENDED_FIELDS()
+  SERIALIZE_ENUM(navigation, 0, "Automatic|Explicit|None")
+  SERIALIZE_FIELD(Guid, selectOnUp, Guid())
+  SERIALIZE_FIELD(Guid, selectOnDown, Guid())
+  SERIALIZE_FIELD(Guid, selectOnLeft, Guid())
+  SERIALIZE_FIELD(Guid, selectOnRight, Guid())
+  TOOLTIP("Called when the button is pressed, in addition to Behaviour::OnUIClick.")
+  SERIALIZE_FIELD(UnityEvent, onClick, {})
   bool isFocused() const;
 };
 

@@ -2,6 +2,7 @@
 // button in the texture's inspector). Edits a working copy of the texture's slices (editor/core SpriteSlices); Apply writes
 // them to the .meta ("sprites" key), Revert reads them back. The window has its own undo history (Ctrl+Z while it is focused).
 #include <algorithm>
+#include "panel_registry.h"
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -738,6 +739,9 @@ bool spriteUiHook(App& a, const std::string& act, const std::string& arg) {
   }
   return false;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(sprite_editor, "Sprite Editor", drawSpriteEditor, spriteUiHook, [](App&, const std::string&) { return spriteSimHolds(); }, 150, 120, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

@@ -5,6 +5,7 @@
 #include <cstdio>
 
 #include "app.h"
+#include "panel_registry.h"
 
 namespace rensga {
 namespace editor {
@@ -63,6 +64,9 @@ void drawStatusBar(App& a) {
   }
   ImGui::End();
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(status_bar, "Status bar", drawStatusBar, nullptr, nullptr, 30, 0, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

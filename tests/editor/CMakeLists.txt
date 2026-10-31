@@ -245,3 +245,26 @@ if(TARGET rensga-editor)
   endif()
 endif()
 # --- F5 B3 end ---
+
+# --- F6 E0 begin ---
+# F6 contract: ProjectSettings schemas, prefab file format, new asset kinds and creation stubs (editor/core only, no UI).
+if(TARGET rensga_editor_core AND TARGET rensga_target_psp)
+  add_executable(rensga_f6_contract_tests ../test_main.cpp test_project_settings.cpp test_prefab_format.cpp)
+  target_link_libraries(rensga_f6_contract_tests PRIVATE rensga_editor_core rensga_cooker_lib)
+  target_include_directories(rensga_f6_contract_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_f6_contract_tests PRIVATE
+    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp-3d"
+    RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_f6_contract")
+  rensga_link_whole_archive(rensga_f6_contract_tests PRIVATE rensga_target_psp)
+  rensga_host_target(rensga_f6_contract_tests)
+  add_test(NAME rensga_f6_contract_tests COMMAND rensga_f6_contract_tests)
+endif()
+# --- F6 E0 end ---
+
+# --- F6 E0 begin (ui) ---
+if(TARGET rensga-editor)
+  add_test(NAME editor_f6_contract_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/f6_contract_ui.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/platformer2d ${CMAKE_CURRENT_BINARY_DIR}/f6_contract_ui)
+  set_tests_properties(editor_f6_contract_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 240 LABELS "slow;gl")
+endif()
+# --- F6 E0 end (ui) ---

@@ -56,7 +56,7 @@ fs::path makeProject(const char* name, int trianglesPerFrame = 20000) {
   return dst;
 }
 
-const SceneObject* byName(const Scene& s, const char* n) {
+const SceneObject* byName(const editor::Scene& s, const char* n) {
   for (const SceneObject& o : s.objects) if (o.name == n) return &o;
   return nullptr;
 }

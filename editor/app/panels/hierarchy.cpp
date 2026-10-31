@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "panels/asset_ui.h"
 
 namespace rensga {
@@ -205,6 +206,9 @@ void drawHierarchy(App& a) {
   }
   ImGui::End();
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(hierarchy, "Hierarchy", drawHierarchy, nullptr, nullptr, 50, 0, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

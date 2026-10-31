@@ -14,6 +14,11 @@ enum class SystemLanguage : u32 {
   Unknown = 0xFFFFFFFFu
 };
 
+// F6: which console profile the build targets (Unity has no such thing; it is the ConsoleTarget's "profile"). Unknown until the
+// runtime main calls Application::setProfile from the pack's CTGT (PackConsoleTarget::profile fourcc), or the platform tells
+// (Psp, Ps2 and Psx platforms imply their profile).
+enum class ConsoleProfile : u8 { Unknown, Psx, Psp, Ps2 };
+
 struct Application {
   // Asks the main loop to finish after the current frame. The loop and platform check quitRequested().
   static void Quit();
@@ -37,6 +42,11 @@ struct Application {
   // F5.13: true when the platform's confirm button is the east face button (PSP in Japan: circle confirms). Scripts
   // use it to pick the confirm and cancel buttons of menus.
   static bool confirmButtonEast();
+  // F6 (A3): the profile of the ConsoleTarget this game was cooked for (Psp for the PSP build and for its Windows / Linux /
+  // Android builds). Defined in engine/core/src/application.cpp; the runtime mains call setProfile from CTGT (A3/D2 wire it).
+  static ConsoleProfile profile();
+  static void setProfile(ConsoleProfile p);
+  static const char* profileName(ConsoleProfile p);
   // Back to defaults (tests, editor play-mode restarts).
   static void reset();
 };

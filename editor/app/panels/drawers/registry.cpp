@@ -14,9 +14,13 @@ bool drawQuaternionField(DrawCtx&, const nlohmann::json&, nlohmann::json&);
 bool drawColor32Field(DrawCtx&, const nlohmann::json&, nlohmann::json&);
 bool drawGuidField(DrawCtx&, const nlohmann::json&, nlohmann::json&);
 bool drawUnityEventField(DrawCtx&, const nlohmann::json&, nlohmann::json&);
+bool drawStringField(DrawCtx&, const nlohmann::json&, nlohmann::json&);   // F6
+bool drawEnumField(DrawCtx&, const nlohmann::json&, nlohmann::json&);
+bool drawVector2Field(DrawCtx&, const nlohmann::json&, nlohmann::json&);
+bool drawArrayField(DrawCtx&, const nlohmann::json&, nlohmann::json&);
 
 namespace {
-FieldDrawer g_byType[8] = {};
+FieldDrawer g_byType[16] = {};  // indexed by FieldType (12 today)
 std::map<std::string, FieldDrawer>& byField() {
   static std::map<std::string, FieldDrawer> m;
   return m;
@@ -41,6 +45,10 @@ void registerBuiltinDrawers() {
   registerDrawer(FieldType::Color32, drawColor32Field);
   registerDrawer(FieldType::Guid, drawGuidField);
   registerDrawer(FieldType::UnityEvent, drawUnityEventField);
+  registerDrawer(FieldType::String, drawStringField);
+  registerDrawer(FieldType::Enum, drawEnumField);
+  registerDrawer(FieldType::Vector2, drawVector2Field);
+  registerDrawer(FieldType::Array, drawArrayField);
 }
 
 FieldDrawer drawerFor(const char* typeName, const FieldDesc& f) {

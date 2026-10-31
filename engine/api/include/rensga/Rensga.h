@@ -11,10 +11,17 @@
 //   F5: Light, RenderSettings, SkinnedMeshRenderer, Animation, MeshRenderer.material, Behaviour::OnApplicationPause,
 //   Application::SetCpuClock / systemLanguage / confirmButtonEast, TouchScreenKeyboard, SystemInfo, Save::setMode,
 //   RENSGA_REQUIRES_FEATURE (feature.h).
+//   F6 (contract in Stage 0, behaviour lands per area; stubs until then): Physics::Raycast / SphereCast / OverlapSphere /
+//   Linecast and Physics2D::Raycast / Overlap*, Collision and Collision2D callbacks, Rigidbody, CapsuleCollider, Camera::main and
+//   ScreenToWorldPoint, MaterialPropertyBlock, ParticleSystem, LineRenderer, Animator, AudioMixerGroups, AudioSource::
+//   PlayClipAtPoint, SceneManager additive / async, Resources, PlayerPrefs, SaveSystem, Canvas / Slider / Toggle / LayoutGroup /
+//   EventSystem, Format / StrBuf, Profiler samples, ObjectPool, Budget, Application::profile.
 //   F4: Rigidbody2D (bodyType, gravityScale, velocityX / velocityY).
 //   F3.05 events: StartCoroutine(Wait(1).Then(f)) / step functions, Invoke / InvokeRepeating, Event<Args>, UnityEvent, METHOD(Name).
 #pragma once
+#include "rensga/core/animator.h"
 #include "rensga/core/application.h"
+#include "rensga/core/behaviour_events.h"
 #include "rensga/core/components.h"
 #include "rensga/core/debug.h"
 #include "rensga/core/event.h"
@@ -23,15 +30,20 @@
 #include "rensga/core/guid.h"
 #include "rensga/core/input.h"
 #include "rensga/core/loop.h"
+#include "rensga/core/material_block.h"
 #include "rensga/core/math.h"
 #include "rensga/core/object.h"
+#include "rensga/core/physics_components.h"
 #include "rensga/core/ref.h"
+#include "rensga/core/render_components.h"
 #include "rensga/core/reflect.h"
 #include "rensga/core/rigidbody2d.h"
 #include "rensga/core/save.h"
 #include "rensga/core/system.h"
 #include "rensga/core/scene_manager.h"
+#include "rensga/core/text_format.h"
 #include "rensga/core/time.h"
+#include "rensga/core/ui_components.h"
 #include "rensga/core/unity_event.h"
 #include "rensga/core/world.h"
 
@@ -41,3 +53,9 @@
 #include "rensga/Physics.h"
 #include "rensga/Hud.h"
 #include "rensga/Audio.h"
+#include "rensga/Budget.h"
+#include "rensga/ObjectPool.h"
+#include "rensga/PlayerPrefs.h"
+#include "rensga/Profiler.h"
+#include "rensga/Resources.h"
+#include "rensga/SaveSystem.h"

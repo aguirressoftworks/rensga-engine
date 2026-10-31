@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "panels/asset_ui.h"
 #include "panels/dock_debug.h"
 #include "panels/emulator_manager.h"
@@ -140,6 +141,10 @@ void drawDialogs(App& a) {
   }
   drawSaveLayoutDialog(a);
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(menu_bar, "Menu bar", drawMenuBar, nullptr, nullptr, 10, 0, ::rensga::editor::PanelDraw::Body)
+RENSGA_EDITOR_PANEL(dialogs, "Dialogs", drawDialogs, nullptr, nullptr, 130, 0, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

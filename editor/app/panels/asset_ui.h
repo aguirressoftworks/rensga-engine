@@ -32,6 +32,7 @@ struct AssetUi {
   std::string selDocObject;       // scene selection when the asset was picked; a different one drops the asset selection
   std::string renameRel, deleteRel;  // pending inline rename / delete confirm
   bool openRename = false, openDelete = false, openNewFolder = false;
+  bool openCreateMenu = false;   // --ui-event createmenu: pops the Project window's Create menu (screenshots)
   char nameBuf[128] = {};
   std::string errorText;
 
@@ -66,6 +67,8 @@ bool drawAssetInspector(App& a);
 // object, scene -> open, script -> add to the object (or the selection).
 bool acceptAssetDrop(App& a, const std::string& guid, const std::string& targetObject);
 // --ui-event verbs (documented in AGENTS.md).
+// Project > Create > <label> (one of rensga::editor::stubKinds): creates the stub in the current folder, selects it. Prints "asset: created <rel>".
+bool createAssetFromMenu(App& a, const std::string& label, const std::string& name);
 bool assetUiHook(App& a, const std::string& act, const std::string& arg);
 // Asset inspector actions (also the --ui-event verbs assettab / assetset / assetapply / assetrevert / assetundo).
 void assetInspectSetTab(App& a, const std::string& tab);                      // "" or "default" = Default

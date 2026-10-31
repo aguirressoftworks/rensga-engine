@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "panels/drawers/drawers.h"
 #include "panels/asset_ui.h"
 #include "panels/dock_debug.h"   // F5.10 / F5.23
@@ -284,25 +285,14 @@ int main(int argc, char** argv) {
     ImGui_ImplSDL2_NewFrame();
     tileSimFrame(app);  // scripted mouse of --ui-event tiledrag / spritedrag
     spriteSimFrame(app);
-    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx]) && !consoleUiHolds(app, uiEvents[evIdx]) && !profilerUiHolds(app, uiEvents[evIdx]) && !modulesUiHolds(app, uiEvents[evIdx]) && !emulatorUiHolds(app, uiEvents[evIdx]) && !tileSimHolds() && !spriteSimHolds()) {
+    if (frame >= evNext && evIdx < uiEvents.size() && !panelHolds(app, uiEvents[evIdx])) {
       const std::string& e = uiEvents[evIdx++];
       evNext = frame + 6;
       float x = 0, y = 0;
       size_t c = e.find(':');
       const std::string act = e.substr(0, c), arg = c == std::string::npos ? std::string() : e.substr(c + 1);
       // test hooks that run the same code paths as the UI
-      if (hubHook(app, act, arg)) {}
-      else if (emulatorHook(app, act, arg)) {}                                 // F5.04 / F5.09: emulators, emuinfo, emugate, buildrun, ...
-      else if (modulesHook(app, act, arg)) {}                                  // Hub > Modules: modules, modinstall, modaccept, modremove, playconsole, ...
-      else if (dockUiHook(app, act, arg)) {}                                   // F5.23: dockemu, undockemu, dumpembed, embedpointer, emulator
-      else if (profilerUiHook(app, act, arg)) {}                               // F5.10: profiler, profilerdump, profilerdebugger, profilerport, ...
-      else if (consoleUiHook(app, act, arg)) {}                                // F5.19-22: consolepause, consolestep, consolewait, ...
-      else if (playUiHook(app, act, arg)) {}                                   // F3.04: playedit, pause, step, stopedit, playset, ...
-      else if (inspectorHook(app, act, arg)) {}                                 // F3.01: multiselect, addcomp, setfield, undo, ...
-      else if (sceneUiHook(app, act, arg)) {}                                  // F3.01: new, selectmany, reparent, pickobj, ...
-      else if (assetUiHook(app, act, arg)) {}                                  // F3.02: asset, assettab, assetset, vram, ...
-      else if (tileUiHook(app, act, arg)) {}                                   // F4.08: palette, brush, tile, painttile, tileflag, savetiles, ...
-      else if (spriteUiHook(app, act, arg)) {}                                 // F4.08: spriteeditor, slicegrid, sliceapply, setsprite, ...
+      if (panelHook(app, act, arg)) {}                                         // registered panels, in hookOrder (panel_registry.h)
       else if (act == "script") createScriptAction(app, arg);                       // Create > C++ Script
       else if (act == "component") createScriptAction(app, arg, ScriptKind::Component);  // Create > C++ Script > Empty Component
       else if (act == "openerror") openBuildError(arg.empty() ? 0 : std::atoi(arg.c_str()));  // double-click a console error
@@ -336,23 +326,9 @@ int main(int argc, char** argv) {
     } else if (app.hub.mode == Mode::Picker) {
       drawPicker(app);
     } else {
-      drawMenuBar(app);
-      drawToolbar(app);
-      drawStatusBar(app);
-      drawDockSpaceAndLayout(app);
-      drawHierarchy(app);
-      drawSceneView(app);
-      drawGameView(app);
-      drawEmulatorView(app);
-      drawProfiler(app);
-      drawInspector(app);
-      drawProjectPanel(app);
-      drawConsole(app);
-      drawDialogs(app);
-      drawTilePalette(app);
-      drawSpriteEditor(app);
+      drawPanels(app, PanelDraw::Body);
     }
-    if (app.hub.mode != Mode::Splash) { drawCreateDialogs(app); if (app.hub.mode == Mode::Editor) drawModulesWindow(app); drawModuleDialogs(app); if (app.hub.mode == Mode::Editor) drawEmulatorManager(app); }
+    drawPanels(app, PanelDraw::Overlay);  // dialogs and floating windows (mode checked inside)
     if (shotMode && !focusName.empty() && frame == shotFrames / 2) ImGui::SetWindowFocus(focusName.c_str());
     if (ImGuiWindow* nw = ImGui::GetCurrentContext()->NavWindow) {
       static const char* const kPanels[] = {"Hierarchy", "Inspector", "Project", "Console", "Scene", "Game", "Emulator", "Profiler"};

@@ -17,8 +17,11 @@ import sys
 FIELD_TYPES = {
     "Scalar": "Scalar", "float": "Scalar", "i32": "I32", "int32_t": "I32", "int": "I32", "bool": "Bool",
     "Vector3": "Vector3", "Quaternion": "Quaternion", "Color32": "Color32", "Guid": "Guid",
-    "UnityEvent": "UnityEvent",
+    "UnityEvent": "UnityEvent", "String32": "String", "Vector2": "Vector2",
 }
+# F6: element types of SERIALIZE_ARRAY (reflect.h FixedArray<T, N>)
+ARRAY_ELEMS = {"Scalar": "Scalar", "float": "Scalar", "i32": "I32", "int32_t": "I32", "int": "I32", "Guid": "Guid",
+               "Vector3": "Vector3"}
 
 
 class ScanError(Exception):
@@ -92,7 +95,7 @@ def call_args(text, pos):
 TOKEN = re.compile(
     r"(?P<ns>\bnamespace\s*(?P<nsname>[A-Za-z_][\w:]*)?\s*\{)"
     r"|(?P<cls>(?<!enum\s)\b(?:struct|class)\s+(?P<clsname>[A-Za-z_]\w*)\b[^;{}()]*\{)"
-    r"|(?P<mac>\b(?P<macname>REFLECT|SERIALIZE_FIELD|RANGE|HEADER|TOOLTIP|REQUIRE_COMPONENT|METHOD|HIDE_IN_INSPECTOR|SPACE|EXECUTE_IN_EDIT_MODE|CONTEXT_MENU)\s*\()"
+    r"|(?P<mac>\b(?P<macname>REFLECT|SERIALIZE_FIELD|SERIALIZE_ENUM|SERIALIZE_ARRAY|APPENDED_FIELDS|RANGE|HEADER|TOOLTIP|REQUIRE_COMPONENT|METHOD|HIDE_IN_INSPECTOR|SPACE|EXECUTE_IN_EDIT_MODE|CONTEXT_MENU)\s*\()"
     r"|(?P<open>\{)|(?P<close>\})"
 )
 
@@ -146,7 +149,7 @@ def scan_text(raw, fname):
                 q = [n for k, n in stack if k in ("ns", "cls") and n]
                 if any(k == "blk" for k, _ in stack):
                     raise ScanError("%s: reflected types cannot be declared inside a function" % where(m.start()))
-                types.append({"name": args[0], "qual": "::" + "::".join(q), "fields": [], "requires": [], "methods": [], "menus": [], "edit_mode": False,
+                types.append({"name": args[0], "qual": "::" + "::".join(q), "fields": [], "requires": [], "methods": [], "menus": [], "edit_mode": False, "trim": None,
                               "stackdepth": len(stack)})
             elif name == "SERIALIZE_FIELD":
                 t = cur_type(m.start(), name)
@@ -159,6 +162,34 @@ def scan_text(raw, fname):
                     raise ScanError("%s: duplicate field '%s'" % (where(m.start()), args[1]))
                 t["fields"].append({"name": args[1], "type": FIELD_TYPES[base], "ctype": args[0], **pending})
                 pending = dict(NO_PENDING)
+            elif name == "SERIALIZE_ENUM":
+                t = cur_type(m.start(), name)
+                if len(args) != 3 or not args[2].startswith('"') or not re.match(r"^[A-Za-z_]\w*$", args[0]):
+                    raise ScanError("%s: SERIALIZE_ENUM(name, default, \"A|B|C\") needs a field name, a default and a string literal" % where(m.start()))
+                if any(f["name"] == args[0] for f in t["fields"]):
+                    raise ScanError("%s: duplicate field '%s'" % (where(m.start()), args[0]))
+                if "||" in args[2] or args[2].startswith('"|') or args[2].endswith('|"') or args[2] == '""':
+                    raise ScanError("%s: SERIALIZE_ENUM labels must be non-empty, separated by single '|'" % where(m.start()))
+                t["fields"].append({"name": args[0], "type": "Enum", "ctype": "i32", "labels": args[2], **pending})
+                pending = dict(NO_PENDING)
+            elif name == "SERIALIZE_ARRAY":
+                t = cur_type(m.start(), name)
+                if len(args) != 3 or not re.match(r"^[A-Za-z_]\w*$", args[1]) or not re.match(r"^\d+$", args[2]) or not (1 <= int(args[2]) <= 64):
+                    raise ScanError("%s: SERIALIZE_ARRAY(type, name, capacity 1..64) needs a type, a field name and a number" % where(m.start()))
+                base = args[0].split("::")[-1].strip()
+                if base not in ARRAY_ELEMS:
+                    raise ScanError("%s: unsupported array element type '%s' (i32, Scalar, Guid, Vector3)" % (where(m.start()), args[0]))
+                if any(f["name"] == args[1] for f in t["fields"]):
+                    raise ScanError("%s: duplicate field '%s'" % (where(m.start()), args[1]))
+                t["fields"].append({"name": args[1], "type": "Array", "ctype": "FixedArray<%s,%s>" % (args[0], args[2]),
+                                    "elem": ARRAY_ELEMS[base], "cap": int(args[2]), **pending})
+                pending = dict(NO_PENDING)
+            elif name == "APPENDED_FIELDS":
+                t = cur_type(m.start(), name)
+                if args != [""]:
+                    raise ScanError("%s: APPENDED_FIELDS() takes no arguments" % where(m.start()))
+                if t["trim"] is None:
+                    t["trim"] = len(t["fields"])
             elif name == "HIDE_IN_INSPECTOR":
                 cur_type(m.start(), name)
                 if args != [""]:
@@ -229,9 +260,14 @@ def emit(path, types):
               '    ::rensga::TypeInfo* ti = ::rensga::reflect::beginType<T>("%s");' % t["name"],
               "    if (ti) {", "      ::rensga::FieldDesc* f = nullptr;", "      (void)f;"]
         for fd in t["fields"]:
-            o.append('      f = ::rensga::reflect::addField(ti, "%s", ::rensga::FieldType::%s, &T::%s);'
-                     % (fd["name"], fd["type"], fd["name"]))
+            if fd["type"] == "Array":
+                o.append('      f = ::rensga::reflect::addArrayField(ti, "%s", &T::%s);' % (fd["name"], fd["name"]))
+            else:
+                o.append('      f = ::rensga::reflect::addField(ti, "%s", ::rensga::FieldType::%s, &T::%s);'
+                         % (fd["name"], fd["type"], fd["name"]))
             meta = []
+            if fd.get("labels"):
+                meta.append("      f->enumLabels = %s;" % fd["labels"])
             if fd["header"]:
                 meta.append("      f->header = %s;" % fd["header"])
             if fd["tooltip"]:
@@ -247,6 +283,8 @@ def emit(path, types):
             if meta:
                 o += ["#ifndef RENSGA_STRIP_EDITOR_METADATA"] + meta + ["#endif"]
         o += ['      ::rensga::reflect::addMethod<T, &T::%s>(ti, "%s");' % (mn, mn) for mn in t["methods"]]
+        if t["trim"] is not None:
+            o.append("      ti->trimFloor = %d;" % t["trim"])
         if t["menus"] or t["edit_mode"]:
             o.append("#ifndef RENSGA_STRIP_EDITOR_METADATA")
             if t["edit_mode"]:

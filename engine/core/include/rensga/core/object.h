@@ -4,6 +4,7 @@
 #pragma once
 #include <string.h>
 
+#include "rensga/core/behaviour_events.h"
 #include "rensga/core/coroutine.h"
 #include "rensga/core/guid.h"
 #include "rensga/core/math.h"
@@ -158,6 +159,22 @@ class Behaviour : public Component {
   virtual void OnTriggerExit2D(GameObject* /*other*/) {}
   virtual void OnCollisionEnter2D(GameObject* /*other*/) {}
   virtual void OnCollisionExit2D(GameObject* /*other*/) {}
+  // F6 (declared by the contract, sent by the Stage 1 agents; until then nothing calls them):
+  //  - 3D physics (A2): OnCollisionEnter / Stay / Exit with a Collision after the fixed step, OnTriggerStay for objects that
+  //    stay inside a trigger. Both objects of a pair get the callback; a Rigidbody pair or a Rigidbody against static colliders
+  //    sends the collision events, trigger colliders send the trigger events.
+  //  - 2D physics (A2): OnTriggerStay2D (GameObject*) and the Collision2D overloads of OnCollisionEnter2D / Stay2D / Exit2D. The
+  //    GameObject* forms above stay: override the one you like, the engine calls both.
+  //  - Animation (B1): OnAnimationEvent for every event of a property clip that fires on this object.
+  virtual void OnCollisionEnter(const Collision& /*collision*/) {}
+  virtual void OnCollisionStay(const Collision& /*collision*/) {}
+  virtual void OnCollisionExit(const Collision& /*collision*/) {}
+  virtual void OnTriggerStay(GameObject* /*other*/) {}
+  virtual void OnTriggerStay2D(GameObject* /*other*/) {}
+  virtual void OnCollisionEnter2D(const Collision2D& /*collision*/) {}
+  virtual void OnCollisionStay2D(const Collision2D& /*collision*/) {}
+  virtual void OnCollisionExit2D(const Collision2D& /*collision*/) {}
+  virtual void OnAnimationEvent(const AnimationEvent& /*event*/) {}
   // The UIButton on this object was pressed (focus + south button).
   virtual void OnUIClick() {}
 

@@ -2,6 +2,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "drawers.h"
 #include <imgui_internal.h>
@@ -10,6 +11,8 @@ namespace rensga {
 namespace editor {
 
 using nlohmann::json;
+
+bool drawGuidField(DrawCtx&, const json&, json&);  // reference.cpp
 
 namespace {
 
@@ -119,6 +122,106 @@ bool drawColor32Field(DrawCtx& c, const json& value, json& out) {
     out = arr;
   }
   return ed;
+}
+
+// ---- F6 field types: String, Enum, Vector2, Array ---------------------------------------------------------------------------
+
+bool drawStringField(DrawCtx& c, const json& value, json& out) {
+  char buf[String32::kCapacity] = {};
+  if (value.is_string()) std::snprintf(buf, sizeof buf, "%s", value.get<std::string>().c_str());
+  ImGuiInputTextFlags fl = c.mixed ? ImGuiInputTextFlags_ReadOnly : 0;
+  bool ed = ImGui::InputText("##v", buf, sizeof buf, fl);  // 31 characters + NUL, the reflected capacity
+  if (ed) out = std::string(buf);
+  return ed;
+}
+
+bool drawEnumField(DrawCtx& c, const json& value, json& out) {
+  const u32 n = enumLabelCount(c.f);
+  int cur = value.is_number_integer() ? value.get<int>() : 0;
+  if (n == 0) {  // no labels (stripped metadata): a plain number
+    bool ed = ImGui::DragInt("##v", &cur, 0.2f);
+    if (ed) out = cur;
+    return ed;
+  }
+  char label[64];
+  if (!(cur >= 0 && static_cast<u32>(cur) < n && enumLabel(c.f, static_cast<u32>(cur), label, sizeof label)))
+    std::snprintf(label, sizeof label, "%d (out of range)", cur);
+  bool ed = false;
+  if (ImGui::BeginCombo("##v", c.mixed ? mixedText() : label)) {
+    for (u32 i = 0; i < n; ++i) {
+      char item[64];
+      enumLabel(c.f, i, item, sizeof item);
+      if (ImGui::Selectable(item, !c.mixed && static_cast<int>(i) == cur)) {
+        out = static_cast<int>(i);
+        ed = true;
+      }
+    }
+    ImGui::EndCombo();
+  }
+  return ed;
+}
+
+bool drawVector2Field(DrawCtx& c, const json& value, json& out) {
+  float v[2] = {0, 0};
+  if (value.is_array() && value.size() == 2) for (int i = 0; i < 2; ++i) v[i] = numOr(value[i], 0);
+  bool ed = ImGui::DragFloat2("##v", v, 0.05f, 0, 0, c.mixed ? mixedText() : "%.3g");
+  if (ed) out = json::array({q7(v[0]), q7(v[1])});
+  return ed;
+}
+
+// A fixed-capacity list: a count header, one row per element drawn by the drawer of the element type, Add and Remove buttons.
+// The edit is the whole new array, so it is one undo step like every other field.
+bool drawArrayField(DrawCtx& c, const json& value, json& out) {
+  json arr = value.is_array() ? value : json::array();
+  const int cap = static_cast<int>(c.f.arrayCap);
+  bool edited = false;
+  char head[64];
+  std::snprintf(head, sizeof head, "%d / %d elements", static_cast<int>(arr.size()), cap);
+  ImGui::TextUnformatted(c.mixed ? mixedText() : head);
+  FieldDesc ef = c.f;  // the element drawer sees a field of the element type
+  ef.type = c.f.elemType;
+  ef.arrayCap = 0;
+  ef.hasRange = false;
+  FieldDrawer elem = nullptr;
+  switch (c.f.elemType) {
+    case FieldType::I32: elem = drawI32Field; break;
+    case FieldType::Guid: elem = drawGuidField; break;
+    case FieldType::Vector3: elem = drawVector3Field; break;
+    default: elem = drawScalarField; break;
+  }
+  int remove = -1;
+  for (int i = 0; i < static_cast<int>(arr.size()); ++i) {
+    ImGui::PushID(i);
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text("%d", i);
+    ImGui::SameLine();
+    float rm = ImGui::GetFrameHeight();
+    ImGui::SetNextItemWidth(ImGui::GetContentRegionAvail().x - rm - ImGui::GetStyle().ItemSpacing.x);
+    DrawCtx ec{c.a, ef, c.key + "[" + std::to_string(i) + "]", c.ownerGuid, c.mixed};
+    json eo;
+    if (elem(ec, arr[static_cast<size_t>(i)], eo)) {
+      arr[static_cast<size_t>(i)] = eo;
+      edited = true;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("-", ImVec2(rm, 0))) remove = i;
+    ImGui::PopID();
+  }
+  if (remove >= 0) {
+    arr.erase(arr.begin() + remove);
+    edited = true;
+  }
+  if (static_cast<int>(arr.size()) < cap && ImGui::Button("+ Add")) {
+    switch (c.f.elemType) {
+      case FieldType::I32: arr.push_back(0); break;
+      case FieldType::Guid: arr.push_back("00000000-0000-0000-0000-000000000000"); break;
+      case FieldType::Vector3: arr.push_back(json::array({0.0, 0.0, 0.0})); break;
+      default: arr.push_back(0.0); break;
+    }
+    edited = true;
+  }
+  if (edited) out = arr;
+  return edited;
 }
 
 }  // namespace editor

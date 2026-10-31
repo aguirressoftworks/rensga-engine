@@ -356,9 +356,13 @@ TEST(appended_fields_load_from_older_blobs) {
   u8 ab[96];
   writeBlob(at, &as, ab);
   AudioSource oldAs;
-  CHECK(readBlob(at, &oldAs, ab, blobSize(at) - 4));  // before `priority` existed
+  CHECK(readBlob(at, &oldAs, ab, blobSize(at) - 6 - 4));  // before `priority` existed (and before the F6 playOnAwake / mute / outputGroup)
   CHECK_EQ(oldAs.volume, 0.25f);
   CHECK_EQ(oldAs.priority, 128);
+  AudioSource f5As;
+  CHECK(readBlob(at, &f5As, ab, blobSize(at) - 6));  // an F5 blob: priority is read, the F6 fields keep their defaults
+  CHECK_EQ(f5As.priority, 10);
+  CHECK(!f5As.playOnAwake && !f5As.mute && f5As.outputGroup == 0);
 }
 
 TEST(feature_macro_present_without_header) {

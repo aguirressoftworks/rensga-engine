@@ -14,6 +14,7 @@
 #include <imgui_internal.h>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "panels/asset_ui.h"
 #include "panels/drawers/drawers.h"
 #include "panels/preview_state.h"
@@ -615,6 +616,9 @@ bool inspectorHook(App& a, const std::string& act, const std::string& arg) {
   if (act == "redo") { a.doc.redo(); return true; }
   return false;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(inspector, "Inspector", drawInspector, inspectorHook, nullptr, 100, 80, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

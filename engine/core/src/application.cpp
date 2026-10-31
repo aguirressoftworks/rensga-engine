@@ -22,6 +22,7 @@ bool g_quit = false;
 bool g_playing = true;
 i32 g_fps = -1;
 RuntimePlatform g_platform = compiledPlatform();
+ConsoleProfile g_profile = ConsoleProfile::Unknown;
 }  // namespace
 
 void Application::Quit() { g_quit = true; }
@@ -32,6 +33,27 @@ i32 Application::targetFrameRate() { return g_fps; }
 void Application::setTargetFrameRate(i32 fps) { g_fps = fps <= 0 ? -1 : fps; }
 RuntimePlatform Application::platform() { return g_platform; }
 void Application::setPlatform(RuntimePlatform p) { g_platform = p; }
+
+// F6: an explicit setProfile wins; otherwise the console platforms imply their profile.
+ConsoleProfile Application::profile() {
+  if (g_profile != ConsoleProfile::Unknown) return g_profile;
+  switch (g_platform) {
+    case RuntimePlatform::Psp: return ConsoleProfile::Psp;
+    case RuntimePlatform::Ps2: return ConsoleProfile::Ps2;
+    case RuntimePlatform::Psx: return ConsoleProfile::Psx;
+    default: return ConsoleProfile::Unknown;
+  }
+}
+void Application::setProfile(ConsoleProfile p) { g_profile = p; }
+const char* Application::profileName(ConsoleProfile p) {
+  switch (p) {
+    case ConsoleProfile::Psx: return "PSX";
+    case ConsoleProfile::Psp: return "PSP";
+    case ConsoleProfile::Ps2: return "PS2";
+    case ConsoleProfile::Unknown: break;
+  }
+  return "Unknown";
+}
 
 const char* Application::platformName(RuntimePlatform p) {
   switch (p) {
@@ -64,6 +86,7 @@ void Application::reset() {
   g_playing = true;
   g_fps = -1;
   g_platform = compiledPlatform();
+  g_profile = ConsoleProfile::Unknown;
 }
 
 }  // namespace rensga

@@ -1,4 +1,5 @@
 #include "panels/asset_ui.h"
+#include "panel_registry.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -126,6 +127,10 @@ bool assetUiHook(App& a, const std::string& act, const std::string& arg) {
       u.folder = fs::path(e->rel).parent_path().generic_string();
       u.search[0] = 0;
     } else EditorLog::instance().warn("asset: not found: " + arg);
+  } else if (act == "createmenu") u.openCreateMenu = true;   // F6: Project > Create menu open (screenshot)
+  else if (act == "assetcreate") {                      // assetcreate:<Prefab|Material|Animator_Controller|Property_Clip|Data_Asset>[|name]
+    const size_t bar = arg.find('|');
+    createAssetFromMenu(a, bar == std::string::npos ? arg : arg.substr(0, bar), bar == std::string::npos ? std::string() : arg.substr(bar + 1));
   } else if (act == "assettab") assetInspectSetTab(a, arg);
   else if (act == "assetset") {
     const size_t eq = arg.find('=');
@@ -163,6 +168,9 @@ bool assetUiHook(App& a, const std::string& act, const std::string& arg) {
   } else return false;
   return true;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(asset_ui, "Assets (verbs)", nullptr, assetUiHook, nullptr, 0, 100, ::rensga::editor::PanelDraw::None)
 
 }  // namespace editor
 }  // namespace rensga

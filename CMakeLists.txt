@@ -67,7 +67,11 @@ include(cmake/RensgaReflect.cmake)
 # Reflection tables: engine components and the project scripts (used by core, runtime, cooker, tests).
 rensga_reflect_scan(engine RENSGA_REFLECT_ENGINE_SRCS "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/components.h"
                     "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/gameplay.h"
-                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/rigidbody2d.h")
+                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/rigidbody2d.h"
+                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/physics_components.h"
+                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/render_components.h"
+                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/animator.h"
+                    "${CMAKE_SOURCE_DIR}/engine/core/include/rensga/core/ui_components.h")
 rensga_reflect_scan(project RENSGA_REFLECT_PROJECT_SRCS "${RENSGA_PROJECT_DIR}/Assets/Scripts")
 include(CTest)  # defines BUILD_TESTING; tests are still gated by RENSGA_BUILD_TESTS
 

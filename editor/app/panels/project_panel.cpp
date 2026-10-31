@@ -6,8 +6,10 @@
 #include <set>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "panels/asset_ui.h"
 #include "panels/tile_tools.h"
+#include "rensga/editor/asset_stubs.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -86,8 +88,48 @@ static const char* kindGlyph(AssetKind k) {
     case AssetKind::Animation: return "ANM";
     case AssetKind::Font: return "FNT";
     case AssetKind::Data: return "JSN";
+    case AssetKind::Prefab: case AssetKind::Material: case AssetKind::AnimatorController:
+    case AssetKind::PropertyClip: case AssetKind::DataAsset: {
+      const StubKind* sk = stubKindFor(k);
+      return sk ? sk->glyph : "...";
+    }
     default: return "...";
   }
+}
+
+// F6: Create > Prefab / Material / Animator Controller / Property Clip / Data Asset (stubs from editor/core asset_stubs.h).
+static void drawCreateStubItems(App& a) {
+  int n = 0;
+  const StubKind* kinds = stubKinds(&n);
+  for (int i = 0; i < n; ++i)
+    if (ImGui::MenuItem(kinds[i].label)) createAssetFromMenu(a, kinds[i].label, std::string());
+}
+
+bool createAssetFromMenu(App& a, const std::string& labelIn, const std::string& name) {
+  AssetUi& u = assetUi();
+  std::string label = labelIn;  // --ui-event words cannot hold spaces: Animator_Controller
+  for (char& ch : label) if (ch == '_') ch = ' ';
+  int n = 0;
+  const StubKind* kinds = stubKinds(&n);
+  for (int i = 0; i < n; ++i) {
+    if (label != kinds[i].label) continue;
+    fs::path made;
+    std::string err;
+    if (!createAssetStub(u.sync.db(), kinds[i].kind, a.project.root / u.folder, name, made, err)) {
+      EditorLog::instance().warn("create " + label + " failed: " + err);
+      u.errorText = err;
+      return false;
+    }
+    a.assetsStamp = -100;
+    if (const AssetEntry* e = u.sync.db().findPath(made)) {
+      u.selGuid = e->guid;
+      std::printf("asset: created %s (%s)\n", e->rel.c_str(), assetKindName(e->kind));
+      EditorLog::instance().info("asset: created " + e->rel);
+    }
+    return true;
+  }
+  EditorLog::instance().warn("create: unknown asset kind '" + label + "'");
+  return false;
 }
 
 static std::string relOf(App& a, const fs::path& p) {
@@ -281,7 +323,7 @@ void drawProjectPanel(App& a) {
   if (ImGui::GetTime() - a.assetsStamp > 2.0) { a.refreshAssets(); a.assetsStamp = ImGui::GetTime(); }
 
   // toolbar
-  if (ImGui::Button("Create")) ImGui::OpenPopup("createmenu");
+  if (ImGui::Button("Create") || u.openCreateMenu) { ImGui::OpenPopup("createmenu"); u.openCreateMenu = false; }
   if (ImGui::BeginPopup("createmenu")) {
     if (ImGui::MenuItem("Folder")) { u.nameBuf[0] = 0; u.errorText.clear(); u.openNewFolder = true; }
     if (ImGui::MenuItem("C++ Script")) {
@@ -291,6 +333,8 @@ void drawProjectPanel(App& a) {
       std::snprintf(a.scripts.newName, sizeof a.scripts.newName, "%s", name.c_str());
       a.scripts.openNewScript = true;
     }
+    ImGui::Separator();
+    drawCreateStubItems(a);
     ImGui::EndPopup();
   }
   ImGui::SameLine();
@@ -345,6 +389,8 @@ void drawProjectPanel(App& a) {
       std::snprintf(a.scripts.newName, sizeof a.scripts.newName, "%s", name.c_str());
       a.scripts.openNewScript = true;
     }
+    ImGui::Separator();
+    drawCreateStubItems(a);
     ImGui::EndPopup();
   }
   if (ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows) && !ImGui::GetIO().WantTextInput && !u.selGuid.empty()) {
@@ -356,6 +402,9 @@ void drawProjectPanel(App& a) {
   drawAssetDialogs(a);
   ImGui::End();
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(project, "Project", drawProjectPanel, nullptr, nullptr, 110, 0, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

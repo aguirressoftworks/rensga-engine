@@ -50,3 +50,15 @@ add_test(NAME cooker_cli_psp3d_room_psp
 add_test(NAME cooker_cli_psp3d_room_linux
          COMMAND rensga-cooker cook --project ${CMAKE_SOURCE_DIR}/samples/psp3d_room --target linux --force)
 # --- F5 A1 end ---
+
+# --- F6 c0 begin ---
+# G1 harness: tests/core/test_component_matrix.cpp with the cook hook (every Component is cooked for linux and psp and read back).
+rensga_reflect_scan(tests_matrix RENSGA_MATRIX_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/../core/test_component_matrix.cpp)
+add_executable(rensga_component_matrix ../test_main.cpp ${RENSGA_MATRIX_SRCS} component_matrix_cook.cpp)
+target_link_libraries(rensga_component_matrix PRIVATE rensga_cooker_lib rensga_api rensga_reflect_json)
+target_include_directories(rensga_component_matrix PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+target_compile_definitions(rensga_component_matrix PRIVATE RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"
+                           RENSGA_ROOM_DIR="${CMAKE_SOURCE_DIR}/samples/psp3d_room" RENSGA_MATRIX_REQUIRE_COOK=1)
+rensga_runtime_target(rensga_component_matrix)
+add_test(NAME component_matrix COMMAND rensga_component_matrix)
+# --- F6 c0 end ---

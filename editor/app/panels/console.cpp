@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -100,6 +101,9 @@ void drawConsole(App& a) {
   ImGui::EndChild();
   ImGui::End();
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(console, "Console", drawConsole, nullptr, nullptr, 120, 0, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

@@ -39,6 +39,12 @@ struct AudioClip {
   i32 loopEnd = -1;     // frame index (exclusive); -1 = clip end
 };
 
+// F6 mixer groups (Unity's AudioMixer groups, fixed): Master scales everything, Music the streamed music voice, SFX the sound-effect
+// voices. AudioSource::outputGroup picks the group of a source. The volumes are linear 0..2 and default to 1. B1 (Stage 2) wires
+// them into AudioMixer; the script API is AudioMixerGroups in rensga/Audio.h.
+enum class AudioGroup : u8 { Master = 0, Music = 1, SFX = 2 };
+constexpr u32 kAudioGroupCount = 3;
+
 class AudioMixer {
  public:
   static constexpr u32 kMaxVoices = RENSGA_AUDIO_MAX_VOICES;

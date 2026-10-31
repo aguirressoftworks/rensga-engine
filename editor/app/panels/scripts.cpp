@@ -10,6 +10,7 @@
 #include <set>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "rensga/editor/inspector_model.h"
 #include "rensga/core/reflect_json.h"
 #include "rensga/editor/editor_log.h"
@@ -360,6 +361,9 @@ void drawScriptDialogs(App& a) {
   if (ImGui::Button("Cancel", ImVec2(96, 0))) ImGui::CloseCurrentPopup();
   ImGui::EndPopup();
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(script_waits, "Scripts (waits)", nullptr, nullptr, uiEventHolds, 0, 0, ::rensga::editor::PanelDraw::None)
 
 }  // namespace editor
 }  // namespace rensga

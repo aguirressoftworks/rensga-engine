@@ -58,7 +58,7 @@ for f in files:
             depth += 1
         elif line.startswith("#endif"):
             depth -= 1
-        elif depth == 0 and any(k in line for k in ("->header", "->tooltip", "hasRange", "requireComponent", "hideInInspector", "->space", "executeInEditMode", "addContextMenu")):
+        elif depth == 0 and any(k in line for k in ("->header", "->tooltip", "hasRange", "requireComponent", "hideInInspector", "->space", "executeInEditMode", "addContextMenu", "enumLabels")):
             raise AssertionError("unguarded editor metadata in %s: %s" % (f, line.strip()))
     assert depth == 0
 
@@ -106,4 +106,27 @@ g = open(os.path.join(tmp, "o_at", "g", "at_h.reflect.gen.cpp")).read()
 assert "f->hideInInspector = true;" in g and "f->space = 8;" in g and "f->space = 20;" in g
 assert "ti->executeInEditMode = true;" in g and 'addContextMenu(ti, "Fill It", "Fill")' in g
 assert g.count('addMethod<T, &T::Fill>') == 1, "CONTEXT_MENU method registered once"
+# F6: String, Enum, Vector2, arrays, APPENDED_FIELDS
+f6 = os.path.join(tmp, "f6.h")
+open(f6, "w").write("struct Thing : Component { REFLECT(Thing)\n SERIALIZE_FIELD(Scalar, a, 1)\n SERIALIZE_FIELD(String32, label, String32(\"x\"))\n"
+                    " TOOLTIP(\"mode\")\n SERIALIZE_ENUM(mode, 1, \"Horizontal|Vertical|Grid\")\n SERIALIZE_FIELD(Vector2, size, Vector2(1, 1))\n"
+                    " APPENDED_FIELDS()\n SERIALIZE_ARRAY(Vector3, points, 16)\n SERIALIZE_ARRAY(Guid, refs, 4)\n SERIALIZE_ARRAY(i32, ids, 8)\n};\n")
+assert run(os.path.join(tmp, "o_f6"), ("g", [f6])).returncode == 0
+g = open(os.path.join(tmp, "o_f6", "g", "f6_h.reflect.gen.cpp")).read()
+assert "FieldType::String, &T::label" in g and "FieldType::Enum, &T::mode" in g and "FieldType::Vector2, &T::size" in g
+assert 'f->enumLabels = "Horizontal|Vertical|Grid";' in g and 'f->tooltip = "mode";' in g
+assert 'addArrayField(ti, "points", &T::points)' in g and 'addArrayField(ti, "refs", &T::refs)' in g and "ti->trimFloor = 4;" in g
+f6bad = {
+    "e1.h": "struct E1 { REFLECT(E1)\n SERIALIZE_ENUM(m, 0)\n };\n",
+    "e2.h": "struct E2 { REFLECT(E2)\n SERIALIZE_ENUM(m, 0, \"A||B\")\n };\n",
+    "a1.h": "struct A1 { REFLECT(A1)\n SERIALIZE_ARRAY(Color32, c, 4)\n };\n",
+    "a2.h": "struct A2 { REFLECT(A2)\n SERIALIZE_ARRAY(i32, c, 0)\n };\n",
+    "a3.h": "struct A3 { REFLECT(A3)\n SERIALIZE_ARRAY(i32, c, 65)\n };\n",
+    "ap.h": "struct AP { REFLECT(AP)\n APPENDED_FIELDS(1)\n };\n",
+}
+for n, text in f6bad.items():
+    p = os.path.join(bad, n)
+    open(p, "w").write(text)
+    r = run(os.path.join(tmp, "o_" + n), ("g", [p]))
+    assert r.returncode != 0 and "reflect_scan" in r.stderr, n
 print("reflect_scan: ok")

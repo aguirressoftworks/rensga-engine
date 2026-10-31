@@ -3,12 +3,12 @@ file(READ ${RENSGA_PALETTE_FILE} RENSGA_PALETTE_JSON)
 configure_file(brand_palette.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/brand_palette.cpp @ONLY)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RENSGA_PALETTE_FILE})
 
+# F6 E0: panels register themselves (panel_registry.h), so every panel/drawer/render source in these folders is picked up
+# without editing this file or main.cpp. CONFIGURE_DEPENDS re-runs the glob when a file is added.
+file(GLOB RENSGA_EDITOR_PANEL_SRCS CONFIGURE_DEPENDS
+     ${CMAKE_CURRENT_SOURCE_DIR}/panels/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/panels/drawers/*.cpp ${CMAKE_CURRENT_SOURCE_DIR}/render/*.cpp)
 add_executable(rensga-editor
-  main.cpp theme.cpp screenshot.cpp render/scene_renderer.cpp render/scene2d_gl.cpp
-  panels/actions.cpp panels/layout.cpp panels/menus.cpp panels/toolbar.cpp panels/hierarchy.cpp panels/inspector.cpp
-  panels/drawers/registry.cpp panels/drawers/basic.cpp panels/drawers/reference.cpp panels/drawers/unity_event.cpp panels/drawers/add_component.cpp
-  panels/scripts.cpp panels/hub.cpp panels/console.cpp panels/status_bar.cpp panels/project_panel.cpp panels/asset_ui.cpp panels/asset_inspector.cpp panels/vram_map.cpp panels/thumbnails.cpp panels/scene_view.cpp panels/game_view.cpp panels/play.cpp panels/console_play.cpp panels/modules.cpp
-  panels/tile_tools.cpp panels/sprite_editor.cpp panels/drawers/component_extras.cpp
+  main.cpp theme.cpp screenshot.cpp panel_registry.cpp ${RENSGA_EDITOR_PANEL_SRCS}
   ${CMAKE_CURRENT_BINARY_DIR}/brand_palette.cpp)
 target_include_directories(rensga-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(rensga-editor SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party/stb)
@@ -18,7 +18,7 @@ target_compile_definitions(rensga-editor PRIVATE RENSGA_FONT_DIR="${CMAKE_SOURCE
 target_compile_definitions(rensga-editor PRIVATE
   RENSGA_EDITOR_BUILD_DIR="${CMAKE_BINARY_DIR}" RENSGA_EDITOR_CMAKE="${CMAKE_COMMAND}"
   RENSGA_EDITOR_PROJECT_DIR="${RENSGA_PROJECT_DIR}")
-target_link_libraries(rensga-editor PRIVATE rensga_pipeline rensga_editor_core rensga_core rensga_render_gl rensga_platform_sdl imgui imguizmo)
+target_link_libraries(rensga-editor PRIVATE rensga_pipeline rensga_editor_core rensga_core rensga_render_gl rensga_platform_sdl imgui imguizmo imnodes)
 rensga_link_whole_archive(rensga-editor PRIVATE rensga_target_psp)
 # Project scripts are NOT linked into the editor (F3.03): they build into <project>/Library/ScriptAssemblies and
 # load at runtime (editor/core game_module). The module links no engine code, so the editor exports the whole
@@ -34,7 +34,7 @@ rensga_host_target(rensga-editor)
 
 # --- F5 dock+debug begin ---
 # F5.23 docked Emulator panel (X11: XReparentWindow, Win32: SetParent, floating fallback) and F5.10 Profiler panel.
-target_sources(rensga-editor PRIVATE platform/x11_embed.cpp platform/win32_embed.cpp panels/emulator_view.cpp panels/profiler.cpp)
+target_sources(rensga-editor PRIVATE platform/x11_embed.cpp platform/win32_embed.cpp)
 if(NOT WIN32)
   find_package(PkgConfig QUIET)
   if(PkgConfig_FOUND)
@@ -59,5 +59,5 @@ set_tests_properties(editor_script_build_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEO
 
 # --- F5 B1 begin ---
 # F5.04 / F5.09: Window > Emulators, the "emulator missing" offer, Build and Run.
-target_sources(rensga-editor PRIVATE panels/emulator_manager.cpp)
+# (panels/emulator_manager.cpp is picked up by the panel glob above)
 # --- F5 B1 end ---

@@ -19,3 +19,7 @@ target_compile_definitions(rensga_editor_core PRIVATE RENSGA_SOURCE_DIR="${CMAKE
   RENSGA_CMAKE_COMMAND="${CMAKE_COMMAND}" RENSGA_SCRIPT_BUILD_TYPE="$<IF:$<BOOL:$<CONFIG>>,$<CONFIG>,Debug>")
 target_link_libraries(rensga_editor_core PUBLIC ${CMAKE_DL_LIBS})
 rensga_host_target(rensga_editor_core)
+
+# --- F6 E0 begin ---
+target_sources(rensga_editor_core PRIVATE src/project_settings.cpp src/prefab_format.cpp src/asset_stubs.cpp)  # F6 contract: settings schemas, prefab format, asset stubs
+# --- F6 E0 end ---

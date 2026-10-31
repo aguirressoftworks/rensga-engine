@@ -10,6 +10,7 @@
 #include <thread>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "modules.h"
 #include "rensga/editor/editor_log.h"
 #include "rensga/editor/modules_model.h"
@@ -568,6 +569,9 @@ bool emulatorHook(App& a, const std::string& act, const std::string& arg) {
   }
   return false;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(emulator_manager, "Emulators", drawEmulatorManager, emulatorHook, emulatorUiHolds, 40, 20, ::rensga::editor::PanelDraw::OverlayEditor)
 
 }  // namespace editor
 }  // namespace rensga

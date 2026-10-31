@@ -4,6 +4,7 @@
 #include <cfloat>
 
 #include "panels/asset_ui.h"
+#include "panels/drawers/component_inspector.h"
 #include "panels/drawers/drawers.h"
 #include "panels/tile_tools.h"
 
@@ -116,11 +117,12 @@ void tilemapButtons(App& a, const std::vector<ComponentRef>& refs) {
 
 }  // namespace
 
-void drawComponentExtras(App& a, const std::string& type, const std::vector<ComponentRef>& refs, bool multi) {
-  if (refs.empty()) return;
-  if (type == "SpriteRenderer") spritePicker(a, refs, multi);
-  else if (type == "Tilemap" && !multi) tilemapButtons(a, refs);
+// Registered through the component inspector registry (component_inspector.h); the old drawComponentExtras if-chain is gone.
+static void tilemapInspector(App& a, const std::vector<ComponentRef>& refs, bool multi) {
+  if (!multi) tilemapButtons(a, refs);
 }
+RENSGA_COMPONENT_INSPECTOR(sprite_renderer, "SpriteRenderer", spritePicker)
+RENSGA_COMPONENT_INSPECTOR(tilemap, "Tilemap", tilemapInspector)
 
 }  // namespace editor
 }  // namespace rensga

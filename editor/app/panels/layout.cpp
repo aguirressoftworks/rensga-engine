@@ -4,6 +4,7 @@
 #include <fstream>
 
 #include "app.h"
+#include "panel_registry.h"
 
 namespace rensga {
 namespace editor {
@@ -41,6 +42,9 @@ void drawDockSpaceAndLayout(App& a) {
     a.showHierarchy = a.showInspector = a.showConsole = a.showProject = a.showScene = a.showGame2 = true;
   }
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(dock_layout, "Dock space", drawDockSpaceAndLayout, nullptr, nullptr, 40, 0, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

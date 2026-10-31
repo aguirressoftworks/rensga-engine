@@ -4,6 +4,7 @@
 // over the panel. Where the platform cannot reparent (native Wayland) or RENSGA_EMBED=float is set, the emulator keeps its own
 // window and the panel only says so.
 #include <cstdio>
+#include "panel_registry.h"
 #include <cstdlib>
 #include <cstring>
 
@@ -168,6 +169,9 @@ bool dockUiHook(App& a, const std::string& act, const std::string& arg) {
   }
   return false;
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(emulator_view, "Emulator", drawEmulatorView, dockUiHook, nullptr, 80, 40, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

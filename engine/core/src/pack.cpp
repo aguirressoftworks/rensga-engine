@@ -7,6 +7,8 @@
 
 namespace rensga {
 
+static bool validateContent(const PackView& pk, const char* nm);  // F6 content sections, below
+
 bool PackView::open(const u8* data, size_t byteSize, const char* name) {
   *this = PackView();
   const char* nm = name ? name : "<memory>";
@@ -127,6 +129,7 @@ bool PackView::validateAssets(const char* nm) const {
     RLOG_ERROR("pack", "%s: CTG2 section is too small", nm);
     return false;
   }
+  if (!validateContent(*this, nm)) return false;
   if (lit && litCount != meshCount) {
     RLOG_ERROR("pack", "%s: MSHL has %u records but MESH has %u", nm, litCount, meshCount);
     return false;
@@ -169,6 +172,91 @@ bool PackView::validateAssets(const char* nm) const {
         }
     }
   }
+  return true;
+}
+
+PackContent PackView::content() const {
+  PackContent c;
+  if (!header) return c;
+  const PackSection* b = find(pack_section::BLOB);
+  if (b) {
+    c.blob = base + b->offset;
+    c.blobSize = b->size;
+  }
+  c.propClips = records<PackPropClip>(pack_section::PCLP, &c.propClipCount);
+  c.controllers = records<PackAnimController>(pack_section::ANIC, &c.controllerCount);
+  c.data = records<PackDataAsset>(pack_section::DATA, &c.dataCount);
+  c.resources = records<PackResource>(pack_section::RSRC, &c.resourceCount);
+  c.physics3d = records<PackPhysics3D>(pack_section::PHY3);
+  return c;
+}
+
+// F6 content sections: every table range must lie inside BLOB (and its section), so readers index without checks.
+static bool validateContent(const PackView& pk, const char* nm) {
+  const PackContent c = pk.content();
+  auto fits = [&](u64 off, u64 count, u64 each) { return count == 0 || (off + count * each <= c.blobSize && (off & 15) == 0); };
+  struct Need { u32 fourcc; u32 recordSize; };
+  const Need needs[] = {{pack_section::PCLP, sizeof(PackPropClip)}, {pack_section::ANIC, sizeof(PackAnimController)},
+                        {pack_section::DATA, sizeof(PackDataAsset)}, {pack_section::RSRC, sizeof(PackResource)},
+                        {pack_section::PHY3, sizeof(PackPhysics3D)}};
+  for (const Need& n : needs)
+    if (const PackSection* s = pk.find(n.fourcc); s && static_cast<u64>(s->count) * n.recordSize > s->size) {
+      RLOG_ERROR("pack", "%s: section %.4s is smaller than its record count", nm, reinterpret_cast<const char*>(&n.fourcc));
+      return false;
+    }
+  for (u32 i = 0; i < c.propClipCount; ++i) {
+    const PackPropClip& p = c.propClips[i];
+    if (p.fps == 0 || !fits(p.curvesOffset, p.curveCount, sizeof(PackPropCurve)) || !fits(p.eventsOffset, p.eventCount, sizeof(PackPropEvent))) {
+      RLOG_ERROR("pack", "%s: property clip %u has a bad fps or table range", nm, i);
+      return false;
+    }
+    for (u32 k = 0; k < p.curveCount; ++k)
+      if (!fits(c.curves(p)[k].keysOffset, c.curves(p)[k].keyCount, sizeof(PackPropKey))) {
+        RLOG_ERROR("pack", "%s: property clip %u curve %u has a bad key range", nm, i, k);
+        return false;
+      }
+  }
+  for (u32 i = 0; i < c.controllerCount; ++i) {
+    const PackAnimController& a = c.controllers[i];
+    if (!fits(a.paramsOffset, a.paramCount, sizeof(PackAnimParam)) || !fits(a.statesOffset, a.stateCount, sizeof(PackAnimState)) ||
+        !fits(a.transitionsOffset, a.transitionCount, sizeof(PackAnimTransition)) ||
+        !fits(a.conditionsOffset, a.conditionCount, sizeof(PackAnimCondition)) || (a.stateCount && a.defaultState >= a.stateCount) ||
+        a.anyFirst > a.transitionCount || a.anyCount > a.transitionCount - a.anyFirst) {
+      RLOG_ERROR("pack", "%s: animator controller %u has a bad table range", nm, i);
+      return false;
+    }
+    for (u32 q = 0; q < a.stateCount; ++q) {
+      const PackAnimState& st = c.states(a)[q];
+      if (st.firstTransition > a.transitionCount || st.transitionCount > a.transitionCount - st.firstTransition ||
+          (st.speedParam != kInvalidIndex && st.speedParam >= a.paramCount)) {
+        RLOG_ERROR("pack", "%s: animator controller %u state %u has a bad transition range", nm, i, q);
+        return false;
+      }
+    }
+    for (u32 q = 0; q < a.transitionCount; ++q) {
+      const PackAnimTransition& t = c.transitions(a)[q];
+      if (t.toState < 0 || static_cast<u32>(t.toState) >= a.stateCount || t.firstCondition > a.conditionCount ||
+          t.conditionCount > a.conditionCount - t.firstCondition) {
+        RLOG_ERROR("pack", "%s: animator controller %u transition %u has a bad target or condition range", nm, i, q);
+        return false;
+      }
+    }
+    for (u32 q = 0; q < a.conditionCount; ++q)
+      if (c.conditions(a)[q].param >= a.paramCount) {
+        RLOG_ERROR("pack", "%s: animator controller %u condition %u names a missing parameter", nm, i, q);
+        return false;
+      }
+  }
+  for (u32 i = 0; i < c.dataCount; ++i)
+    if (static_cast<u64>(c.data[i].blobOffset) + c.data[i].blobSize > c.blobSize) {
+      RLOG_ERROR("pack", "%s: data asset %u has a bad blob range", nm, i);
+      return false;
+    }
+  for (u32 i = 1; i < c.resourceCount; ++i)
+    if (c.resources[i].nameHash < c.resources[i - 1].nameHash) {
+      RLOG_ERROR("pack", "%s: RSRC is not sorted by name hash", nm);
+      return false;
+    }
   return true;
 }
 

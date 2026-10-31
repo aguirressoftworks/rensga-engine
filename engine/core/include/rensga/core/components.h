@@ -1,7 +1,9 @@
 // Built-in components. Registered through reflection like any script.
 // Physics (CharacterController::Move, trigger detection) lives in engine/api/src/physics.cpp.
 #pragma once
+#include "rensga/core/behaviour_events.h"
 #include "rensga/core/feature.h"
+#include "rensga/core/material_block.h"
 #include "rensga/core/object.h"
 
 namespace rensga {
@@ -18,7 +20,15 @@ struct MeshRenderer : Component {
   SERIALIZE_FIELD(Guid, material, Guid())
   // Runtime only (not reflected): index into the pack MESH table, set by the pack loader.
   u32 meshIndex = kInvalidIndex;
-  void OnCloned(const Component* source) override { meshIndex = static_cast<const MeshRenderer*>(source)->meshIndex; }
+  // F6 (B2): per-renderer color / texture override without duplicating the material. Runtime only; copied by Instantiate.
+  MaterialPropertyBlock propertyBlock_;
+  void SetPropertyBlock(const MaterialPropertyBlock& block) { propertyBlock_ = block; }
+  const MaterialPropertyBlock& GetPropertyBlock() const { return propertyBlock_; }
+  void ClearPropertyBlock() { propertyBlock_.Clear(); }
+  void OnCloned(const Component* source) override {
+    meshIndex = static_cast<const MeshRenderer*>(source)->meshIndex;
+    propertyBlock_ = static_cast<const MeshRenderer*>(source)->propertyBlock_;
+  }
 };
 
 struct BoxCollider : Component {
@@ -32,6 +42,9 @@ struct SphereCollider : Component {
   REFLECT(SphereCollider)
   SERIALIZE_FIELD(Scalar, radius, 0.5f)
   SERIALIZE_FIELD(bool, isTrigger, false)
+  // F6 (appended).
+  APPENDED_FIELDS()
+  SERIALIZE_FIELD(Vector3, center, Vector3(0, 0, 0))
 };
 
 struct CharacterController : Component {
@@ -53,6 +66,39 @@ struct Camera : Component {
   SERIALIZE_FIELD(Scalar, fov, 60.0f)
   SERIALIZE_FIELD(Scalar, nearClip, 0.3f)
   SERIALIZE_FIELD(Scalar, farClip, 200.0f)
+  // F6 (appended; Camera API, implemented by B2). A scene saved before F6 keeps rendering exactly as before: these defaults are
+  // the old behaviour (one perspective camera, full screen, solid clear color).
+  APPENDED_FIELDS()
+  SERIALIZE_FIELD(bool, orthographic, false)
+  TOOLTIP("Half of the vertical view size in world units (orthographic only).")
+  SERIALIZE_FIELD(Scalar, orthographicSize, 5.0f)
+  TOOLTIP("Normalized view rectangle on the screen: x, y from the bottom-left, width, height (Unity's Camera.rect).")
+  RANGE(0, 1)
+  SERIALIZE_FIELD(Scalar, viewportX, 0.0f)
+  RANGE(0, 1)
+  SERIALIZE_FIELD(Scalar, viewportY, 0.0f)
+  RANGE(0, 1)
+  SERIALIZE_FIELD(Scalar, viewportW, 1.0f)
+  RANGE(0, 1)
+  SERIALIZE_FIELD(Scalar, viewportH, 1.0f)
+  TOOLTIP("Cameras draw in increasing depth; the main camera is the enabled one with the lowest depth.")
+  SERIALIZE_FIELD(Scalar, depth, 0.0f)
+  SERIALIZE_ENUM(clearFlags, 1, "Skybox|SolidColor|DepthOnly|Nothing")
+  SERIALIZE_FIELD(Color32, backgroundColor, Color32(49, 77, 121, 255))
+  TOOLTIP("Bit n set = objects on layer n are drawn. -1 = every layer.")
+  SERIALIZE_FIELD(i32, cullingMask, -1)
+
+  // ---- Unity API (F6, defined in engine/api/src/render_api.cpp; stubs returning zeros until B2). Screen points are in the
+  // renderer's virtual pixels with the origin at the TOP-left (like the UI); z is the distance from the camera in world units.
+  // Viewport points are 0..1 with the origin at the BOTTOM-left of the camera's rect (Unity). Needs the camera's object to be
+  // in a World; a null result means "no main camera".
+  static Camera* main();  // the enabled, active Camera with the lowest depth (null if none)
+  Vector3 ScreenToWorldPoint(const Vector3& screenPoint) const;
+  Vector3 WorldToScreenPoint(const Vector3& worldPoint) const;
+  Ray ScreenPointToRay(const Vector2& screenPoint) const;
+  Vector3 WorldToViewportPoint(const Vector3& worldPoint) const;
+  Vector3 ViewportToWorldPoint(const Vector3& viewportPoint) const;
+  Ray ViewportPointToRay(const Vector2& viewportPoint) const;
 };
 
 // The cooker bakes this light into vertex colors; the runtime does not light at all.
@@ -74,11 +120,22 @@ struct AudioSource : Component {
   SERIALIZE_FIELD(bool, loop, false)
   // F5.17 (appended): Unity's priority, 0 = most important .. 255 = least; the mixer steals the least important voice first.
   SERIALIZE_FIELD(i32, priority, 128)
+  // F6 (appended; B1). playOnAwake is OFF by default, unlike Unity: a scene made before F6 has AudioSources that were started by
+  // scripts, and they must stay silent until played.
+  APPENDED_FIELDS()
+  TOOLTIP("Start playing when the object wakes up.")
+  SERIALIZE_FIELD(bool, playOnAwake, false)
+  SERIALIZE_FIELD(bool, mute, false)
+  TOOLTIP("The mixer group whose volume scales this source (AudioMixer::SetGroupVolume).")
+  SERIALIZE_ENUM(outputGroup, 0, "Master|Music|SFX")
   // Runtime only (not reflected): the mixer voice of the last Play().
   u32 voice = 0;
   void Play();                       // (re)starts the clip on this source
   void Stop();
   void PlayOneShot(const Guid& other, Scalar volumeScale = 1.0f);  // fire and forget; does not touch `voice`
+  // F6 (B1): fire and forget at a world position (pan and distance attenuation from the main camera); no AudioSource needed.
+  // Defined in engine/api/src/animation_api.cpp (stub: returns false, plays nothing, until B1).
+  static bool PlayClipAtPoint(const Guid& clip, const Vector3& position, Scalar volume = 1.0f);
   bool isPlaying() const;
 };
 
@@ -117,7 +174,14 @@ struct SkinnedMeshRenderer : Component {
   SERIALIZE_FIELD(Guid, material, Guid())
   // Runtime only (not reflected): index into the pack MESH / MSHL tables, set by the pack loader.
   u32 meshIndex = kInvalidIndex;
-  void OnCloned(const Component* source) override { meshIndex = static_cast<const SkinnedMeshRenderer*>(source)->meshIndex; }
+  MaterialPropertyBlock propertyBlock_;  // F6 (B2), see MeshRenderer
+  void SetPropertyBlock(const MaterialPropertyBlock& block) { propertyBlock_ = block; }
+  const MaterialPropertyBlock& GetPropertyBlock() const { return propertyBlock_; }
+  void ClearPropertyBlock() { propertyBlock_.Clear(); }
+  void OnCloned(const Component* source) override {
+    meshIndex = static_cast<const SkinnedMeshRenderer*>(source)->meshIndex;
+    propertyBlock_ = static_cast<const SkinnedMeshRenderer*>(source)->propertyBlock_;
+  }
 };
 
 // Unity's legacy Animation component: plays one skeletal clip (a CLP3 in the pack) on the SkinnedMeshRenderer of the same object.

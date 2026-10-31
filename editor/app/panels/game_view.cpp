@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "app.h"
+#include "panel_registry.h"
 #include "panels/preview_state.h"
 #include "rensga/editor/inspector_model.h"
 #include "rensga/core/gameplay.h"
@@ -404,6 +405,9 @@ void drawGameView(App& a) {
     dl->AddText(ImVec2(f1.x - ns.x, f1.y + 6), ImGui::GetColorU32(brandToken("muted")), note);
   ImGui::End();
 }
+
+// F6 E0: panel registry (editor/app/panel_registry.h).
+RENSGA_EDITOR_PANEL(game_view, "Game", drawGameView, nullptr, nullptr, 70, 0, ::rensga::editor::PanelDraw::Body)
 
 }  // namespace editor
 }  // namespace rensga

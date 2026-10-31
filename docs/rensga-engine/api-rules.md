@@ -65,3 +65,12 @@ Fixed in this phase: public headers have `#pragma once`; the umbrella header com
 - `Time::deltaTime` and friends are static variables, not getters (F2.08, API 3).
 - `Transform` exposes `localPosition`/`localRotation` as fields; only world-space values have getter/setter pairs (F2.07, API 2).
 - `ENGINE_PROFILE_*` gating macros (`RENSGA_REQUIRES_FEATURE`) and `RENSGA_API_VERSION_*` are specified here and land with the first profile-gated feature (F2.07, API 2).
+
+## 11. F6 contract (Stage 0)
+
+- **New reflected field types.** `String32` (31 characters), enums (`SERIALIZE_ENUM(name, default, "A|B|C")`, an `i32` whose labels are declared once and shown as a dropdown), `Vector2` and fixed-capacity arrays (`SERIALIZE_ARRAY(type, name, N)` with `i32`, `Scalar`, `Guid` or `Vector3` elements, `FixedArray<T, N>` in code: `count`, `items[]`, `Add`). `APPENDED_FIELDS()` marks fields added after a type shipped; the cooker trims them from the blob while they are default, so old scenes cook to the same bytes.
+- **Stubs are final signatures.** A declaration in `Rensga.h` whose behaviour has not landed yet returns a safe default (no hit, zero, an invalid handle, `false`) and says which Stage 1 to 3 task finishes it in a `TODO(<agent>)` comment next to the stub in `engine/api/src/*_api.cpp`. A stub never crashes and logs at most once.
+- **No profile gating was added.** Every F6 API exists on every profile with the same names; none is behind `RENSGA_REQUIRES_FEATURE`. The PSP has no missing F6 feature (no new rows in `profile_defaults.json`); gating arrives with a profile that lacks one (PSX in F9, where `float` and 3D physics scalars change).
+- **Collision callbacks.** `Behaviour::OnCollisionEnter / Stay / Exit (const Collision&)` and `OnTriggerStay (GameObject*)` for 3D, plus the `Collision2D` overloads of `OnCollisionEnter2D / Stay2D / Exit2D` and `OnTriggerStay2D`; the older `GameObject*` forms of the 2D callbacks stay and the engine calls both. Override the one you like.
+- **Allocation-free text.** `StrBuf<N>` and `Format(buf, size, "Score {0}", value)` (`rensga/core/text_format.h`) never allocate and print the same characters on every platform.
+- **Fixed-capacity helpers.** `ObjectPool<T, N>` and `GameObjectPool<N>` (`rensga/ObjectPool.h`), `PlayerPrefs` (64 keys), `SaveSystem` (8 slots), `AsyncOperation` (4 in flight).
