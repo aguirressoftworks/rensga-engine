@@ -1,6 +1,11 @@
+# Per-profile defaults (limits, features) are data: data/profile_defaults.json is embedded into the cooker core.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/data/profile_defaults.json")
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/data/profile_defaults.json" RENSGA_PROFILE_DEFAULTS_JSON)
+configure_file(data/profile_defaults.cpp.in "${CMAKE_CURRENT_BINARY_DIR}/profile_defaults.cpp" @ONLY)
+
 # Shared cooker core (host only: exceptions allowed).
 add_library(rensga_cooker_core STATIC
-  src/plugin_registry.cpp src/console_target.cpp src/primitives.cpp src/budget.cpp src/cook.cpp
+  "${CMAKE_CURRENT_BINARY_DIR}/profile_defaults.cpp" src/plugin_registry.cpp src/console_target.cpp src/primitives.cpp src/budget.cpp src/cook.cpp
   src/assets.cpp src/assets_cook.cpp src/import_settings.cpp src/default_font.cpp src/psp_format.cpp)
 target_include_directories(rensga_cooker_core PUBLIC include)
 target_link_libraries(rensga_cooker_core PUBLIC rensga_core rensga_reflect_json nlohmann_json::nlohmann_json

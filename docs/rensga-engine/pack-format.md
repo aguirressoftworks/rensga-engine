@@ -106,7 +106,7 @@ A vertex position is `offset + xyz * scale`. One offset and one scale cover the 
 
 ### PSP RAM ceiling
 
-`ConsoleTarget.json` `budgets.ramBytes` for the `psp` profile may not exceed 32 MiB, the RAM of a PSP-1000. The cook reports `budget exceeded ... above the psp device limit` and writes no pack. The limit is a table in `console_target.cpp` (`profileRamLimitBytes`) so another profile can add its own.
+`ConsoleTarget.json` `budgets.ramBytes` for the `psp` profile may not exceed 32 MiB, the RAM of a PSP-1000. The cook reports `budget exceeded ... above the psp device limit` and writes no pack. The limit is data: `limits.ramLimitBytes` of the profile in `tools/cooker/data/profile_defaults.json` (read by `profileRamLimitBytes`), which `ConsoleTarget.json` `"limits"` can override, so another profile adds its own without code.
 
 ### Target formats and import settings
 
@@ -120,7 +120,7 @@ A platform target (`rensga-cooker cook --target linux`) shares the project's con
 
 ### FDAT field blobs
 
-Each component's blob holds its type's reflected fields in declaration order, raw, with no padding between fields. Sizes: Scalar 4, I32 4, Bool 1, Vector3 12, Quaternion 16, Color32 4 (r, g, b, a), Guid 16, UnityEvent 180. `World::loadPack` rejects a blob whose size differs from the registered type's blob size (a cook/runtime mismatch). Blobs start 4-byte aligned inside FDAT.
+Each component's blob holds its type's reflected fields in declaration order, raw, with no padding between fields. Sizes: Scalar 4, I32 4, Bool 1, Vector3 12, Quaternion 16, Color32 4 (r, g, b, a), Guid 16, UnityEvent 180. `World::loadPack` rejects a blob **longer** than the registered type's blob size, or one that is shorter and does not end on a field boundary (a cook/runtime mismatch). F5: component fields are only ever appended, so a blob that ends exactly on a field boundary before the last fields (a pack or scene cooked before a field existed) is accepted and the missing trailing fields keep their defaults (`readBlob`). Blobs start 4-byte aligned inside FDAT.
 
 ### Scheduler limits and UnityEvent (F3.05)
 
@@ -130,9 +130,44 @@ FDAT field type 7, `UnityEvent` (180 B): `u32 count` (0 to 4) then four listener
 
 ### Cooker output order
 
-STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, MSHX (only with compact meshes), INPT, CTGT, CORO, SCNE, BLOB, TEXR, AUDI, TMAP, ANIM, FONT, PH2D (only when `ProjectSettings/Physics2D.json` exists). Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
+STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, MSHX (only with compact meshes), INPT, CTGT, CTG2, CORO, SCNE, BLOB, TEXR, AUDI, TMAP, ANIM, FONT, PH2D (only when `ProjectSettings/Physics2D.json` exists). Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
 | `SCNE` | `PackSceneRec` 32 B | F2.05 scene list in build-settings order: `Guid`, `nameStr` (file name without extension), `firstObject`, `objectCount`, reserved. OBJS, XFRM and COMP hold the objects of every scene, one contiguous block per scene; `objectIndex` and `parentIndex` stay global. A pack without SCNE is one scene. |
 | `PH2D` | `PackPhysics2D` 128 B | F2.05 2D layer collision matrix, one record, only when `ProjectSettings/Physics2D.json` exists (see "Layer collision matrix"). |
+
+## Lit and skinned meshes (F5, shared 3D)
+
+Version stays 2. Every section below is optional; a pack without them reads exactly as before, and `MESH`, `VERT`, `MSHX` and `CTGT` are byte-identical. Structs are in `pack_format.h` with `static_assert`s on their sizes.
+
+| FourCC | Record | Contents |
+|---|---|---|
+| `MSHL` | `PackMeshLit` 64 B, one per `MESH` record (same index) | `vertexFormat` (0 Baked = draw MESH/VERT as before; 2 LitF, 3 LitC16, 4 SkinF, 5 SkinC16), `vertexByteOffset` (into `VTX3`, multiple of 16), `vertexCount`, `material` (MATL index or `kInvalidIndex`), `skin` (SKIN index or `kInvalidIndex`), `firstBatch`, `batchCount` (into `BTCH`), `flags` (`kMeshWindingCCW` = 1, `kMeshNeedsNearClip` = 2), `boundsCenter[3]`, `boundsRadius` (mesh space), `decodeOffset[3]`, `decodeScale` (C16 only: position = offset + i16 x scale; scale is a power of two, one value for all axes). For a non-baked mesh `MESH.vertexCount` is **0**, so a renderer that does not know `MSHL` draws nothing. |
+| `VTX3` | raw bytes | Vertices of the non-baked meshes, triangle lists, each mesh starting on a 16-byte boundary. |
+| `BTCH` | `PackBoneBatch` 32 B | A skinned mesh is cut into runs of triangles that use at most 8 joints (GU weight *i* uses bone matrix *i*): `firstVertex`, `vertexCount` (mesh-relative, multiples of 3), `bones[8]` (SKIN joint index loaded into bone matrix *i*, `0xFF` = unused), `boneCount`, 3 reserved. |
+| `MATL` | `PackMaterial` 32 B | `Guid`, `texture` (TEXR index or `kInvalidIndex`), `colorABGR` (multiplies vertex color and texture), `flags` (`kMatUnlit` = 1: skip lighting; `kMatAlphaTest` = 2: discard alpha below 128), reserved. |
+| `SKIN` | `PackSkin` 32 B | `Guid`, `jointCount`, `jointsOffset` (BLOB, 16-byte aligned), 2 reserved. Joints are `PackJoint` 112 B: `i32 parent` (-1 root; parents come before children), `nameStr`, bind-pose local `t[3]`, `r[4]` (x y z w), `s[3]`, `invBind[16]` (inverse of the model-space bind matrix, column-major like `Matrix4`). |
+| `CLP3` | `PackClip3` 48 B | `Guid`, `nameStr`, `skin` (SKIN index), `frameCount`, `fps` (integer), `loop`, `dataOffset` (BLOB), 2 reserved. Poses are `PackJointPose` 32 B (`r[4]`, `t[3]`, uniform `s`) x `jointCount` per frame, frame-major, resampled by the cooker to `fps`. |
+| `CTG2` | `PackConsoleTargetExt` 32 B | `maxLightsPerObject`, `maxBonesPerDraw`, `maxSkinnedJoints`, `maxTextureSize`, `features` (bits `kTargetFeat*`: Lighting, Skinning, Fog, Osk, SaveDialog, Battery, CpuClock, TextureSwizzle), 3 reserved. 0 in a limit = not set (engine default: 4 lights on PSP, 8 elsewhere). Written by the cooker from `ConsoleTarget.json` `limits` and `features`. |
+
+**Vertex structs** (fields in GU order: weights, texture, color, normal, position):
+
+| Format | Struct | Bytes | GU vertex type |
+|---|---|---|---|
+| LitF | `PackVertexLit` `{float u, v; u32 color; float n[3]; float p[3]}` | 36 | `GU_TEXTURE_32BITF \| GU_COLOR_8888 \| GU_NORMAL_32BITF \| GU_VERTEX_32BITF` |
+| SkinF | `PackVertexSkin` `{u8 w[8]; <PackVertexLit fields>}` | 44 | `GU_WEIGHT_8BIT` + the above, `GU_WEIGHTS(8)` |
+| LitC16 | `PackVertexLitC16` `{u16 uv[2]; u32 color; i16 n[3]; i16 p[3]}` | 20 | `GU_TEXTURE_16BIT \| GU_COLOR_8888 \| GU_NORMAL_16BIT \| GU_VERTEX_16BIT` |
+| SkinC16 | `PackVertexSkinC16` `{u8 w[8]; u16 uv[2]; u32 color; i16 n[3]; i16 p[3]}` | 28 | `GU_WEIGHT_8BIT` + the above |
+
+Every size is a multiple of 4, the largest component alignment, so GU strides stay valid; there are no pad bytes. 16-bit UV = value / 32768 (range [0, 2), so a UV of 1.0 is representable), 16-bit normal = value / 32767, weight = value / 128 (the 8 weights of a vertex sum to 128), `color` is ABGR. `PackView::open` checks every range (VTX3 span, batch range, material, skin and joint indices, joint parents, clip pose range) and refuses a bad pack with a log line naming the mesh.
+
+**Runtime tables.** `PackAssets` gains `materials`, `skins`, `clips3` (with `findMaterial/findSkin/findClip3`, `skinJoints(skin)`, `clipPoses(clip)`); `PackView::consoleTargetExt()` returns CTG2. `MeshTable` (renderer input) gains `lit`, `vtx3`, `vtx3Size`, `batches`, `batchCount`. `MeshRenderer::material` (a Guid appended to the component) names a MATL record; a mesh with no material stays baked exactly as before.
+
+**Material asset (`*.mat.json`, `"format": 1`).** The cooker (agent A1) turns each into a MATL record:
+
+```json
+{ "format": 1, "texture": "<texture asset GUID or empty>", "color": [255, 255, 255, 255], "unlit": false, "alphaTest": false }
+```
+
+`texture` is an asset GUID (RULES 1.7), `color` is RGBA 0..255. Missing keys take the values shown. Until the material cook lands, the cooker accepts the new component types (`Light`, `RenderSettings`, `SkinnedMeshRenderer`, `Animation`) and the new `material` and `priority` fields like any other reflected data.
 
 ## Loading
 

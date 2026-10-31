@@ -1,6 +1,7 @@
 // MVP-20: per-console cooker format plugins. HOST ONLY. The shared cooker core loads scenes through
 // reflection; a plugin only turns generic data into the console's binary form.
 #pragma once
+#include <array>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -27,6 +28,16 @@ struct BakedLight {
   Scalar ambient = 0.35f;  // 0..1
 };
 
+// F5: input of a lit or skinned mesh (glTF import, after the skin split). One triangle list, 3 vertices per triangle.
+struct LitMesh {
+  std::vector<Vector3> positions;
+  std::vector<Vector3> normals;                // same size as positions
+  std::vector<float> uvs;                      // 2 floats per vertex (u, v; v down as stored in the image); empty = all zero
+  std::vector<Color32> colors;                 // optional vertex colors; empty = white
+  std::vector<std::array<uint8_t, 8>> weights; // skinned meshes: 8-bit weights per vertex, sum 128; slot i = the batch's bone i
+  bool skinned() const { return !weights.empty(); }
+};
+
 class ICookerFormatPlugin {
  public:
   virtual ~ICookerFormatPlugin() = default;
@@ -50,6 +61,14 @@ class ICookerFormatPlugin {
     (void)floatVertexBytes; (void)compactBytes; (void)ext; (void)error;
     return false;
   }
+  // F5: lit / skinned mesh vertex bytes for VTX3. The default writes the float forms (PackVertexLit / PackVertexSkin) and
+  // fills desc.vertexFormat (LitF or SkinF), desc.vertexCount and the bounds sphere; the caller sets material, skin, batches,
+  // flags and vertexByteOffset. A target plugin overrides it to write 16-bit forms (and sets decodeOffset / decodeScale).
+  virtual bool cookLitMesh(const LitMesh& mesh, std::vector<uint8_t>& outVertexBytes, PackMeshLit& desc, std::string& error);
+  // F5: decodes a cooked texture back to RGBA8 for the editor's preview (the form the target's renderer would sample:
+  // unswizzled, palette applied, 16-bit formats expanded). `blob` is the pack's BLOB section. The default handles every PackTexFormat
+  // and the swizzle flag; a plugin overrides it only for a format of its own. Output is the SOURCE size (width x height).
+  virtual bool decodeCookedTexture(const PackTexRec& rec, const uint8_t* blob, ImageRgba& out, std::string& error) const;
   // false for platform targets (linux, windows, android): they share the project's console profile
   // for meshes and only choose texture/audio forms. The mesh plugin is then found by profile id.
   virtual bool isProfile() const { return true; }

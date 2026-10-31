@@ -35,9 +35,21 @@ struct ConsoleTargetData {
   // F4.05: hard RAM ceiling of the profile's smallest supported device (psp: PSP-1000, 32 MiB); 0 = no ceiling. Set by
   // loadConsoleTarget from profileRamLimitBytes; validateBudgets refuses a ramBytes budget above it.
   uint64_t ramLimitBytes = 0;
+  // F5: per-object and per-draw limits (CTG2) and the feature set. Defaults per profile come from
+  // tools/cooker/data/profile_defaults.json; ConsoleTarget.json "limits" and "features" override them. 0 = no limit / not set.
+  uint32_t maxLightsPerObject = 0, maxBonesPerDraw = 0, maxSkinnedJoints = 0, maxTextureSize = 0;
+  std::vector<std::string> features;  // "lighting", "skinning", "fog", "osk", "saveDialog", "battery", "cpuClock", "textureSwizzle"
+  uint32_t featureBits() const;       // kTargetFeat* bits of `features`
+  bool hasFeature(const std::string& name) const;
 };
 
-// RAM of the smallest device a profile targets, in bytes (0 = unknown profile / no ceiling). Data table in console_target.cpp.
+// The CTG2 record for a target (the cooker writes it after CTGT).
+PackConsoleTargetExt makeConsoleTargetExt(const ConsoleTargetData& target);
+// Feature names accepted in "features", in bit order (bit 0 = "lighting").
+const std::vector<std::string>& consoleTargetFeatureNames();
+
+// RAM of the smallest device a profile targets, in bytes (0 = unknown profile / no ceiling). Read from the embedded
+// tools/cooker/data/profile_defaults.json.
 uint64_t profileRamLimitBytes(const std::string& profile);
 
 // Throws std::runtime_error with a message naming the file and field.
@@ -77,7 +89,7 @@ using CookSink = std::function<void(const CookMessage&)>;
 
 struct CookOptions {
   std::filesystem::path project;
-  std::string target = "psp";
+  std::string target;  // target id (a profile or a platform); empty = the project's profile from ConsoleTarget.json
   bool force = false;                     // ignore the content-hash cache
   std::filesystem::path genHeader;        // if set, console_target.gen.h is written here
   // F3.04 (play in editor): cook the open scene document instead of the file on disk, into a private output folder.

@@ -1,5 +1,7 @@
 #include "rensga/core/application.h"
 
+#include "rensga/core/system.h"
+
 namespace rensga {
 
 namespace {
@@ -42,6 +44,19 @@ const char* Application::platformName(RuntimePlatform p) {
     case RuntimePlatform::Headless: return "Headless";
   }
   return "?";
+}
+
+bool Application::SetCpuClock(i32 mhz) {
+  IPlatform* p = system_services::platform();
+  return p && p->setCpuClock(mhz);
+}
+SystemLanguage Application::systemLanguage() {
+  IPlatform* p = system_services::platform();
+  return p ? static_cast<SystemLanguage>(p->language()) : SystemLanguage::Unknown;
+}
+bool Application::confirmButtonEast() {
+  IPlatform* p = system_services::platform();
+  return p && p->confirmButtonEast();
 }
 
 void Application::reset() {

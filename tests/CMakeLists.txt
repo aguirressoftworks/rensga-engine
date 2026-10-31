@@ -30,3 +30,8 @@ if(RENSGA_REFLECT_PYTHON)
   add_test(NAME reflect_scan_codegen COMMAND "${RENSGA_REFLECT_PYTHON}" ${CMAKE_SOURCE_DIR}/tools/reflect/test_reflect_scan.py
            ${CMAKE_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/reflect_scan_tmp)
 endif()
+
+# F5.12: RENSGA_REQUIRES_FEATURE gives a compile error with a hint when the generated console_target.gen.h lacks the feature.
+if(RENSGA_TARGET STREQUAL "linux-host" AND TARGET rensga-cooker)
+  add_test(NAME feature_gate_check COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/core/feature_gate_check.sh ${CMAKE_CXX_COMPILER} $<TARGET_FILE:rensga-cooker> ${CMAKE_SOURCE_DIR})
+endif()

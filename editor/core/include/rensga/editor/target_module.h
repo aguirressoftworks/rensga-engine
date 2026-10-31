@@ -4,6 +4,7 @@
 #pragma once
 #include <atomic>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -30,12 +31,49 @@ struct BuildContext {
 };
 
 struct PreviewRules {  // viewport rules from the ConsoleTarget
+  PreviewRules() = default;
+  PreviewRules(int w, int h) : width(w), height(h) {}
   int width = 0;
   int height = 0;
+  // F5 (Editor 6): how the Game view imitates the device. Defaults draw it as before.
+  int colorBits = 32;               // 16 = the view quantizes to 16-bit color (5-6-5) (and dithers when `dither`)
+  bool dither = false;
+  int maxLightsPerObject = 0;       // 0 = no limit; N: the preview lights each object with its strongest N (the target says N)
+  std::filesystem::path deviceFrame;  // image drawn around the Game view (empty = none)
+  struct SafeArea { int left = 0, top = 0, right = 0, bottom = 0; } safeArea;  // pixels inset from each edge, 0 = none
+};
+
+// F5 (Editor 7): a field the target cannot use. The inspector greys it out and shows `reason`.
+struct FieldRule {
+  std::string component;  // type name, e.g. "Light"
+  std::string field;      // field name, e.g. "renderMode"
+  std::string reason;     // sentence shown to the user
 };
 
 struct InspectorRules {
   std::vector<std::string> allowedComponents;  // component type names; others are greyed out with a reason
+  std::vector<FieldRule> fieldRules;
+};
+
+// F5 (Editor 6): what the asset import tab offers for this target. Defaults come from the ConsoleTarget.
+struct ImportRules {
+  uint32_t maxTextureSize = 0;          // 0 = no limit; larger textures are downscaled at cook time
+  bool pow2Warn = false;                // warn when a texture is not a power of two
+  std::vector<int> clutDepths;          // offered palette depths in bits (4, 8); empty = none
+  std::vector<std::string> vertexPrecisions;  // "float", "16bit"; empty = float only
+  std::vector<int> audioRates;          // offered sample rates in Hz; empty = the target rate only
+};
+
+// F5: the build support module the target needs, and the emulator it runs in. Both are data for the UI; nothing here
+// starts a process.
+struct ToolchainInfo {
+  std::string moduleId;       // build support module id (e.g. the one `rensga modules install` takes); empty = none needed
+  bool installed = false;
+};
+struct EmulatorInfo {
+  std::filesystem::path path;  // emulator executable ("" = not found)
+  std::string version;
+  std::function<bool(const std::filesystem::path& projectRoot)> resetSandbox;  // wipes the project's emulator save area; null = unsupported
 };
 
 // F3.02 (Editor 3): the VRAM map. The editor lists what a target keeps in video memory (VramItem, from the ConsoleTarget
@@ -74,7 +112,10 @@ class TargetModule {
   // Rules are data: by default they come from the project's ConsoleTarget.json (F1.04). A module
   // overrides them only to add rules the file cannot express.
   virtual PreviewRules previewRules(const ConsoleTargetData& ct) const { return PreviewRules{static_cast<int>(ct.width), static_cast<int>(ct.height)}; }
-  virtual InspectorRules inspectorRules(const ConsoleTargetData& ct) const { return InspectorRules{ct.allowedComponents}; }
+  virtual InspectorRules inspectorRules(const ConsoleTargetData& ct) const { InspectorRules r; r.allowedComponents = ct.allowedComponents; return r; }
+  virtual ImportRules importRules(const ConsoleTargetData& ct) const { ImportRules r; r.maxTextureSize = ct.maxTextureSize; return r; }
+  virtual ToolchainInfo toolchain() const { return {}; }
+  virtual EmulatorInfo emulator() const { return {}; }
   // F3.02: where the items sit in video memory. The default is the generic linear layout.
   virtual VramLayout vramLayout(const ConsoleTargetData& ct, const std::vector<VramItem>& items) const { return linearVramLayout(ct, items); }
   virtual bool validate(const BuildContext& ctx, EventSink sink) = 0;

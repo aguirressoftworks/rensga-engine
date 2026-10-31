@@ -616,6 +616,13 @@ void World::sendContact(GameObject* self, GameObject* other, Contact kind) {
   }
 }
 
+void World::sendApplicationPause(bool paused) {
+  forEachBehaviour([&](ComponentPool& p, u32 slot, Behaviour* b) {
+    if (!(p.flags[slot] & kSlotStarted)) return;
+    b->OnApplicationPause(paused);
+  });
+}
+
 void World::sendUIClick(GameObject* self) {
   if (!self || self->dying) return;
   for (u32 i = 0; i < self->componentCount; ++i) {

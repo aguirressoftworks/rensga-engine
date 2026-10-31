@@ -89,6 +89,86 @@ bool PackView::validateAssets(const char* nm) const {
       return false;
     }
   }
+  // F5 shared 3D sections.
+  for (u32 i = 0; i < a.skinCount; ++i) {
+    const PackSkin& k = a.skins[i];
+    if (!fits(k.jointsOffset, k.jointCount * sizeof(PackJoint)) || (k.jointsOffset & 15)) {
+      RLOG_ERROR("pack", "%s: skin %u has a bad joint range", nm, i);
+      return false;
+    }
+    const PackJoint* j = a.skinJoints(k);
+    for (u32 q = 0; q < k.jointCount; ++q)
+      if (j[q].parent >= static_cast<i32>(q) || j[q].parent < -1) {
+        RLOG_ERROR("pack", "%s: skin %u joint %u has a parent that does not come before it", nm, i, q);
+        return false;
+      }
+  }
+  for (u32 i = 0; i < a.clip3Count; ++i) {
+    const PackClip3& c = a.clips3[i];
+    if (c.skin >= a.skinCount || c.fps == 0 || !fits(c.dataOffset, static_cast<u64>(c.frameCount) * a.skins[c.skin].jointCount * sizeof(PackJointPose)) ||
+        (c.dataOffset & 15)) {
+      RLOG_ERROR("pack", "%s: skeletal clip %u has a bad skin, fps or pose range", nm, i);
+      return false;
+    }
+  }
+  for (u32 i = 0; i < a.materialCount; ++i)
+    if (a.materials[i].texture != kInvalidIndex && a.materials[i].texture >= a.textureCount) {
+      RLOG_ERROR("pack", "%s: material %u names texture %u of %u", nm, i, a.materials[i].texture, a.textureCount);
+      return false;
+    }
+  u32 meshCount = 0, litCount = 0, batchCount = 0, vtx3Count = 0;
+  records<PackMeshRec>(pack_section::MESH, &meshCount);
+  const PackMeshLit* lit = records<PackMeshLit>(pack_section::MSHL, &litCount);
+  const PackBoneBatch* batches = records<PackBoneBatch>(pack_section::BTCH, &batchCount);
+  const PackSection* v3 = find(pack_section::VTX3);
+  (void)vtx3Count;
+  const u64 v3Size = v3 ? v3->size : 0;
+  if (const PackSection* ct = find(pack_section::CTG2); ct && ct->size < sizeof(PackConsoleTargetExt)) {
+    RLOG_ERROR("pack", "%s: CTG2 section is too small", nm);
+    return false;
+  }
+  if (lit && litCount != meshCount) {
+    RLOG_ERROR("pack", "%s: MSHL has %u records but MESH has %u", nm, litCount, meshCount);
+    return false;
+  }
+  for (u32 i = 0; lit && i < litCount; ++i) {
+    const PackMeshLit& m = lit[i];
+    if (m.isBaked()) continue;
+    const u32 stride = packVertexStride(m.vertexFormat);
+    if (!stride || (m.vertexByteOffset & 15) || m.vertexCount % 3 != 0 ||
+        static_cast<u64>(m.vertexByteOffset) + static_cast<u64>(m.vertexCount) * stride > v3Size) {
+      RLOG_ERROR("pack", "%s: mesh %u has a bad vertex format or VTX3 range", nm, i);
+      return false;
+    }
+    if (m.material != kInvalidIndex && m.material >= a.materialCount) {
+      RLOG_ERROR("pack", "%s: mesh %u names material %u of %u", nm, i, m.material, a.materialCount);
+      return false;
+    }
+    if (m.isSkinned() && m.skin >= a.skinCount) {
+      RLOG_ERROR("pack", "%s: skinned mesh %u has no valid skin", nm, i);
+      return false;
+    }
+    if (m.skin != kInvalidIndex && m.skin >= a.skinCount) {
+      RLOG_ERROR("pack", "%s: mesh %u names skin %u of %u", nm, i, m.skin, a.skinCount);
+      return false;
+    }
+    if (m.firstBatch > batchCount || m.batchCount > batchCount - m.firstBatch) {
+      RLOG_ERROR("pack", "%s: mesh %u has a bad batch range", nm, i);
+      return false;
+    }
+    for (u32 b = 0; b < m.batchCount; ++b) {
+      const PackBoneBatch& bb = batches[m.firstBatch + b];
+      if (bb.boneCount > kMaxBatchBones || bb.firstVertex > m.vertexCount || bb.vertexCount > m.vertexCount - bb.firstVertex) {
+        RLOG_ERROR("pack", "%s: mesh %u batch %u is out of range", nm, i, b);
+        return false;
+      }
+      for (u32 q = 0; q < bb.boneCount; ++q)
+        if (bb.bones[q] != kBatchBoneUnused && m.skin < a.skinCount && bb.bones[q] >= a.skins[m.skin].jointCount) {
+          RLOG_ERROR("pack", "%s: mesh %u batch %u names joint %u of %u", nm, i, b, bb.bones[q], a.skins[m.skin].jointCount);
+          return false;
+        }
+    }
+  }
   return true;
 }
 
@@ -105,6 +185,9 @@ PackAssets PackView::assets() const {
   a.tilemaps = records<PackTilemapRec>(pack_section::TMAP, &a.tilemapCount);
   a.anims = records<PackAnimRec>(pack_section::ANIM, &a.animCount);
   a.fonts = records<PackFontRec>(pack_section::FONT, &a.fontCount);
+  a.materials = records<PackMaterial>(pack_section::MATL, &a.materialCount);
+  a.skins = records<PackSkin>(pack_section::SKIN, &a.skinCount);
+  a.clips3 = records<PackClip3>(pack_section::CLP3, &a.clip3Count);
   return a;
 }
 
@@ -269,6 +352,7 @@ bool World::loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex) {
     if (meshes[i].objectIndex < first || meshes[i].objectIndex - first >= count) continue;
     GameObject* go = &objects_[map[meshes[i].objectIndex - first]];
     if (MeshRenderer* mr = getComponent<MeshRenderer>(go)) mr->meshIndex = i;
+    else if (SkinnedMeshRenderer* sr = getComponent<SkinnedMeshRenderer>(go)) sr->meshIndex = i;
   }
   if (ok) {  // UnityEvent targets are looked up by GUID at fire time; warn now about the ones that cannot resolve
     for (u32 i = 0; i < compCount; ++i) {
@@ -296,6 +380,10 @@ bool World::loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex) {
     out->meshes.vertices = verts;
     out->meshes.vertexCount = vertCount;
     out->meshes.ext = pack.records<PackMeshExt>(pack_section::MSHX);  // nullptr = float vertices (every pack today)
+    out->meshes.lit = pack.records<PackMeshLit>(pack_section::MSHL);  // nullptr = every mesh is baked
+    out->meshes.vtx3 = pack.section(pack_section::VTX3);
+    if (const PackSection* v3 = pack.find(pack_section::VTX3)) out->meshes.vtx3Size = v3->size;
+    out->meshes.batches = pack.records<PackBoneBatch>(pack_section::BTCH, &out->meshes.batchCount);
     out->inputs = inputs;
     out->inputCount = inputCount;
     out->hasTarget = ctgt != nullptr;

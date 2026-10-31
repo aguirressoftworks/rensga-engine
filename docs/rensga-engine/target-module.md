@@ -11,12 +11,19 @@ Header: `editor/core/include/rensga/editor/target_module.h`.
 | `id()` | Short id used by `--target <id>` and `ProjectSettings` (`psp`) |
 | `displayName()` | Name shown in the UI. Must be a generic product name, no Sony marks (RULES section 5) |
 | `cookerPlugin()` | `ICookerFormatPlugin`: turns generic meshes into the console's vertex bytes |
-| `previewRules(ConsoleTargetData)` | Game-tab resolution. Defaults to the project's ConsoleTarget.json resolution |
-| `inspectorRules(ConsoleTargetData)` | Allowed components. Defaults to ConsoleTarget.json `allowedComponents` |
+| `previewRules(ConsoleTargetData)` | Game-tab resolution. Defaults to the project's ConsoleTarget.json resolution. F5 adds `colorBits` (16 = quantize the preview to RGB565), `dither`, `maxLightsPerObject` (0 = no limit), `deviceFrame` (image path drawn around the view) and `safeArea` (pixel insets) |
+| `inspectorRules(ConsoleTargetData)` | Allowed components. Defaults to ConsoleTarget.json `allowedComponents`. F5 adds `fieldRules`: `{component, field, reason}` rows the inspector greys out and explains |
+| `importRules(ConsoleTargetData)` | F5: what the asset import tab offers: `maxTextureSize`, `pow2Warn`, `clutDepths`, `vertexPrecisions`, `audioRates`. Defaults from the ConsoleTarget limits |
+| `toolchain()` | F5: `ToolchainInfo {moduleId, installed}`: the build support module the target needs (Hub offers to install it) |
+| `emulator()` | F5: `EmulatorInfo {path, version, resetSandbox}`: the emulator executable, its version and a callback that wipes the project's emulator save area |
 | `validate`, `compile`, `package` | Pipeline stages run by `tools/pipeline` with a `BuildContext` |
 | `launcher()` | `EmulatorLauncher` used by Launch (separate process, never linked) |
 
-Review result (F1.04): the MVP module hard-coded 480x272 and the component list in C++. Both are now data read from `ProjectSettings/ConsoleTarget.json` (`consoleTargetFor(root)`, cached by mtime), so a module only overrides a rule the file cannot express. The only remaining console names in shared code are the default `--target psp` value in the cooker CLI and its plugin registration, both outside the checked directories and listed under F5.04 for removal.
+`ICookerFormatPlugin` (cooker side) gained in F5: `cookLitMesh(LitMesh, bytes, PackMeshLit&, error)` (default writes the float `PackVertexLit` / `PackVertexSkin` forms; a target overrides it for 16-bit vertices) and `decodeCookedTexture(PackTexRec, blob, ImageRgba&, error)` (decodes a cooked texture back to RGBA for the editor preview; the default handles every `PackTexFormat` including swizzled).
+
+`LaunchSpec` gained `headless`, `embed` (the editor will reparent the emulator window), `debugger`, `env` and `memstickDir`. `EmulatorLauncher` gained `pause()`, `resume()`, `step(n)` (all default to false = unsupported), `exitState()` (`Running`, `Exited`, `Crashed`, `Hung`), `nativeWindow()` (X11 id / HWND, 0 = none) and `saveLog(path)`. Every new member has a default, so `editor/targets/dummy` compiles unchanged.
+
+Review result (F1.04): the MVP module hard-coded 480x272 and the component list in C++. Both are now data read from `ProjectSettings/ConsoleTarget.json` (`consoleTargetFor(root)`, cached by mtime), so a module only overrides a rule the file cannot express. F5: the cooker CLI no longer defaults to `--target psp`; without `--target` it cooks for the profile named in the project's `ConsoleTarget.json`. The only console names left in shared code are plugin registrations, outside the checked directories.
 
 ## Adding a console
 

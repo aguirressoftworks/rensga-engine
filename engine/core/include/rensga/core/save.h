@@ -4,6 +4,7 @@
 // whose size or checksum does not match, so a torn write reads as "no save". No heap.
 #pragma once
 #include "rensga/core/backends.h"
+#include "rensga/core/feature.h"
 
 namespace rensga {
 
@@ -31,9 +32,16 @@ class FileSystemSaveStore : public ISaveStore {
   alignas(16) u8 scratch_[kMaxSave + 12];
 };
 
+// F5.15: where Save::SaveFile / LoadFile go. Auto = the save store (files). SystemDialog = the platform's own save dialog
+// when it has one (PSP: sceUtilitySavedata); a platform without one falls back to Auto.
+enum class SaveMode : u8 { Auto, SystemDialog };
+
 // The save store scripts use (Save::SaveFile ...). The runtime main installs one; null means "no saves".
 namespace Save {
 void use(ISaveStore* store);
+RENSGA_REQUIRES_FEATURE(SAVEDIALOG, "This profile has no system save dialog; keep the default Save::setMode(SaveMode::Auto).")
+void setMode(SaveMode mode);
+SaveMode mode();
 ISaveStore* current();
 bool SaveFile(const char* name, const void* bytes, u32 size);
 i32 LoadFile(const char* name, void* dst, u32 cap);

@@ -44,6 +44,14 @@ constexpr u32 FONT = makeFourCC('F', 'O', 'N', 'T');  // PackFontRec[count]
 constexpr u32 SCNE = makeFourCC('S', 'C', 'N', 'E');  // PackSceneRec[count], in build-settings order
 // F2.05: 2D layer collision matrix (ProjectSettings/Physics2D.json). Absent = every layer collides with every layer.
 constexpr u32 PH2D = makeFourCC('P', 'H', '2', 'D');  // PackPhysics2D (one record)
+// F5 shared 3D (all optional; a pack without them is read exactly as before). MESH, VERT, MSHX and CTGT are unchanged.
+constexpr u32 MSHL = makeFourCC('M', 'S', 'H', 'L');  // PackMeshLit[MESH.count], parallel to MESH
+constexpr u32 VTX3 = makeFourCC('V', 'T', 'X', '3');  // raw vertex bytes of lit / skinned meshes (each mesh 16-byte aligned)
+constexpr u32 BTCH = makeFourCC('B', 'T', 'C', 'H');  // PackBoneBatch[count]
+constexpr u32 MATL = makeFourCC('M', 'A', 'T', 'L');  // PackMaterial[count]
+constexpr u32 SKIN = makeFourCC('S', 'K', 'I', 'N');  // PackSkin[count]; joints live in BLOB
+constexpr u32 CLP3 = makeFourCC('C', 'L', 'P', '3');  // PackClip3[count]; poses live in BLOB
+constexpr u32 CTG2 = makeFourCC('C', 'T', 'G', '2');  // PackConsoleTargetExt (one record)
 }  // namespace pack_section
 
 struct PackHeader {
@@ -345,6 +353,162 @@ struct PackSceneRec {
 };
 static_assert(sizeof(PackSceneRec) == 32, "PackSceneRec is 32 bytes");
 
+
+// ---- F5 shared 3D records (spec: docs/rensga-engine/pack-format.md, "Lit and skinned meshes"). ----
+
+// MSHL: one record per MESH entry, same index. vertexFormat 0 (Baked) means "draw MESH/VERT as before" and the other
+// fields are ignored. For every other format MESH.vertexCount is 0 (an old renderer draws nothing) and the vertices
+// are in VTX3 at vertexByteOffset. Meshes of a non-baked format are triangle lists.
+enum class PackVertexFormat : u32 { Baked = 0, LitF = 2, LitC16 = 3, SkinF = 4, SkinC16 = 5 };  // 1 is reserved
+constexpr u32 kMeshWindingCCW = 1u << 0;       // triangles are counter-clockwise (the default 0 = clockwise as the GU wants)
+constexpr u32 kMeshNeedsNearClip = 1u << 1;    // big mesh: the PSP renderer clips against the near plane on the CPU
+struct PackMeshLit {
+  u32 vertexFormat;      // PackVertexFormat
+  u32 vertexByteOffset;  // into VTX3, multiple of 16
+  u32 vertexCount;       // vertices of the mesh (multiple of 3)
+  u32 material;          // MATL index or kInvalidIndex
+  u32 skin;              // SKIN index or kInvalidIndex (Skin* formats need one)
+  u32 firstBatch;        // into BTCH (Skin* formats; 0 batches = the whole mesh is one batch with bones 0..7)
+  u32 batchCount;
+  u32 flags;             // kMesh*
+  float boundsCenter[3];  // mesh space
+  float boundsRadius;
+  float decodeOffset[3];  // C16 only: position = decodeOffset + i16 * decodeScale (a power of two, uniform)
+  float decodeScale;
+  bool isBaked() const { return vertexFormat == 0; }
+  bool isSkinned() const { return vertexFormat == 4 || vertexFormat == 5; }
+  bool isC16() const { return vertexFormat == 3 || vertexFormat == 5; }
+};
+static_assert(sizeof(PackMeshLit) == 64, "PackMeshLit is 64 bytes");
+
+// VTX3 vertex structs, fields in GU order (weights, texture, color, normal, position) so each is one GU vertex type:
+//   Lit    GU_TEXTURE_32BITF | GU_COLOR_8888 | GU_NORMAL_32BITF | GU_VERTEX_32BITF
+//   Skin   GU_WEIGHT_8BIT | the same, with GU_WEIGHTS(8)
+//   LitC16 GU_TEXTURE_16BIT | GU_COLOR_8888 | GU_NORMAL_16BIT | GU_VERTEX_16BIT
+//   SkinC16 GU_WEIGHT_8BIT | the C16 fields
+// Sizes: 36, 44, 20, 28 bytes. Each is a multiple of 4 (the largest component alignment), so GU strides stay valid.
+// 16-bit texture coordinates are value / 32768 (u, v in [0, 2) so a UV of exactly 1 still fits); 16-bit normals are
+// value / 32767; 8-bit weights are value / 128 and the 8 weights of a vertex sum to 128. u32 color is ABGR.
+struct PackVertexLit {
+  float u, v;
+  u32 color;
+  float n[3];
+  float p[3];
+};
+static_assert(sizeof(PackVertexLit) == 36, "PackVertexLit is 36 bytes");
+struct PackVertexSkin {
+  u8 w[8];
+  float u, v;
+  u32 color;
+  float n[3];
+  float p[3];
+};
+static_assert(sizeof(PackVertexSkin) == 44, "PackVertexSkin is 44 bytes");
+struct PackVertexLitC16 {
+  u16 uv[2];
+  u32 color;
+  i16 n[3];
+  i16 p[3];
+};
+static_assert(sizeof(PackVertexLitC16) == 20, "PackVertexLitC16 is 20 bytes");
+struct PackVertexSkinC16 {
+  u8 w[8];
+  u16 uv[2];
+  u32 color;
+  i16 n[3];
+  i16 p[3];
+};
+static_assert(sizeof(PackVertexSkinC16) == 28, "PackVertexSkinC16 is 28 bytes");
+inline u32 packVertexStride(u32 format) {
+  switch (format) {
+    case 2: return sizeof(PackVertexLit);
+    case 3: return sizeof(PackVertexLitC16);
+    case 4: return sizeof(PackVertexSkin);
+    case 5: return sizeof(PackVertexSkinC16);
+    default: return 0;
+  }
+}
+
+// BTCH: a skinned mesh is split into runs of triangles that use at most 8 joints (GU weight i uses bone matrix i).
+// firstVertex / vertexCount are vertex indices RELATIVE TO THE MESH (multiples of 3 so triangles stay whole).
+// bones[i] is the SKIN joint index loaded into GU bone matrix i; 0xFF = unused slot. Vertex weight slot i refers to bones[i].
+constexpr u32 kMaxBatchBones = 8;
+constexpr u8 kBatchBoneUnused = 0xFF;
+struct PackBoneBatch {
+  u32 firstVertex;
+  u32 vertexCount;
+  u8 bones[8];
+  u32 boneCount;
+  u32 reserved[3];
+};
+static_assert(sizeof(PackBoneBatch) == 32, "PackBoneBatch is 32 bytes");
+
+// MATL: a Material (.mat.json). texture is a TEXR index (kInvalidIndex = untextured). colorABGR multiplies the vertex
+// color and texture. kMatUnlit skips lighting (vertex color x texture x color only); kMatAlphaTest discards alpha < 128.
+constexpr u32 kMatUnlit = 1u << 0, kMatAlphaTest = 1u << 1;
+struct PackMaterial {
+  Guid guid;
+  u32 texture;
+  u32 colorABGR;
+  u32 flags;
+  u32 reserved;
+};
+static_assert(sizeof(PackMaterial) == 32, "PackMaterial is 32 bytes");
+
+// SKIN: jointCount PackJoint records at jointsOffset in BLOB, parents before children (parent -1 = root). The joint
+// transform is the bind-pose LOCAL TRS; invBind is the inverse of the joint's bind-pose model-space matrix
+// (column-major, the same layout as Matrix4).
+struct PackSkin {
+  Guid guid;
+  u32 jointCount;
+  u32 jointsOffset;
+  u32 reserved[2];
+};
+static_assert(sizeof(PackSkin) == 32, "PackSkin is 32 bytes");
+struct PackJoint {
+  i32 parent;
+  u32 nameStr;  // byte offset in STRS
+  float t[3];
+  float r[4];  // x y z w
+  float s[3];
+  float invBind[16];
+};
+static_assert(sizeof(PackJoint) == 112, "PackJoint is 112 bytes");
+
+// CLP3: a skeletal clip resampled by the cooker to `fps` (integer) frames per second. dataOffset points at
+// PackJointPose[frameCount * jointCount] in BLOB (frame-major). Time is an integer tick count on the fixed step.
+struct PackClip3 {
+  Guid guid;
+  u32 nameStr;
+  u32 skin;  // SKIN index
+  u32 frameCount;
+  u32 fps;
+  u32 loop;  // 0 or 1
+  u32 dataOffset;
+  u32 reserved[2];
+};
+static_assert(sizeof(PackClip3) == 48, "PackClip3 is 48 bytes");
+struct PackJointPose {
+  float r[4];  // x y z w
+  float t[3];
+  float s;     // uniform scale
+};
+static_assert(sizeof(PackJointPose) == 32, "PackJointPose is 32 bytes");
+
+// CTG2: ConsoleTarget extension (CTGT stays byte-identical). Zero fields mean "not set, use the engine default".
+constexpr u32 kTargetFeatLighting = 1u << 0, kTargetFeatSkinning = 1u << 1, kTargetFeatFog = 1u << 2, kTargetFeatOsk = 1u << 3,
+              kTargetFeatSaveDialog = 1u << 4, kTargetFeatBattery = 1u << 5, kTargetFeatCpuClock = 1u << 6,
+              kTargetFeatTextureSwizzle = 1u << 7;
+struct PackConsoleTargetExt {
+  u32 maxLightsPerObject;  // PSP 4 (GU hardware lights), 0 = default
+  u32 maxBonesPerDraw;     // PSP 8
+  u32 maxSkinnedJoints;    // joints of one skeleton the palette pool holds
+  u32 maxTextureSize;      // PSP 512
+  u32 features;            // kTargetFeat* bits
+  u32 reserved[3];
+};
+static_assert(sizeof(PackConsoleTargetExt) == 32, "PackConsoleTargetExt is 32 bytes");
+
 // Typed pointers into a v2 pack's asset sections. Valid while the pack memory lives.
 struct PackAssets {
   const u8* blob = nullptr;
@@ -359,6 +523,13 @@ struct PackAssets {
   u32 animCount = 0;
   const PackFontRec* fonts = nullptr;
   u32 fontCount = 0;
+  // F5 shared 3D tables (empty without the sections).
+  const PackMaterial* materials = nullptr;
+  u32 materialCount = 0;
+  const PackSkin* skins = nullptr;
+  u32 skinCount = 0;
+  const PackClip3* clips3 = nullptr;
+  u32 clip3Count = 0;
 
   const PackTexRec* findTexture(const Guid& g) const {
     for (u32 i = 0; i < textureCount; ++i) if (textures[i].guid == g) return &textures[i];
@@ -380,6 +551,20 @@ struct PackAssets {
     for (u32 i = 0; i < fontCount; ++i) if (fonts[i].guid == g) return &fonts[i];
     return nullptr;
   }
+  const PackClip3* findClip3(const Guid& g) const {
+    for (u32 i = 0; i < clip3Count; ++i) if (clips3[i].guid == g) return &clips3[i];
+    return nullptr;
+  }
+  const PackMaterial* findMaterial(const Guid& g) const {
+    for (u32 i = 0; i < materialCount; ++i) if (materials[i].guid == g) return &materials[i];
+    return nullptr;
+  }
+  const PackSkin* findSkin(const Guid& g) const {
+    for (u32 i = 0; i < skinCount; ++i) if (skins[i].guid == g) return &skins[i];
+    return nullptr;
+  }
+  const PackJoint* skinJoints(const PackSkin& k) const { return reinterpret_cast<const PackJoint*>(blob + k.jointsOffset); }
+  const PackJointPose* clipPoses(const PackClip3& c) const { return reinterpret_cast<const PackJointPose*>(blob + c.dataOffset); }
   // Payload accessors (offsets are into BLOB).
   const u8* texturePixels(const PackTexRec& t) const { return blob + t.pixelOffset; }
   const u32* texturePalette(const PackTexRec& t) const {
@@ -410,6 +595,8 @@ struct PackView {
     if (count) *count = s ? s->count : 0;
     return s ? reinterpret_cast<const T*>(base + s->offset) : nullptr;
   }
+  // F5: the CTG2 record, nullptr when absent (packs cooked before F5).
+  const PackConsoleTargetExt* consoleTargetExt() const { return records<PackConsoleTargetExt>(pack_section::CTG2); }
   const char* string(u32 byteOffset) const;  // from STRS, "" if out of range
   const char* stringByIndex(u32 index) const;  // n-th string of STRS (0 is ""), "" if out of range
   // v2 asset tables (all empty for a v1 pack or a pack without assets).

@@ -120,7 +120,10 @@ class TypeRegistry {
 u32 blobSize(const TypeInfo& t);
 // Writes `obj`'s fields in declaration order. `out` must hold blobSize(t) bytes.
 void writeBlob(const TypeInfo& t, const void* obj, u8* out);
-// Reads fields into `obj`. Returns false (object untouched) if size != blobSize(t).
+// Reads fields into `obj`. F5: a blob SHORTER than blobSize(t) is accepted when it ends exactly on a field boundary; the
+// missing trailing fields keep the values already in `obj` (their defaults). Component fields are only ever appended, so
+// packs and scenes cooked before a field existed still load. A longer blob, or a cut inside a field, returns false (object
+// untouched).
 bool readBlob(const TypeInfo& t, void* obj, const u8* blob, u32 size);
 // True if both objects have equal reflected field values.
 bool fieldsEqual(const TypeInfo& t, const void* a, const void* b);

@@ -8,6 +8,9 @@
 //   F2.05 gameplay: SpriteRenderer, SpriteAnimator, Tilemap, TilemapCollider2D, BoxCollider2D (Move), UIText,
 //   UIImage, UIButton (OnUIClick), Camera2D, Physics2D::IgnoreLayerCollision, DontDestroyOnLoad (Object.h),
 //   SceneManager::LoadScene, Save::SaveFile / LoadFile / SaveInt / LoadInt.
+//   F5: Light, RenderSettings, SkinnedMeshRenderer, Animation, MeshRenderer.material, Behaviour::OnApplicationPause,
+//   Application::SetCpuClock / systemLanguage / confirmButtonEast, TouchScreenKeyboard, SystemInfo, Save::setMode,
+//   RENSGA_REQUIRES_FEATURE (feature.h).
 //   F4: Rigidbody2D (bodyType, gravityScale, velocityX / velocityY).
 //   F3.05 events: StartCoroutine(Wait(1).Then(f)) / step functions, Invoke / InvokeRepeating, Event<Args>, UnityEvent, METHOD(Name).
 #pragma once
@@ -26,6 +29,7 @@
 #include "rensga/core/reflect.h"
 #include "rensga/core/rigidbody2d.h"
 #include "rensga/core/save.h"
+#include "rensga/core/system.h"
 #include "rensga/core/scene_manager.h"
 #include "rensga/core/time.h"
 #include "rensga/core/unity_event.h"

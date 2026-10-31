@@ -4,12 +4,14 @@
 #include <string.h>
 
 #include "rensga/core/log.h"
+#include "rensga/core/system.h"
 
 namespace rensga {
 
 namespace {
 constexpr u32 kMagic = 0x56415352u;  // 'R','S','A','V' little-endian
 ISaveStore* g_store = nullptr;
+SaveMode g_mode = SaveMode::Auto;
 
 void put32(u8* p, u32 v) { p[0] = static_cast<u8>(v); p[1] = static_cast<u8>(v >> 8); p[2] = static_cast<u8>(v >> 16); p[3] = static_cast<u8>(v >> 24); }
 u32 get32(const u8* p) { return p[0] | (p[1] << 8) | (p[2] << 16) | (static_cast<u32>(p[3]) << 24); }
@@ -77,8 +79,26 @@ bool FileSystemSaveStore::Exists(const char* name) {
 
 void Save::use(ISaveStore* store) { g_store = store; }
 ISaveStore* Save::current() { return g_store; }
-bool Save::SaveFile(const char* name, const void* bytes, u32 size) { return g_store && g_store->SaveFile(name, bytes, size); }
-i32 Save::LoadFile(const char* name, void* dst, u32 cap) { return g_store ? g_store->LoadFile(name, dst, cap) : -1; }
+void Save::setMode(SaveMode mode) { g_mode = mode; }
+SaveMode Save::mode() { return g_mode; }
+bool Save::SaveFile(const char* name, const void* bytes, u32 size) {
+  if (g_mode == SaveMode::SystemDialog) {
+    if (IPlatform* p = system_services::platform()) {
+      const i32 r = p->saveDialog(name, const_cast<void*>(bytes), size, false);
+      if (r >= 0) return r > 0;  // -1 = no dialog here: fall back to the store
+    }
+  }
+  return g_store && g_store->SaveFile(name, bytes, size);
+}
+i32 Save::LoadFile(const char* name, void* dst, u32 cap) {
+  if (g_mode == SaveMode::SystemDialog) {
+    if (IPlatform* p = system_services::platform()) {
+      const i32 r = p->saveDialog(name, dst, cap, true);
+      if (r >= 0) return r > 0 ? r : -1;
+    }
+  }
+  return g_store ? g_store->LoadFile(name, dst, cap) : -1;
+}
 bool Save::Exists(const char* name) { return g_store && g_store->Exists(name); }
 bool Save::SaveInt(const char* name, i32 value) {
   u8 b[4];

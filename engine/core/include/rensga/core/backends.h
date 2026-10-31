@@ -38,6 +38,33 @@ class IPlatform {
   // replaces the previous one and (0, 0) stops it. Input only calls this on targets whose ConsoleTarget says
   // "rumble": true. `seconds` is how long Input will keep the effect (SDL uses it; others wait for the (0, 0) call).
   virtual void setVibration(Scalar low, Scalar high, Scalar seconds) { (void)low; (void)high; (void)seconds; }
+
+  // ---- F5 platform seams. Every default means "this platform has no such thing".
+  // Sets the CPU clock in MHz (PSP: 222 or 333 -> scePowerSetClockFrequency). False when unsupported or refused.
+  virtual bool setCpuClock(i32 /*mhz*/) { return false; }
+  // The system language as the SystemLanguage enum value (application.h); 0xFFFFFFFF = unknown, treated as English.
+  virtual u32 language() { return 0xFFFFFFFFu; }
+  // confirm button: true when the system's confirm button is the east face button (PSP in Japan: circle).
+  virtual bool confirmButtonEast() { return false; }
+  // Battery: percent 0..100 or -1 unknown; status 0 unknown, 1 charging, 2 discharging, 3 not charging, 4 full.
+  virtual i32 batteryPercent() { return -1; }
+  virtual i32 batteryStatus() { return 0; }
+  // Suspend / resume / Home: returns the number of pending transitions since the last call, one per call, as
+  // +1 = paused (suspend or Home popup opened), -1 = resumed, 0 = none. The loop turns them into OnApplicationPause.
+  virtual i32 suspendState() { return 0; }
+  // System text input (OSK). beginTextInput starts the dialog (false = unsupported); pollTextInput returns
+  // 0 running, 1 done (text copied to out, UTF-8, NUL terminated), 2 cancelled, 3 unsupported / failed.
+  virtual bool beginTextInput(const char* /*initial*/, const char* /*title*/, u32 /*maxLen*/) { return false; }
+  virtual i32 pollTextInput(char* /*out*/, u32 /*outSize*/) { return 3; }
+  // Memory use: bytes of system RAM / video RAM in total and in use (0 = unknown).
+  virtual u64 systemMemoryBytes() { return 0; }
+  virtual u64 graphicsMemoryBytes() { return 0; }
+  virtual u64 usedSystemMemoryBytes() { return 0; }
+  virtual u64 usedGraphicsMemoryBytes() { return 0; }
+  // Save dialog (sceUtilitySavedata). slot is the save name; save: `data` holds `bytes` to write; load: `data` is a buffer of
+  // `bytes` capacity to fill. Returns -1 = no dialog on this platform (the engine falls back to the save file store),
+  // 0 = cancelled or failed, > 0 = bytes saved or loaded. May block (the platform draws its own frames meanwhile).
+  virtual i32 saveDialog(const char* /*slot*/, void* /*data*/, u32 /*bytes*/, bool /*load*/) { return -1; }
 };
 
 // Meshes are cooked vertex bytes (pack VERT section) described by MeshRec entries.
@@ -50,6 +77,38 @@ struct MeshTable {
   // with format kMeshFormatCompact16, `vertices` actually points at PackVertexCompact[vertexCount] (cast by the
   // PSP renderer; every other renderer never sees a pack with MSHX because only the psp-target cook emits it).
   const PackMeshExt* ext = nullptr;
+  // F5: optional lit / skinned meshes (pack MSHL, VTX3, BTCH). lit == nullptr means every mesh is baked. lit[i] is parallel
+  // to meshes[i]; a non-baked mesh has meshes[i].vertexCount == 0 and its vertices at vtx3 + lit[i].vertexByteOffset.
+  const PackMeshLit* lit = nullptr;
+  const u8* vtx3 = nullptr;  // 16-byte aligned, lives in the pack
+  u32 vtx3Size = 0;
+  const PackBoneBatch* batches = nullptr;
+  u32 batchCount = 0;
+};
+
+// F5: one light for the frame. type 0 = directional (`vec` is the direction the light TRAVELS, world space, normalized),
+// 1 = point (`vec` is the world position, `range` the distance where it reaches 0).
+struct RenderLight {
+  u8 type = 0;
+  Color32 color = Color32(255, 255, 255, 255);
+  Scalar intensity = 1;
+  Scalar range = 0;
+  Vector3 vec = Vector3(0, -1, 0);
+};
+constexpr u32 kMaxFrameLights = 32;
+constexpr u32 kMaxDrawLights = 8;
+// F5: per-draw state of drawMeshEx. `lights` holds indices into the array given to setFrameLights, strongest first;
+// `lightCount` is at most the target's maxLightsPerObject (PSP 4). `palette` is paletteCount skin matrices
+// (joint model-space matrix x inverse bind, indexed by SKIN joint) for skinned meshes, null otherwise.
+// `texture` 0 = untextured; `matColor` multiplies vertex color; `matFlags` is kMat* from the MATL record.
+struct DrawParams {
+  u32 texture = 0;
+  Color32 matColor = Color32(255, 255, 255, 255);
+  u32 matFlags = 0;
+  u8 lightCount = 0;
+  u8 lights[8] = {};
+  const Matrix4* palette = nullptr;
+  u32 paletteCount = 0;
 };
 
 // Pixel formats of TextureDesc (contract 4, Engine 2).
@@ -101,6 +160,16 @@ class IRenderer {
                         Color32 /*color*/, u32 /*sortKey*/) {}
   // Size of the 2D coordinate space; the GL renderer letterboxes it into the window.
   virtual void setVirtualResolution(u32 /*w*/, u32 /*h*/) {}
+
+  // ---- F5 shared 3D. Defaults keep renderers without lighting (GS, Null) compiling untouched.
+  // Replaces the frame's lights (call after beginFrame, before the draws). `ambient` is added to every lit surface.
+  virtual void setFrameLights(const RenderLight* /*lights*/, u32 /*count*/, Color32 /*ambient*/) {}
+  // Linear distance fog from `start` to `end` (view-space distance); on == false turns it off.
+  virtual void setFog(bool /*on*/, Color32 /*color*/, Scalar /*start*/, Scalar /*end*/) {}
+  // Draws lit / textured / skinned meshes. Baked meshes with default params behave exactly like drawMesh.
+  virtual void drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, const DrawParams& /*params*/) {
+    drawMesh(meshIndex, world, sortKey);
+  }
 };
 
 class AudioMixer;
@@ -160,6 +229,18 @@ class NullRenderer : public IRenderer {
   void beginFrame(Color32) override { ++frames; draws = 0; overlays = 0; }
   void setCamera(const Matrix4& v, const Matrix4& p) override { view = v; proj = p; cameraSet = true; }
   void drawMesh(u32, const Matrix4&, u32) override { ++draws; ++totalDraws; }
+  void setFrameLights(const RenderLight* l, u32 n, Color32 amb) override {
+    lightCount = n > kMaxFrameLights ? kMaxFrameLights : n;
+    for (u32 i = 0; i < lightCount; ++i) lights[i] = l[i];
+    ambient = amb;
+  }
+  void setFog(bool on, Color32 c, Scalar s, Scalar e) override { fogOn = on; fogColor = c; fogStart = s; fogEnd = e; }
+  void drawMeshEx(u32 mesh, const Matrix4& w, u32 key, const DrawParams& p) override {
+    drawMesh(mesh, w, key);
+    ++exDraws;
+    lastParams = p;
+    lastExMesh = mesh;
+  }
   void drawOverlayQuad(i32, i32, i32, i32, Color32) override { ++overlays; }
   void endFrame() override {}
   u32 width() const override { return w_; }
@@ -168,6 +249,14 @@ class NullRenderer : public IRenderer {
   Matrix4 view, proj;
   bool cameraSet = false;
   u32 frames = 0, draws = 0, overlays = 0, totalDraws = 0;
+  // F5: what drawMeshEx / setFrameLights / setFog received (draws also counts drawMeshEx calls).
+  u32 exDraws = 0, lastExMesh = 0xFFFFFFFFu, lightCount = 0;
+  DrawParams lastParams;
+  RenderLight lights[kMaxFrameLights];
+  Color32 ambient = Color32(0, 0, 0, 255);
+  bool fogOn = false;
+  Color32 fogColor = Color32(0, 0, 0, 255);
+  Scalar fogStart = 0, fogEnd = 0;
 
  private:
   u32 w_ = 0, h_ = 0;

@@ -161,9 +161,22 @@ void writeBlob(const TypeInfo& t, const void* obj, u8* out) {
 }
 
 bool readBlob(const TypeInfo& t, void* obj, const u8* blob, u32 size) {
-  if (size != blobSize(t)) return false;
+  // F5: fields are only ever appended, so a blob cooked before a field existed is shorter. It is accepted when it
+  // ends exactly on a field boundary; the missing trailing fields keep the values already in `obj` (their defaults).
+  u32 full = blobSize(t);
+  if (size > full) return false;
+  if (size < full) {
+    u32 acc = 0;
+    bool boundary = size == 0;
+    for (u32 i = 0; i < t.fieldCount && acc < size; ++i) {
+      acc += fieldBlobSize(t.fields[i].type);
+      if (acc == size) boundary = true;
+    }
+    if (!boundary) return false;
+  }
   u8* base = static_cast<u8*>(obj);
-  for (u32 i = 0; i < t.fieldCount; ++i) {
+  const u8* end = blob + size;
+  for (u32 i = 0; i < t.fieldCount && blob < end; ++i) {
     const FieldDesc& f = t.fields[i];
     u32 n = fieldBlobSize(f.type);
     u8* dst = base + f.offset;

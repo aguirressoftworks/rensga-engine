@@ -1,5 +1,5 @@
 // rensga-cooker: cook a project for a target, or generate console_target.gen.h.
-//   rensga-cooker cook --project DIR [--target psp] [--force] [--gen-header FILE]
+//   rensga-cooker cook --project DIR [--target ID] [--force] [--gen-header FILE]   (no --target = the project's profile)
 //   rensga-cooker gen-header --project DIR --out FILE
 // Exit code 0 on success, 1 on cook/budget errors, 2 on usage errors.
 #include <cstdio>

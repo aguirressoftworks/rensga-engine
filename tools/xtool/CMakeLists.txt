@@ -1,0 +1,17 @@
+# rensga-xtool: X11 + XTest helper for tests (key injection, window lookup by pid, window tree). Built only where X11 and
+# XTest are found; tests that need it skip (exit 77) when the target is missing.
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+  pkg_check_modules(RENSGA_XTOOL_DEPS QUIET IMPORTED_TARGET x11 xtst)
+endif()
+if(TARGET PkgConfig::RENSGA_XTOOL_DEPS)
+  add_executable(rensga-xtool xtool.c)
+  target_link_libraries(rensga-xtool PRIVATE PkgConfig::RENSGA_XTOOL_DEPS)
+  target_compile_options(rensga-xtool PRIVATE -Wall -Wextra -Werror)
+  if(RENSGA_BUILD_TESTS)
+    add_test(NAME xtool_check COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/xtool_check.sh $<TARGET_FILE:rensga-xtool>)
+    set_tests_properties(xtool_check PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 60)
+  endif()
+else()
+  message(STATUS "rensga-xtool: X11/XTest not found, skipped")
+endif()

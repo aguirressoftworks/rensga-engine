@@ -69,6 +69,27 @@ TEST(reflect_binary_roundtrip) {
   CHECK(b.tint == Color32(255, 128, 0, 77));
 }
 
+// F5: component fields are only appended, so an older (shorter) blob that ends on a field boundary still loads.
+TEST(reflect_short_blob_keeps_defaults) {
+  const TypeInfo& t = *ReflectProbe::staticTypeInfo();
+  ReflectProbe a, b;
+  mutate(a);
+  u8 blob[64];
+  writeBlob(t, &a, blob);
+  const u32 firstTwo = 4 + 4;  // speed, lives
+  CHECK(readBlob(t, &b, blob, firstTwo));
+  CHECK_EQ(b.speed, 12.5f);
+  CHECK_EQ(b.lives, -4);
+  CHECK(b.flag == true);                          // default kept
+  CHECK(b.offset == Vector3(1, 2, 3));            // default kept
+  CHECK(b.tint == Color32(10, 20, 30, 255));      // default kept
+  ReflectProbe c;
+  CHECK(!readBlob(t, &c, blob, firstTwo + 2));    // ends inside a field
+  CHECK(!readBlob(t, &c, blob, blobSize(t) + 1)); // longer than the type
+  CHECK(readBlob(t, &c, blob, 0));                // empty blob = all defaults
+  CHECK_EQ(c.speed, 5.0f);
+}
+
 TEST(reflect_json_roundtrip) {
   const TypeInfo& t = *ReflectProbe::staticTypeInfo();
   ReflectProbe a, b;

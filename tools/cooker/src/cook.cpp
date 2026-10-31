@@ -113,7 +113,18 @@ std::string relPath(const fs::path& root, const fs::path& p) { return fs::relati
 
 }  // namespace
 
-CookResult cookProject(const CookOptions& opt, const CookSink& sink) {
+CookResult cookProject(const CookOptions& optIn, const CookSink& sink) {
+  CookOptions opt = optIn;
+  if (opt.target.empty()) {  // no default console: the target is the project's own profile (ConsoleTarget.json)
+    try {
+      opt.target = loadConsoleTarget(fs::absolute(opt.project) / "ProjectSettings" / "ConsoleTarget.json").profile;
+    } catch (const std::exception& e) {
+      CookResult bad;
+      bad.errors.push_back({CookMessage::Error, std::string("no target given and the project profile is unreadable: ") + e.what(), "", ""});
+      if (sink) sink(bad.errors.back());
+      return bad;
+    }
+  }
   Ctx cx;
   cx.sink = sink;
   CookResult& R = cx.result;
@@ -672,6 +683,8 @@ lightDone:
   secs.push_back({pack_section::INPX, bytesOf(cookedInput.ext.data(), cookedInput.ext.size() * sizeof(PackInputActionExt)), static_cast<u32>(cookedInput.ext.size())});
   secs.push_back({pack_section::INPS, bytesOf(&cookedInput.settings, sizeof cookedInput.settings), 1});
   secs.push_back({pack_section::CTGT, bytesOf(&ct, sizeof ct), 1});
+  const PackConsoleTargetExt ctExt = makeConsoleTargetExt(target);  // F5: CTG2 (CTGT stays byte-identical)
+  secs.push_back({pack_section::CTG2, bytesOf(&ctExt, sizeof ctExt), 1});
   PackSchedulerLimits sched = {target.maxCoroutines, target.maxInvokes, {0, 0}};
   secs.push_back({pack_section::CORO, bytesOf(&sched, sizeof sched), 1});
   secs.push_back({pack_section::SCNE, bytesOf(pscenes.data(), pscenes.size() * sizeof(PackSceneRec)), static_cast<u32>(pscenes.size())});

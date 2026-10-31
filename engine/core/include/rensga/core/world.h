@@ -151,6 +151,8 @@ class World {
   // Calls the matching contact callback (Behaviour::OnTriggerExit, OnTriggerEnter2D, ...) on every behaviour of `self`.
   enum class Contact : u8 { TriggerEnter, TriggerExit, TriggerEnter2D, TriggerExit2D, CollisionEnter2D, CollisionExit2D };
   void sendContact(GameObject* self, GameObject* other, Contact kind);
+  // F5.13: calls OnApplicationPause(paused) on every started behaviour (pumpApplicationEvents calls this).
+  void sendApplicationPause(bool paused);
   // Calls OnUIClick on every behaviour attached to `self`.
   void sendUIClick(GameObject* self);
 

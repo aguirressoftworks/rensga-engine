@@ -138,6 +138,9 @@ class Behaviour : public Component {
   virtual void LateUpdate() {}
   virtual void OnDisable() {}
   virtual void OnDestroy() {}
+  // F5.13: the application lost or regained the foreground (PSP: suspend or the Home popup; Android: pause). Sent to every
+  // started behaviour with true when pausing and false on resume (Unity: MonoBehaviour.OnApplicationPause).
+  virtual void OnApplicationPause(bool /*paused*/) {}
   // Editor callbacks (API 11). OnValidate runs after an inspector edit, Reset on Add Component and the Reset menu, both on a
   // detached editor-side instance (gameObject is null: touch only your own fields). The gizmo callbacks draw with the
   // Gizmos API in the Scene view.

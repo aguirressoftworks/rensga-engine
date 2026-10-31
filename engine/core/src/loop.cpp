@@ -1,5 +1,8 @@
 #include "rensga/core/loop.h"
 #include "rensga/core/application.h"
+#include "rensga/core/app_events.h"
+#include "rensga/core/dev_control.h"
+#include "rensga/core/system.h"
 
 #include "rensga/core/components.h"
 #include "rensga/core/gameplay.h"
@@ -56,12 +59,19 @@ bool GameLoop::frame(Scalar realDt, const VirtualGamepad& pad) {
 }
 
 void GameLoop::run(IPlatform& platform, IRenderer* renderer, u32 maxFrames) {
+  system_services::bind(&platform);  // Application::SetCpuClock, TouchScreenKeyboard, SystemInfo talk to this platform
   double last = platform.timeSeconds();
   VirtualGamepad pad;
   while (!platform.shouldQuit() && !Application::quitRequested()) {
     double now = platform.timeSeconds();
     platform.pollInput(pad);
-    frame(static_cast<Scalar>(now - last), pad);
+    pumpApplicationEvents(*world_);  // suspend / Home -> OnApplicationPause
+    const u32 toRun = devControlPoll();  // 1 = normal, 0 = paused by the editor, N = step N fixed frames
+    if (toRun == 1) {
+      frame(static_cast<Scalar>(now - last), pad);
+    } else {
+      for (u32 i = 0; i < toRun; ++i) frame(config_.fixedDelta, pad);
+    }
     last = now;
     if (renderer) renderWorld(*world_, *renderer);
     if (maxFrames && frames_ >= maxFrames) break;

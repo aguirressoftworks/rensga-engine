@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "_comment": "Per-profile defaults that ProjectSettings/ConsoleTarget.json can override with \"limits\" and \"features\". Data, not code (RULES 1.2).",
+  "profiles": {
+    "psp": {
+      "limits": {
+        "ramLimitBytes": 33554432,
+        "maxLightsPerObject": 4,
+        "maxBonesPerDraw": 8,
+        "maxSkinnedJoints": 64,
+        "maxTextureSize": 512
+      },
+      "features": ["lighting", "skinning", "fog", "osk", "saveDialog", "battery", "cpuClock", "textureSwizzle"]
+    },
+    "ps2": {
+      "limits": {
+        "ramLimitBytes": 0,
+        "maxLightsPerObject": 0,
+        "maxBonesPerDraw": 0,
+        "maxSkinnedJoints": 0,
+        "maxTextureSize": 0
+      },
+      "features": []
+    }
+  }
+}
