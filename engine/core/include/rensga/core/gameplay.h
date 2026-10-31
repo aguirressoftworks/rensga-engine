@@ -212,10 +212,31 @@ struct Camera2D : Behaviour {
 };
 
 // ---- UI (virtual pixels, screen space; the Transform is ignored) -----------------------------------------------
+// F4.01 anchors. Every UI element has an `anchor` (a UIAnchor value, TopLeft = 0 = the old behaviour). The anchor names
+// a point of the current view (TopLeft = (0, 0), Center = (w/2, h/2), BottomRight = (w, h), ...) AND the point of the
+// element that sits on it (its pivot), so x / y are offsets in virtual pixels from that point: a BottomRight text with
+// x = -16, y = -12 ends 16 px from the right edge and 12 px above the bottom edge, whatever the view size. One scene fits
+// 640x448 and 480x272. Reflection has no enum field type, so the field is an i32.
+namespace UIAnchor {
+constexpr i32 TopLeft = 0, Top = 1, TopRight = 2, Left = 3, Center = 4, Right = 5, BottomLeft = 6, Bottom = 7, BottomRight = 8;
+constexpr i32 kCount = 9;
+}  // namespace UIAnchor
+
+namespace UI {
+// Top-left corner of a w x h element with the given anchor, offset (x, y) and view size. Unknown anchors act as TopLeft.
+Rect resolveRect(i32 anchor, i32 x, i32 y, i32 w, i32 h, i32 viewW, i32 viewH);
+// Width in pixels of the widest line of `text` in `font` (advance widths; '\n' starts a new line) and its line count.
+i32 textWidth(const PackFontRec& font, const char* text);
+i32 textHeight(const PackFontRec& font, const char* text);
+}  // namespace UI
+
 struct UIText : Component {
   REFLECT(UIText)
   TOOLTIP("Font asset GUID. Null uses the engine default font.")
   SERIALIZE_FIELD(Guid, font, Guid())
+  TOOLTIP("0 TopLeft, 1 Top, 2 TopRight, 3 Left, 4 Center, 5 Right, 6 BottomLeft, 7 Bottom, 8 BottomRight. x / y are offsets from this point of the view; the element's own pivot is the same point.")
+  RANGE(0, 8)
+  SERIALIZE_FIELD(i32, anchor, 0)
   SERIALIZE_FIELD(i32, x, 0)
   SERIALIZE_FIELD(i32, y, 0)
   SERIALIZE_FIELD(Color32, color, Color32(255, 255, 255, 255))
@@ -232,6 +253,9 @@ struct UIText : Component {
 struct UIImage : Component {
   REFLECT(UIImage)
   SERIALIZE_FIELD(Guid, texture, Guid())
+  TOOLTIP("0 TopLeft, 1 Top, 2 TopRight, 3 Left, 4 Center, 5 Right, 6 BottomLeft, 7 Bottom, 8 BottomRight. x / y are offsets from this point of the view; the element's own pivot is the same point.")
+  RANGE(0, 8)
+  SERIALIZE_FIELD(i32, anchor, 0)
   SERIALIZE_FIELD(i32, x, 0)
   SERIALIZE_FIELD(i32, y, 0)
   SERIALIZE_FIELD(i32, w, 16)
@@ -244,11 +268,14 @@ struct UIImage : Component {
   SERIALIZE_FIELD(i32, sortingOrder, -1)
 };
 
-// A focusable button. D-pad up/down (or left/right) moves the focus between interactable buttons in pool order,
-// the south button presses the focused one. A press calls Behaviour::OnUIClick on the same object and the handler
+// A focusable button. D-pad up/down (or left/right) moves the focus between interactable buttons in reading order on
+// screen (top to bottom, then left to right; the first one has the focus when a menu opens), the south button presses the focused one. A press calls Behaviour::OnUIClick on the same object and the handler
 // set with UI::setClickHandler.
 struct UIButton : Component {
   REFLECT(UIButton)
+  TOOLTIP("0 TopLeft, 1 Top, 2 TopRight, 3 Left, 4 Center, 5 Right, 6 BottomLeft, 7 Bottom, 8 BottomRight. x / y are offsets from this point of the view; the element's own pivot is the same point.")
+  RANGE(0, 8)
+  SERIALIZE_FIELD(i32, anchor, 0)
   SERIALIZE_FIELD(i32, x, 0)
   SERIALIZE_FIELD(i32, y, 0)
   SERIALIZE_FIELD(i32, w, 80)

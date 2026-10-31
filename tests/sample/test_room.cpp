@@ -4,8 +4,6 @@
 using namespace sample;
 
 namespace {
-constexpr u32 kRoom = 1;
-
 GameObject* place(Game& g, const char* name, Scalar x, Scalar y) {
   GameObject* o = GameObject::Find(name);
   if (o) o->transform.setPosition(Vector3(x, y, 0));
@@ -122,6 +120,8 @@ TEST(room_losing_the_last_hp_respawns_at_the_checkpoint) {
   place(g, "Player", 545, 384);
   g.run(4);
   CHECK_EQ(GameState::hp, GameState::kMaxHp);  // refilled
+  CHECK_EQ(GameState::lives, GameState::kMaxLives - 1);  // a life was lost
+  CHECK_EQ(GameState::exitRequest, 0);
   Vector3 p = GameObject::Find("Player")->transform.position();
   CHECK_NEAR(p.x, 64.0f, 8.0f);
   CHECK_NEAR(p.y, 384.0f, 1.0f);
@@ -137,7 +137,7 @@ TEST(room_stomping_the_walker_defeats_it_and_bounces) {
   CHECK_EQ(GameState::hp, GameState::kMaxHp);
   CHECK(GameObject::Find("Walker1") == nullptr);
   CHECK(player->transform.position().y < 384.0f - 10.0f);  // bounced up
-  CHECK(GameState::RunScore() == GameState::kStompScore);
+  CHECK_EQ(GameState::stomps, 1);
 }
 
 TEST(room_hopper_hops_between_its_limits) {
@@ -159,31 +159,30 @@ TEST(room_hopper_hops_between_its_limits) {
   CHECK(maxX > 1030.0f);
 }
 
-TEST(room_save_point_stores_best_and_coins_through_the_save_store) {
+TEST(room_checkpoint_is_the_respawn_point_and_progress_is_saved_on_entry) {
   fs::path dir = tempDir("savept");
   Game g;
   CHECK(g.boot(cookSample(), dir, kRoom));
   g.run(2);
-  CHECK(Save::LoadInt("best", -1) == -1);
-  GameState::coins = 3;
-  GameState::stomps = 1;
+  // Entering a room saves the progress (room, totals at entry, lives); nothing was saved before.
+  CHECK_EQ(Save::LoadInt("room", -1), 1);
+  CHECK_EQ(Save::LoadInt("coins", -1), 0);
+  CHECK_EQ(Save::LoadInt("ticks", -1), 0);
+  CHECK_EQ(Save::LoadInt("lives", -1), GameState::kMaxLives);
+  CHECK(fs::exists(dir / "room"));
+  CHECK_EQ(GameState::saves, 0);
   place(g, "Player", 876, 384);
   g.run(4);
   CHECK_EQ(GameState::saves, 1);
-  CHECK_EQ(Save::LoadInt("best", -1), 3 * GameState::kCoinScore + GameState::kStompScore);
-  CHECK_EQ(Save::LoadInt("coins", -1), 3);
-  CHECK(fs::exists(dir / "best"));
-  CHECK(strstr(GameState::message, "GAME SAVED") != nullptr);
+  CHECK(strstr(GameState::message, "CHECKPOINT") != nullptr);
   CHECK_NEAR(GameState::checkpointX, 880.0f, 0.1f);
-  // Touching it again re-saves; the best never goes down.
-  GameState::coins = 1;
-  GameState::stomps = 0;
-  place(g, "Player", 200, 384);
-  g.run(2);
-  place(g, "Player", 876, 384);
+  // Out of HP at another place: the life is lost and the player is back at the flag with full HP.
+  GameState::hp = 1;
+  place(g, "Player", GameObject::Find("Walker1")->GetComponent<BoxCollider2D>()->bounds().x - 22.0f, 384);   // beside the walker
   g.run(4);
-  CHECK_EQ(Save::LoadInt("best", -1), 3 * GameState::kCoinScore + GameState::kStompScore);
-  CHECK_EQ(Save::LoadInt("coins", -1), 1);
+  CHECK_EQ(GameState::lives, GameState::kMaxLives - 1);
+  CHECK_NEAR(GameObject::Find("Player")->transform.position().x, 880.0f, 8.0f);
+  CHECK_EQ(GameState::hp, GameState::kMaxHp);
 }
 
 TEST(room_camera_scrolls_with_the_player_inside_the_room) {

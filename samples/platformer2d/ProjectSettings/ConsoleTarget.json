@@ -34,6 +34,7 @@
   "Tilemap",
   "TilemapCollider2D",
   "BoxCollider2D",
+  "Rigidbody2D",
   "UIText",
   "UIImage",
   "UIButton",
@@ -43,10 +44,14 @@
   "Walker",
   "Hopper",
   "SavePoint",
+  "RoomExit",
   "AutoPilot",
   "HudController",
-  "TitleMenu",
+  "PauseMenu",
+  "MenuAction",
   "TitleScreen",
+  "GameOverScreen",
+  "ResultsScreen",
   "InputTestHud"
  ]
 }

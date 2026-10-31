@@ -29,10 +29,11 @@
     {
      "type": "UIImage",
      "fields": {
+      "anchor": 4,
       "x": 0,
       "y": 0,
-      "w": 640,
-      "h": 448,
+      "w": 1280,
+      "h": 1024,
       "color": [
        40,
        60,
@@ -47,6 +48,50 @@
   },
   {
    "guid": "00000000-0000-4000-8000-000000000202",
+   "name": "TitleBand",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 1,
+      "x": 0,
+      "y": 28,
+      "w": 260,
+      "h": 32,
+      "color": [
+       20,
+       30,
+       70,
+       255
+      ],
+      "sortingOrder": -9
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000203",
    "name": "TitleText",
    "parent": null,
    "active": true,
@@ -72,22 +117,24 @@
     {
      "type": "UIText",
      "fields": {
-      "x": 232,
-      "y": 140,
+      "anchor": 1,
+      "x": 0,
+      "y": 40,
       "color": [
        250,
        210,
        40,
        255
-      ]
+      ],
+      "sortingOrder": 0
      }
     }
    ],
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-000000000203",
-   "name": "StartButton",
+   "guid": "00000000-0000-4000-8000-000000000204",
+   "name": "NewButton",
    "parent": null,
    "active": true,
    "transform": {
@@ -112,22 +159,26 @@
     {
      "type": "UIButton",
      "fields": {
-      "x": 232,
-      "y": 220,
+      "anchor": 4,
+      "x": 0,
+      "y": -6,
       "w": 176,
-      "h": 32
+      "h": 24,
+      "sortingOrder": 5
      }
     },
     {
-     "type": "TitleMenu",
-     "fields": {}
+     "type": "MenuAction",
+     "fields": {
+      "action": 0
+     }
     }
    ],
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-000000000204",
-   "name": "StartLabel",
+   "guid": "00000000-0000-4000-8000-000000000205",
+   "name": "NewLabel",
    "parent": null,
    "active": true,
    "transform": {
@@ -152,22 +203,151 @@
     {
      "type": "UIText",
      "fields": {
-      "x": 248,
-      "y": 232,
+      "anchor": 4,
+      "x": 0,
+      "y": -6,
       "color": [
        255,
        255,
        255,
        255
       ],
-      "sortingOrder": 5
+      "sortingOrder": 6
      }
     }
    ],
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-000000000205",
+   "guid": "00000000-0000-4000-8000-000000000206",
+   "name": "ContinueButton",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 26,
+      "w": 176,
+      "h": 24,
+      "sortingOrder": 5
+     }
+    },
+    {
+     "type": "MenuAction",
+     "fields": {
+      "action": 1
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000207",
+   "name": "ContinueLabel",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 26,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 6
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000208",
+   "name": "TitleBest",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 7,
+      "x": 0,
+      "y": -34,
+      "color": [
+       200,
+       200,
+       200,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000209",
    "name": "TitleHint",
    "parent": null,
    "active": true,
@@ -193,61 +373,23 @@
     {
      "type": "UIText",
      "fields": {
-      "x": 216,
-      "y": 300,
+      "anchor": 7,
+      "x": 0,
+      "y": -16,
       "color": [
        200,
        200,
        200,
        255
-      ]
+      ],
+      "sortingOrder": 0
      }
     }
    ],
    "prefab": null
   },
   {
-   "guid": "00000000-0000-4000-8000-000000000206",
-   "name": "TitleSaved",
-   "parent": null,
-   "active": true,
-   "transform": {
-    "position": [
-     0,
-     0,
-     0
-    ],
-    "rotation": [
-     0,
-     0,
-     0,
-     1
-    ],
-    "scale": [
-     1,
-     1,
-     1
-    ]
-   },
-   "components": [
-    {
-     "type": "UIText",
-     "fields": {
-      "x": 216,
-      "y": 316,
-      "color": [
-       200,
-       200,
-       200,
-       255
-      ]
-     }
-    }
-   ],
-   "prefab": null
-  },
-  {
-   "guid": "00000000-0000-4000-8000-000000000207",
+   "guid": "00000000-0000-4000-8000-00000000020a",
    "name": "TitleInit",
    "parent": null,
    "active": true,

@@ -38,7 +38,11 @@
 #include "rensga/platform/sdl.h"
 #include "rensga/platform/sdl_filesystem.h"
 #include "rensga/render/gl.h"
+#include "profiler.h"
 #include "runtime_audio.h"
+#include "runtime_boot.h"
+#include "runtime_prof_renderer.h"
+#include "runtime_stress.h"
 
 using namespace rensga;
 
@@ -53,132 +57,13 @@ class LogcatSink : public ILogSink {
 
 namespace {
 
-constexpr u32 kMaxStress = 16000;
-constexpr u32 kMaxPackTextures = 64;
+constexpr u32 kMaxPackTextures = GfxAssets::kMaxTextures;
 
-// ---- 2D stress test -----------------------------------------------------------------------------------------
-struct Sprite {
-  float x, y, vx, vy;
-  u32 tex;  // 0 or 1
-  u8 r, g, b;
-};
-Sprite g_sprites[kMaxStress];
-u32 g_spriteCount = 0;
-u32 g_ballTex = 0, g_boxTex = 0, g_fontTex = 0;
-PackFontRec g_font;
-char g_hud[32] = "0";
-float g_hudMs = 0;
-
-u32 g_seed = 12345;
-float rnd() {  // deterministic LCG, 0..1
-  g_seed = g_seed * 1664525u + 1013904223u;
-  return static_cast<float>((g_seed >> 8) & 0xFFFF) / 65536.0f;
-}
-
-// 16x16 ball as a CLUT4 image: 0 transparent, 1 rim, 2 body, 3 highlight.
-void makeBall(u8* packed, u32* pal) {
-  memset(packed, 0, 16 * 8);
-  for (int y = 0; y < 16; ++y)
-    for (int x = 0; x < 16; ++x) {
-      const float dx = x - 7.5f, dy = y - 7.5f, d2 = dx * dx + dy * dy;
-      u8 v = 0;
-      if (d2 <= 56.0f) v = d2 > 40.0f ? 1 : ((dx + 3) * (dx + 3) + (dy + 3) * (dy + 3) < 6.0f ? 3 : 2);
-      u8& b = packed[y * 8 + x / 2];
-      b = static_cast<u8>((x & 1) ? (b | (v << 4)) : (b | v));
-    }
-  for (int i = 0; i < 16; ++i) pal[i] = 0;
-  pal[1] = 0xFF404040u;  // R in the low byte
-  pal[2] = 0xFFB0B0B0u;
-  pal[3] = 0xFFFFFFFFu;
-}
-
-// 16x16 box as CLUT8: a gradient frame, index = distance from the edge.
-void makeBox(u8* idx, u32* pal) {
-  for (int y = 0; y < 16; ++y)
-    for (int x = 0; x < 16; ++x) {
-      const int e = x < y ? x : y, f = (15 - x) < (15 - y) ? (15 - x) : (15 - y);
-      const int m = e < f ? e : f;
-      idx[y * 16 + x] = static_cast<u8>(m > 3 ? 4 : m);
-    }
-  for (int i = 0; i < 256; ++i) pal[i] = 0;
-  pal[0] = 0xFF303030u; pal[1] = 0xFF808080u; pal[2] = 0xFFB0B0B0u; pal[3] = 0xFFE0E0E0u; pal[4] = 0xFFFFFFFFu;
-}
-
-// 3x5 digit font in 4x6 cells (CLUT4, 40 cells in one row of 10 per image row).
-void makeDigitFont(u8* packed, u32* pal) {
-  static const char* kDigits[10] = {"111101101101111", "010110010010111", "111001111100111", "111001111001111",
-                                    "101101111001001", "111100111001111", "111100111101111", "111001001001001",
-                                    "111101111101111", "111101111001111"};
-  memset(packed, 0, 20 * 6);  // 40 px wide = 20 bytes per row, 6 rows
-  for (int d = 0; d < 10; ++d)
-    for (int y = 0; y < 5; ++y)
-      for (int x = 0; x < 3; ++x)
-        if (kDigits[d][y * 3 + x] == '1') {
-          const int px = d * 4 + x;
-          u8& b = packed[y * 20 + px / 2];
-          b = static_cast<u8>((px & 1) ? (b | 0x10) : (b | 0x01));
-        }
-  for (int i = 0; i < 16; ++i) pal[i] = 0;
-  pal[1] = 0xFFFFFFFFu;
-}
-
-bool setupStress(IRenderer& r, u32 count, u32 w, u32 h) {
-  static u8 ball[16 * 8], box[16 * 16], digits[20 * 6];
-  static u32 ballPal[16], boxPal[256], digitPal[16];
-  makeBall(ball, ballPal);
-  makeBox(box, boxPal);
-  makeDigitFont(digits, digitPal);
-  TextureDesc d;
-  d.width = d.height = 16;
-  d.format = tex_format::CLUT4; d.pixels = ball; d.palette = ballPal;
-  g_ballTex = r.uploadTexture(d);
-  d.format = tex_format::CLUT8; d.pixels = box; d.palette = boxPal;
-  g_boxTex = r.uploadTexture(d);
-  d.width = 40; d.height = 6;
-  d.format = tex_format::CLUT4; d.pixels = digits; d.palette = digitPal;
-  g_fontTex = r.uploadTexture(d);
-  if (!g_ballTex || !g_boxTex || !g_fontTex) return false;
-  g_font = PackFontRec();
-  g_font.glyphW = 4; g_font.glyphH = 6; g_font.firstChar = '0'; g_font.charCount = 10; g_font.columns = 10;
-  g_font.lineHeight = 7;
-  for (int i = 0; i < 10; ++i) g_font.advance[i] = 4;
-  g_spriteCount = count < kMaxStress ? count : kMaxStress;
-  for (u32 i = 0; i < g_spriteCount; ++i) {
-    Sprite& s = g_sprites[i];
-    s.x = rnd() * static_cast<float>(w - 16);
-    s.y = rnd() * static_cast<float>(h - 16);
-    s.vx = (rnd() - 0.5f) * 240.0f;
-    s.vy = (rnd() - 0.5f) * 240.0f;
-    s.tex = i & 1;
-    s.r = static_cast<u8>(96 + rnd() * 159);
-    s.g = static_cast<u8>(96 + rnd() * 159);
-    s.b = static_cast<u8>(96 + rnd() * 159);
-  }
-  return true;
-}
-
-// Moves the sprites one fixed step (1/60 s) and bounces them off the virtual screen edges.
-void stepStress(u32 w, u32 h) {
-  const float dt = 1.0f / 60.0f, maxX = static_cast<float>(w - 16), maxY = static_cast<float>(h - 16);
-  for (u32 i = 0; i < g_spriteCount; ++i) {
-    Sprite& s = g_sprites[i];
-    s.x += s.vx * dt;
-    s.y += s.vy * dt;
-    if (s.x < 0) { s.x = 0; s.vx = -s.vx; } else if (s.x > maxX) { s.x = maxX; s.vx = -s.vx; }
-    if (s.y < 0) { s.y = 0; s.vy = -s.vy; } else if (s.y > maxY) { s.y = maxY; s.vy = -s.vy; }
-  }
-}
-
-void drawStress(IRenderer& r) {  // OverlayHook: runs inside renderWorld, before endFrame
-  r.drawRect(Rect(0, 0, 480, 20), Color32(20, 40, 80, 255), 0);
-  for (u32 i = 0; i < g_spriteCount; ++i) {
-    const Sprite& s = g_sprites[i];
-    r.drawSprite(s.tex ? g_boxTex : g_ballTex, Rect(0, 0, 16, 16), Rect(s.x, s.y, 16, 16), Color32(s.r, s.g, s.b, 255),
-                 10 + (i & 3));
-  }
-  r.drawRect(Rect(4, 4, 36, 12), Color32(0, 0, 0, 200), 100);
-  r.drawText(g_fontTex, g_font, 6, 7, g_hud, Color32(255, 220, 80, 255), 101);
-}
+// ---- 2D stress test (runtime_stress.h) ---------------------------------------------------------------------
+SpriteStress g_stress;
+FrameProfiler g_prof;
+bool g_stressOn = false;
+double g_hudMs = 0;
 
 // ---- helpers -----------------------------------------------------------------------------------------------
 double nowMs() {
@@ -188,9 +73,7 @@ double nowMs() {
 // ---- touch overlay -----------------------------------------------------------------------------------------
 SdlPlatform* g_platform = nullptr;
 
-void drawTouchOverlay(IRenderer& r) {  // OverlayHook: translucent zones on top of everything
-  if (!g_platform || !g_platform->touchOverlayVisible()) return;
-  const TouchZones& z = g_platform->touchZones();
+void drawTouchZones(IRenderer& r, const TouchZones& z) {  // translucent zones on top of everything
   const Color32 pad(255, 255, 255, 40), key(255, 255, 255, 90);
   const u32 k = 1000;
   r.drawRect(z.dpad, pad, k);
@@ -202,6 +85,11 @@ void drawTouchOverlay(IRenderer& r) {  // OverlayHook: translucent zones on top 
   r.drawRect(z.south, key, k);
   r.drawRect(z.east, key, k);
   r.drawRect(z.start, pad, k);
+}
+
+void endHook(IRenderer& r, void*) {  // ProfilingRenderer::endFrame: after every other draw (Hud::Quad owns the global overlay hook)
+  if (g_stressOn) g_stress.draw(r);  // the stress test has no touch controls
+  else if (g_platform && g_platform->touchOverlayVisible()) drawTouchZones(r, g_platform->touchZones());
 }
 
 u64 audioClockUs() { return static_cast<u64>(nowMs() * 1000.0); }
@@ -258,7 +146,6 @@ int main(int argc, char** argv) {
   static RuntimeAudio audio;
   if (!platform.init()) return 2;
   g_platform = &platform;
-  setOverlayHook(drawTouchOverlay);
 
   // File system: next to the pack when --pack is given, else the executable's folder (APK assets on Android).
   char dir[512] = "";
@@ -275,7 +162,6 @@ int main(int argc, char** argv) {
   }
   static SdlFileSystem fs(dir);
   static FileSystemSaveStore saves(fs);
-  Save::use(&saves);
 
   Arena arena;
   if (!arena.create(MemoryConfig::fromRamBudget(24u * 1024 * 1024).arenaBytes)) {
@@ -287,51 +173,31 @@ int main(int argc, char** argv) {
   if (!world.init(cfg, arena)) return 2;
 
   u32 vw = 480, vh = 272;  // PSP profile resolution unless the pack says otherwise
-  LoadedPack loaded;
-  PackView view;
+  static BootState boot;   // BootState must not move: SceneManager and GfxAssets point into it
+  PackView& view = boot.view;
+  LoadedPack& loaded = boot.loaded;
   const PackConsoleTarget* ct = nullptr;
-  u32 packTex[kMaxPackTextures] = {};
+  static u32 packTex[kMaxPackTextures] = {};
   if (stressCount) {
     if (!renderer.init(vw, vh)) return 3;
     platform.setVirtualResolution(vw, vh);
-    if (!setupStress(renderer, stressCount, vw, vh)) { RLOG_ERROR("game", "stress setup failed"); return 3; }
-    setOverlayHook(drawStress);  // the stress test has no touch controls
-    RLOG_INFO("game", "rensga: stress sprites=%u", g_spriteCount);
+    if (!g_stress.setup(renderer, stressCount, vw, vh, false)) { RLOG_ERROR("game", "stress setup failed"); return 3; }
+    g_stressOn = true;
+    RLOG_INFO("game", "rensga: stress sprites=%u", g_stress.count());
   } else {
-    Span<const u8> bytes = fs.readFile(packFile, arena);
-    if (!bytes || !view.open(bytes.data, bytes.size, packFile)) {
-      RLOG_ERROR("game", "rensga: cannot read pack %s", packFile);
-      return 3;
-    }
-    ct = view.records<PackConsoleTarget>(pack_section::CTGT);
-    if (ct && ct->width && ct->height) { vw = ct->width; vh = ct->height; }
-    if (!renderer.init(vw, vh)) return 3;
-    platform.setVirtualResolution(vw, vh);
-    u32 sceneIndex = 0;
-    if (startScene) {
-      SceneManager::bind(&view, 0);
-      const i32 si = SceneManager::sceneIndexByName(startScene);
-      if (si < 0) { RLOG_ERROR("game", "rensga: no scene named %s in the pack", startScene); return 3; }
-      sceneIndex = static_cast<u32>(si);
-    }
-    if (!world.loadPack(view, &loaded, sceneIndex)) {
-      RLOG_ERROR("game", "rensga: cannot load pack %s", packFile);
-      return 3;
-    }
-    Input::loadActions(view, loaded.inputs, loaded.inputCount);
-    renderer.setMeshes(loaded.meshes);
-    const PackAssets& as = loaded.assets;
-    for (u32 i = 0; i < as.textureCount && i < kMaxPackTextures; ++i) {
-      const PackTexRec& t = as.textures[i];
-      TextureDesc d;
-      d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
-      d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
-      d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
-      packTex[i] = renderer.uploadTexture(d);
-    }
-    if (as.textureCount) RLOG_INFO("game", "rensga: uploaded %u textures", as.textureCount);
-    GfxAssets::bind(&view, &loaded.assets, packTex, as.textureCount);  // 2D components resolve textures here
-    SceneManager::bind(&view, sceneIndex);
+    BootDeps deps;
+    deps.fs = &fs; deps.arena = &arena; deps.world = &world;
+    deps.packPath = packFile; deps.startScene = startScene;
+    deps.renderer = &renderer;
+    deps.textureHandles = packTex; deps.textureHandleCapacity = kMaxPackTextures;
+    deps.defaultWidth = vw; deps.defaultHeight = vh;
+    deps.onResolution = [](void* user, u32 w, u32 h) { static_cast<SdlPlatform*>(user)->setVirtualResolution(w, h); };
+    deps.onResolutionUser = &platform;
+    deps.saves = &saves;
+    deps.audio = &audio; deps.audioClock = audioClockUs;
+    if (!bootPack(deps, boot)) return 3;
+    vw = boot.width; vh = boot.height;
+    ct = boot.target;
     u32 pickups = 0;
     world.forEach<MeshRenderer>([&](MeshRenderer& mr) {
       GameObject* go = mr.gameObject();
@@ -341,8 +207,7 @@ int main(int argc, char** argv) {
   }
 
   if (audioStress && maxFrames == 0) maxFrames = 600;
-  audio.init(&fs, ct, audioClockUs);
-  if (!stressCount) audio.registerPackClips(loaded.assets);
+  if (stressCount) audio.init(&fs, ct, audioClockUs);  // with a pack, bootPack already initialised the audio and registered the clips
   if (audioStress) audio.beginStress(stressCount ? nullptr : &loaded.assets);
   else if (!stressCount) audio.startMusic();
 
@@ -391,16 +256,8 @@ int main(int argc, char** argv) {
     Input::loadActions(view, loaded.inputs, loaded.inputCount);
     renderer.setMeshes(loaded.meshes);
     renderer.releaseUserTextures();
-    const PackAssets& as = loaded.assets;
-    for (u32 i = 0; i < as.textureCount && i < kMaxPackTextures; ++i) {
-      const PackTexRec& t = as.textures[i];
-      TextureDesc d;
-      d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
-      d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
-      d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
-      packTex[i] = renderer.uploadTexture(d);
-    }
-    GfxAssets::bind(&view, &loaded.assets, packTex, as.textureCount);
+    boot.textureCount = uploadPackTextures(renderer, loaded.assets, packTex, kMaxPackTextures);
+    GfxAssets::bind(&view, &loaded.assets, packTex, boot.textureCount);
     SceneManager::bind(&view, static_cast<u32>(si));
     audio.registerPackClips(loaded.assets);
     heap::checkReset();  // the reload may allocate; the check window restarts
@@ -409,6 +266,9 @@ int main(int argc, char** argv) {
   };
 #endif
 
+  g_prof.init(audioClockUs);
+  static ProfilingRenderer profRenderer(renderer, g_prof);
+  profRenderer.setEndHook(endHook);
   GameLoop loop;
   loop.init(world);
   Input::bindPlatform(&platform);  // rumble requests leave the loop through IPlatform::setVibration
@@ -420,6 +280,7 @@ int main(int argc, char** argv) {
   double sumMs = 0, maxMs = 0;
   while (!platform.shouldQuit() && !Application::quitRequested() && (maxFrames == 0 || frame < maxFrames)) {
     const double t0 = nowMs();
+    g_prof.frameBegin();
     const double now = platform.timeSeconds();
 #if defined(RENSGA_HAS_PACK_WATCHER) && !defined(__ANDROID__)
     if (watcher.watching() && t0 >= nextWatchMs) {  // ~2 polls a second, between frames
@@ -431,12 +292,16 @@ int main(int argc, char** argv) {
     platform.pollInput(pad);
     loop.frame(static_cast<Scalar>(now - last), pad);
     last = now;
-    audio.update();
+    g_prof.mark(ProfSection::Update);
     if (stressCount) {
-      stepStress(vw, vh);
-      snprintf(g_hud, sizeof(g_hud), "%d", static_cast<int>(g_hudMs * 10.0f));
+      g_stress.step(vw, vh);
+      g_stress.setFrameMs(static_cast<float>(g_hudMs));
     }
-    renderWorld(world, renderer, stressCount ? Color32(28, 26, 22, 255) : Color32(40, 60, 90, 255));
+    renderWorld(world, profRenderer, stressCount ? Color32(28, 26, 22, 255) : Color32(40, 60, 90, 255));
+    g_prof.mark(ProfSection::Present);  // the Render mark was taken in ProfilingRenderer::endFrame, just before the swap
+    audio.update();
+    g_prof.mark(ProfSection::Audio);
+    g_prof.frameEnd();
     ++frame;
     // The first frame includes lazy driver work (shader JIT, buffer setup): the alloc check starts after it.
     if (frame == 1) heap::checkReset();
@@ -444,7 +309,7 @@ int main(int argc, char** argv) {
     const double ms = nowMs() - t0;
     sumMs += ms;
     if (ms > maxMs) maxMs = ms;
-    g_hudMs = static_cast<float>(ms);
+    g_hudMs = ms;
     if (frame % 60 == 0) {
       RLOG_INFO("game", "rensga: frame %u avg=%.2fms max=%.2fms sprites=%u draws=%u", frame, sumMs / 60.0, maxMs,
                 renderer.lastSpriteCount(), renderer.lastDrawCalls());

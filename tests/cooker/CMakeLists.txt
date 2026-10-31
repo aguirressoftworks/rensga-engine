@@ -1,4 +1,4 @@
-rensga_reflect_scan(tests_cooker RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_cooker.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_primitives.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_assets.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_door.cpp)
+rensga_reflect_scan(tests_cooker RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_cooker.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_primitives.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_assets.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_door.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_psp.cpp)
 add_executable(rensga_cooker_tests ../test_main.cpp ${RENSGA_COOKER_TEST_SRCS})
 target_link_libraries(rensga_cooker_tests PRIVATE rensga_cooker_lib rensga_api)
 target_include_directories(rensga_cooker_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. )
@@ -21,6 +21,10 @@ foreach(tgt ps2 linux)
   add_test(NAME cooker_cli_assets2d_${tgt}
            COMMAND rensga-cooker cook --project ${CMAKE_CURRENT_SOURCE_DIR}/../fixtures/assets2d --target ${tgt} --force)
 endforeach()
+
+# F4.05: the same 2D sources on the PSP profile (stored sizes, swizzle, 16-bit formats).
+add_test(NAME cooker_cli_assets2d_psp
+         COMMAND rensga-cooker cook --project ${CMAKE_CURRENT_SOURCE_DIR}/../fixtures/assets2d_psp --target psp --force)
 
 # F3.06: InputActions.json cooking (header-only parser uses exceptions, so it is a host-style test executable).
 add_executable(rensga_input_cook_tests ../test_main.cpp test_input_cook.cpp)

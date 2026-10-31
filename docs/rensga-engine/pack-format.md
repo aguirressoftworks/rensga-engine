@@ -32,12 +32,13 @@ Version 2 adds the `tag` field to `OBJS` and the asset sections below. A v1 pack
 | `COMP` | `PackComponent` 16 B | `u32 typeHash` (FNV-1a 32 of the type name), `u32 objectIndex`, `u32 fieldOffset`, `u32 fieldSize`. |
 | `FDAT` | blobs | Reflected field blobs; `fieldOffset` is relative to the FDAT section start. |
 | `MESH` | `PackMeshRec` 16 B | `u32 vertexOffset` (vertex index into VERT), `u32 vertexCount`, `u32 primitiveType` (0 = triangle list), `u32 objectIndex` (owner of the MeshRenderer). |
-| `VERT` | `PackVertex` 16 B | GU vertices `{u32 color (ABGR); float x, y, z}` = `GU_COLOR_8888 \| GU_VERTEX_32BITF`. Directional light is baked into `color`. |
+| `VERT` | `PackVertex` 16 B | GU vertices `{u32 color (ABGR); float x, y, z}` = `GU_COLOR_8888 \| GU_VERTEX_32BITF`. Directional light is baked into `color`. With an `MSHX` section the records are `PackVertexCompact` 12 B instead (see "Compact meshes"); `count` is then the number of compact vertices. |
+| `MSHX` | `PackMeshExt` 32 B | Optional, one record, only in a pack cooked for the `psp` target itself. Says the `VERT` records are compact. See "Compact meshes". |
 | `INPT` | `PackInputAction` 16 B | `u32 nameStr`, `u32 kind` (0 button, 1 axis2), `u32 source` (nub, d-pad, face and shoulder buttons), reserved. |
 | `CTGT` | `PackConsoleTarget` 48 B | One record: profile fourcc (`'PSP '`), scalar type (0 float, 1 fixed reserved), width, height, RAM and VRAM bytes, triangles per frame, max objects, max components per type. |
 
 | `BLOB` | bytes | v2 payloads: pixels, palettes, PCM, tiles, frame rects. Every payload starts on a 16-byte boundary inside it. Records below hold byte offsets from the start of `BLOB`. |
-| `TEXR` | `PackTexRec` 48 B | `Guid`, `width`, `height`, `format` (0 RGBA8, 1 CLUT4, 2 CLUT8), `pixelOffset`, `pixelBytes`, `paletteOffset`, `paletteCount` (0, 16 or 256). |
+| `TEXR` | `PackTexRec` 48 B | `Guid`, `width`, `height` (the SOURCE size), `format` (0 RGBA8, 1 CLUT4, 2 CLUT8, 3 RGBA5551, 4 RGBA4444), `pixelOffset`, `pixelBytes`, `paletteOffset`, `u16 paletteCount` (0, 16 or 256), `u16 flags` (bit 0 `kTexSwizzled`), `u16 storedWidth`, `u16 storedHeight` (0 = same as `width`/`height`). Byte-compatible with the first v2 layout, where `paletteCount` was a `u32` and the last word was reserved zero. See "PSP textures". |
 | `AUDI` | `PackAudioRec` 48 B | `Guid`, `sampleRate`, `channels` (1 or 2), `frameCount`, `loopStart`, `loopEnd` (frames), `dataOffset`, `loops`. Interleaved signed 16-bit PCM. |
 | `TMAP` | `PackTilemapRec` 48 B | `Guid`, `width`, `height` (tiles), `tileSize` (px), `tilesetTexture` (TEXR index), `tilesOffset` (u16 per tile, row-major; 65535 = empty), `solidOffset`, `solidCount` (one flag byte per tileset tile, see "Tile flags"). |
 | `ANIM` | `PackAnimRec` 48 B | `Guid`, `nameStr`, `texture` (TEXR index), `frameCount`, `framesOffset` (`PackFrameRect` {u16 x, y, w, h}), `fps` (integer), `loop`. One record per clip. |
@@ -67,9 +68,49 @@ One `PackPhysics2D` record (128 B): `masks[32]`, where bit `b` of `masks[a]` set
 
 RGBA8 is `width*height*4` bytes, R G B A. CLUT8 is one index byte per pixel. CLUT4 packs two indices per byte, low nibble first, with each row padded to a whole byte. The palette is `paletteCount` little-endian `u32` entries with R in the low byte (the same byte order as RGBA8). Tile `i` of a tileset is row-major in its texture. Assets are found by GUID with `PackAssets::findTexture/findAudio/findTilemap/findAnim/findFont`.
 
+### PSP textures
+
+The `psp` cooker plugin (`tools/cooker/src/psp_format.cpp`) writes every texture in the form the GU samples directly: padded to its stored size, swizzled, with an RGBA8 palette for CLUT formats.
+
+| `importSettings.format` | `PackTexRec.format` | Pixel bytes |
+|---|---|---|
+| `auto` (default) | 1 or 2 | The PS2 palette code (`makeClut(img, 0)`): CLUT4 up to 16 unique RGBA colors, else CLUT8, with the deterministic median cut above 256. |
+| `clut4` | 1 | 4 bits per pixel, two pixels per byte, **low nibble first** (pixel `x` even is the low nibble). 16-entry palette. |
+| `clut8` | 2 | 8 bits per pixel. 256-entry palette. |
+| `rgba5551` | 3 | `u16`, `GU_PSM_5551`: R bits 0-4, G bits 5-9, B bits 10-14, A bit 15 (alpha at or above 128 is 1). |
+| `rgba4444` | 4 | `u16`, `GU_PSM_4444`: R bits 0-3, G bits 4-7, B bits 8-11, A bits 12-15. |
+| `rgba8` | 0 | `u32` per pixel, R in the low byte (`GU_PSM_8888`). |
+
+Palettes are `paletteCount` `u32` entries, R in the low byte, starting on a 16-byte boundary (every `BLOB` payload does). The ConsoleTarget lists them in `textureFormats`.
+
+**Stored size.** `width` x `height` stay the source size, so the tile and clip code never sees the padding. The pixels are stored at `storedWidth` x `storedHeight`:
+
+- each is the source edge rounded up to a power of two, at most 512;
+- the stored width is at least 32 pixels for CLUT4, 16 for CLUT8 and 8 for the 16- and 32-bit formats;
+- the stored height is at least 8;
+- padding bytes (right of the source, below it) are zero, so a CLUT pixel in the padding is index 0.
+
+A source whose stored size would pass 512 in either edge is a cook error that names the asset and its GUID and suggests the `maxSize` import setting (`maxSize` scales the longest edge down before the plugin sees it). `pixelBytes` is `storedWidth * storedHeight * bits / 8`. UVs for the GU are the source size over the stored size.
+
+**Swizzle (`kTexSwizzled`).** The stored image is cut into blocks 16 bytes wide and 8 rows high. Blocks are stored in bands from top to bottom; inside a band from left to right; inside a block row by row, 16 bytes per row. A byte at row `y`, byte column `bx` of the linear stored image (pitch `storedWidth * bits / 8`) lands at `((y / 8) * (pitch / 16) + bx / 16) * 128 + (y % 8) * 16 + bx % 16`. The stored width rules above make the pitch a multiple of 16 for every format, and the stored height a multiple of 8. Only the PSP plugin sets the flag. The GL and GS renderers refuse a texture with `flags != 0`, so platform cooks (`linux`, `windows`, `android`) of a PSP project write plain RGBA8 at the source size with `flags == 0`. Per-format overrides for the PSP belong in the `.meta` `targetOverrides.psp`, because a platform target rejects a console-only format name.
+
+### Compact meshes (MSHX)
+
+A pack cooked for the `psp` target itself stores its mesh vertices as `PackVertexCompact` (12 B: `u32 color; i16 x, y, z; u16 pad` = `GU_COLOR_8888 | GU_VERTEX_16BIT`) and adds one `MSHX` record:
+
+```
+PackMeshExt (32 B): u32 format (1 = compact16), float offset[3], float scale[3], u32 reserved
+```
+
+A vertex position is `offset + xyz * scale`. One offset and one scale cover the whole `VERT` section. The cooker sets `offset` to the middle of the bounding box on each axis and `scale` to the smallest power of two with `halfExtent / scale <= 32767`, so the stored error is at most `scale / 2` (a 200-unit span keeps better than 4 mm). The `MESH` records' `vertexOffset` and `vertexCount` are vertex indices in both forms. A pack without `MSHX` has float vertices. The `linux`, `windows` and `android` cooks of a PSP project never write `MSHX`.
+
+### PSP RAM ceiling
+
+`ConsoleTarget.json` `budgets.ramBytes` for the `psp` profile may not exceed 32 MiB, the RAM of a PSP-1000. The cook reports `budget exceeded ... above the psp device limit` and writes no pack. The limit is a table in `console_target.cpp` (`profileRamLimitBytes`) so another profile can add its own.
+
 ### Target formats and import settings
 
-Textures: PC targets (`linux`, `windows`, `android`) and PSP cook RGBA8. PS2 cooks CLUT4 when the image has at most 16 unique RGBA colors, else CLUT8; above 256 colors a deterministic median cut (box split on the widest channel at the weighted median, nearest-color mapping) reduces it. `.meta` `importSettings.format` can be `auto`, `rgba8`, `clut4` or `clut8` (PS2). Audio: `mono`, `halveRate` (average frame pairs, rate / 2), `loop`, `loopStart`, `loopEnd` (source frames); PS2 also honors `smallerAudio` (= mono + halveRate). Sources: PNG (stb_image), WAV (PCM 8 or 16 bit, mono or stereo), glTF 2.0 / GLB static meshes (positions, normals, COLOR_0 or material base color; no textures yet), `*.tilemap.json`, `*.anim.json`, `*.font.json` (all `"format": 1`, textures referenced by GUID).
+Textures: PC targets (`linux`, `windows`, `android`) cook RGBA8. The PSP has its own formats (see "PSP textures"). PS2 cooks CLUT4 when the image has at most 16 unique RGBA colors, else CLUT8; above 256 colors a deterministic median cut (box split on the widest channel at the weighted median, nearest-color mapping) reduces it. `.meta` `importSettings.format` can be `auto`, `rgba8`, `clut4` or `clut8` (PS2), and also `rgba5551` or `rgba4444` (PSP). Audio: `mono`, `halveRate` (average frame pairs, rate / 2), `loop`, `loopStart`, `loopEnd` (source frames); PS2 also honors `smallerAudio` (= mono + halveRate). Sources: PNG (stb_image), WAV (PCM 8 or 16 bit, mono or stereo), glTF 2.0 / GLB static meshes (positions, normals, COLOR_0 or material base color; no textures yet), `*.tilemap.json`, `*.anim.json`, `*.font.json` (all `"format": 1`, textures referenced by GUID).
 
 A platform target (`rensga-cooker cook --target linux`) shares the project's console profile (`ConsoleTarget.json`) for meshes and budgets and writes `Library/Cooked/linux/game.rpak`. Texture bytes are checked against `vramBytes`.
 
@@ -89,7 +130,7 @@ FDAT field type 7, `UnityEvent` (180 B): `u32 count` (0 to 4) then four listener
 
 ### Cooker output order
 
-STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, INPT, CTGT, CORO, SCNE, BLOB, TEXR, AUDI, TMAP, ANIM, FONT, PH2D (only when `ProjectSettings/Physics2D.json` exists). Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
+STRS, OBJS, XFRM, COMP, FDAT, MESH, VERT, MSHX (only with compact meshes), INPT, CTGT, CORO, SCNE, BLOB, TEXR, AUDI, TMAP, ANIM, FONT, PH2D (only when `ProjectSettings/Physics2D.json` exists). Objects keep scene-file order; a parent may follow its child (the loader creates all objects first, then links parents).
 | `SCNE` | `PackSceneRec` 32 B | F2.05 scene list in build-settings order: `Guid`, `nameStr` (file name without extension), `firstObject`, `objectCount`, reserved. OBJS, XFRM and COMP hold the objects of every scene, one contiguous block per scene; `objectIndex` and `parentIndex` stay global. A pack without SCNE is one scene. |
 | `PH2D` | `PackPhysics2D` 128 B | F2.05 2D layer collision matrix, one record, only when `ProjectSettings/Physics2D.json` exists (see "Layer collision matrix"). |
 

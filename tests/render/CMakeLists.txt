@@ -16,3 +16,12 @@ if(TARGET rensga_render_gl)
                          PASS_REGULAR_EXPRESSION "alloc-check frames=[0-9]+ allocs=0")
   endif()
 endif()
+
+# F4.04: host checks of the GU 2D backend's plain-C++ parts (sprite queue, VRAM allocator, layout). No PSP, no GL.
+add_executable(rensga_gu_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp test_gu_2d.cpp
+               ${CMAKE_SOURCE_DIR}/engine/backends/render/gu/src/gu_sprite.cpp
+               ${CMAKE_SOURCE_DIR}/engine/backends/render/gu/src/gu_vram.cpp)
+target_link_libraries(rensga_gu_tests PRIVATE rensga_core)
+target_include_directories(rensga_gu_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests ${CMAKE_SOURCE_DIR}/engine/backends/render/gu/include)
+rensga_runtime_target(rensga_gu_tests)
+add_test(NAME rensga_gu_tests COMMAND rensga_gu_tests)

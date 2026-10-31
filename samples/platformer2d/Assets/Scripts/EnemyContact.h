@@ -5,7 +5,7 @@
 // Returns true on the step the enemy is stomped. `self` is destroyed (deferred to the end of the frame).
 inline bool EnemyContact(rensga::GameObject* self, rensga::BoxCollider2D* enemyBox) {
   using namespace rensga;
-  if (GameState::won) return false;
+  if (GameState::Frozen()) return false;
   GameObject* p = GameObject::Find("Player");
   BoxCollider2D* pb = p ? p->GetComponent<BoxCollider2D>() : nullptr;
   if (!pb || !pb->Overlaps(*enemyBox)) return false;
@@ -14,7 +14,7 @@ inline bool EnemyContact(rensga::GameObject* self, rensga::BoxCollider2D* enemyB
     ++GameState::stomps;
     GameState::bounceRequest = true;
     GameState::Sfx(GameState::kSfxHit);
-    GameState::Message("STOMP  SCORE ", GameState::RunScore());
+    GameState::Message("STOMP");
     Debug::Log("rensga: stomp %s stomps=%d", self->name, static_cast<int>(GameState::stomps));
     Destroy(self);
     return true;

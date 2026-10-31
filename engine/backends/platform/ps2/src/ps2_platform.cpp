@@ -9,6 +9,7 @@
 //   5. rom0:ROMVER -> video region (PAL when the region letter is 'E').
 // USB (mass:) needs usbd/usbmass IRXs, which are not in the BIOS; a launcher embeds them (F8).
 #include "rensga/platform/ps2.h"
+#include "rensga/platform/ps2_icon.h"
 
 #include <fcntl.h>
 #include <kernel.h>
@@ -150,11 +151,43 @@ double Ps2Platform::timeSeconds() {
 
 // ---- memory card (save:/ on disc boots) ---------------------------------------------------------------------
 // Files live in mc0:/RENSGA/<name>. The modules come from the BIOS ROM (XMCMAN/XMCSERV, else MCMAN/MCSERV), loaded on
-// first use. All libmc calls are asynchronous; mcSync(0, ...) blocks until each one finished. There is no icon.sys, so
-// the browser shows the folder without an icon; the data is complete and readable by the game.
+// first use. All libmc calls are asynchronous; mcSync(0, ...) blocks until each one finished. The folder gets an icon.sys and
+// a small 3D icon (ps2_icon.h) the first time it is created, so the BIOS browser shows "Rensga Engine" with a gold cube.
 static bool g_cardTried = false, g_cardReady = false;
 // mcserv takes the IOP's fio open flags, which differ from newlib's O_* values (newlib O_WRONLY == fio read-only).
 constexpr int kMcRead = 0x0001, kMcWrite = 0x0002, kMcCreate = 0x0200;
+
+// Writes `data` to a card file unless it already exists (the player's copy of the icon is never rewritten).
+static bool cardWriteOnce(const char* path, const unsigned char* data, unsigned bytes) {
+  int fd = -1, r = 0;
+  mcOpen(0, 0, path, kMcRead);
+  mcSync(0, nullptr, &fd);
+  if (fd >= 0) {
+    mcClose(fd);
+    mcSync(0, nullptr, &r);
+    return true;
+  }
+  mcOpen(0, 0, path, kMcWrite | kMcCreate);
+  mcSync(0, nullptr, &fd);
+  if (fd < 0) return false;
+  int put = 0;
+  mcWrite(fd, data, static_cast<int>(bytes));
+  mcSync(0, nullptr, &put);
+  mcClose(fd);
+  mcSync(0, nullptr, &r);
+  return put == static_cast<int>(bytes);
+}
+
+alignas(64) static unsigned char g_iconSys[ps2icon::kIconSysSize + 60];
+alignas(64) static unsigned char g_iconFile[ps2icon::kIconFileSize + 60];
+
+static void cardWriteIcon() {
+  if (!ps2icon::buildIconSys(g_iconSys, "Rensga Engine", " Platformer 2D", "rensga.ico")) return;
+  ps2icon::buildIcon(g_iconFile);
+  const bool a = cardWriteOnce("/RENSGA/rensga.ico", g_iconFile, ps2icon::kIconFileSize);
+  const bool b = cardWriteOnce("/RENSGA/icon.sys", g_iconSys, ps2icon::kIconSysSize);
+  RLOG_INFO("fs", "memory card icon: icon.sys %s, rensga.ico %s", b ? "ok" : "FAILED", a ? "ok" : "FAILED");
+}
 
 static bool cardInit() {
   if (g_cardTried) return g_cardReady;
@@ -197,6 +230,7 @@ static bool cardInit() {
   mcMkDir(0, 0, "RENSGA");
   mcSync(0, nullptr, &result);  // 0 = created, -4 = exists
   g_cardReady = true;
+  cardWriteIcon();
   RLOG_INFO("fs", "memory card ready (%d KB free), saves go to mc0:/RENSGA", freeKb);
   return true;
 }

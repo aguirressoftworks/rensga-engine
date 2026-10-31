@@ -15,6 +15,9 @@ bool validateBudgets(const ConsoleTargetData& t, const SceneBudgetInput& in, std
     m.text = "budget exceeded in '" + in.sceneAsset + "' (guid " + in.sceneGuid + "): " + what;
     errors.push_back(m);
   };
+  if (t.ramLimitBytes && t.ramBytes > t.ramLimitBytes)
+    add("ConsoleTarget budgets.ramBytes is " + std::to_string(t.ramBytes) + ", above the " + t.profile + " device limit of " +
+        std::to_string(t.ramLimitBytes) + " bytes (PSP-1000 RAM)");
   if (t.ramBytes && in.packBytes > t.ramBytes)
     add("cooked pack is " + std::to_string(in.packBytes) + " bytes, RAM budget is " + std::to_string(t.ramBytes));
   if (t.vramBytes && in.textureBytes > t.vramBytes)

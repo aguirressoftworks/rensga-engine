@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "rensga/Sim.h"
+#include "runtime_boot.h"
 
 using namespace rensga;
 
@@ -59,17 +60,12 @@ int main(int argc, char** argv) {
   if (!world.init(cfg, arena)) return 2;
 
   if (packPath) {
-    Span<const u8> bytes = fs.readFile(packPath, arena);
-    static PackView view;
-    LoadedPack loaded;
-    static u32 noTextures[GfxAssets::kMaxTextures] = {};  // headless: no renderer, so every handle is 0
-    if (!bytes || !view.open(bytes.data, bytes.size, packPath) || !world.loadPack(view, &loaded)) {
-      RLOG_ERROR("game", "rensga: cannot load pack %s", packPath);
-      return 3;
-    }
-    Input::loadActions(view, loaded.inputs, loaded.inputCount);
-    GfxAssets::bind(&view, &loaded.assets, noTextures, loaded.assets.textureCount);
-    SceneManager::bind(&view, 0);
+    static BootState boot;  // BootState must not move: SceneManager and GfxAssets point at its view
+    BootDeps deps;          // no renderer: texture handles stay 0, 2D components still find their records
+    deps.fs = &fs; deps.arena = &arena; deps.world = &world;
+    deps.packPath = packPath;
+    deps.saves = &saves;
+    if (!bootPack(deps, boot)) return 3;
   } else {
     defineDefaultInput();
     if (!buildTestLevel(world)) { RLOG_ERROR("game", "rensga: test level needs the project scripts"); return 3; }

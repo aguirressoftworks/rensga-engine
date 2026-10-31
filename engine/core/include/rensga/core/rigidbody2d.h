@@ -36,7 +36,26 @@ struct Rigidbody2D : Component {
 
 namespace Rigidbody2DSim {
 // Steps every enabled Rigidbody2D by Time::fixedDeltaTime(). Called by Gameplay2D::fixedStep (see the contract above).
+//
+// Per body, in pool order, with dt = Time::fixedDeltaTime():
+//   Dynamic:   velocityY += gravity() * gravityScale * dt; Move(velocityX * dt, velocityY * dt) on the BoxCollider2D of
+//              the same object; then hitDown (or a grounded body that is not moving up) / hitUp zero velocityY, and
+//              hitLeft / hitRight zero velocityX. A body resting on the ground stays grounded: gravity is added again
+//              each step and removed again by the landing.
+//   Kinematic: Move(velocityX * dt, velocityY * dt); no gravity; the velocity is never changed (a script may read
+//              BoxCollider2D::grounded or flip the velocity itself).
+//   Static:    nothing.
+// Bodies that are disabled, inactive in the hierarchy, or have no (enabled) BoxCollider2D are skipped. Trigger
+// colliders move but never block. The auto drop-through of BoxCollider2D (Down + South on the pad) is switched off
+// while a body is stepped: scripts call BoxCollider2D::DropThrough() themselves. No heap allocation.
 void fixedStep(World& world);
+
+// World gravity in virtual pixels per second squared (+Y is down), shared by every Dynamic body (times its gravityScale).
+// The default is 1400, the value the platformer sample uses. There is no per-project setting yet (PH2D carries only the
+// layer matrix); a script or runtime main may call setGravity(). Not reset by scene loads.
+constexpr Scalar kDefaultGravity = 1400.0f;
+Scalar gravity();
+void setGravity(Scalar pixelsPerSecondSquared);
 }  // namespace Rigidbody2DSim
 
 }  // namespace rensga

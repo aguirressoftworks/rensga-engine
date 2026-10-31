@@ -1,7 +1,7 @@
 # Shared cooker core (host only: exceptions allowed).
 add_library(rensga_cooker_core STATIC
   src/plugin_registry.cpp src/console_target.cpp src/primitives.cpp src/budget.cpp src/cook.cpp
-  src/assets.cpp src/assets_cook.cpp src/import_settings.cpp src/default_font.cpp)
+  src/assets.cpp src/assets_cook.cpp src/import_settings.cpp src/default_font.cpp src/psp_format.cpp)
 target_include_directories(rensga_cooker_core PUBLIC include)
 target_link_libraries(rensga_cooker_core PUBLIC rensga_core rensga_reflect_json nlohmann_json::nlohmann_json
                       PRIVATE rensga_stb_image rensga_cgltf)

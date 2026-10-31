@@ -30,7 +30,10 @@
 #include "rensga/core/world.h"
 #include "rensga/platform/ps2.h"
 #include "rensga/render/gs.h"
+#include "profiler.h"
 #include "runtime_audio.h"
+#include "runtime_boot.h"
+#include "runtime_prof_renderer.h"
 #ifdef RENSGA_PS2_VRAM_STRESS
 #include "ps2_vram_stress.h"
 #endif
@@ -112,6 +115,8 @@ Sprite g_sprites[kMaxStress];
 Ps2Platform* g_platformForClock = nullptr;
 u64 audioClockUs() { return g_platformForClock ? static_cast<u64>(g_platformForClock->timeSeconds() * 1000000.0) : 0; }
 
+FrameProfiler g_prof;
+
 }  // namespace
 
 int main() {
@@ -146,46 +151,46 @@ int main() {
   }
 
   // Pack: data:/game.rpak on the host, GAME.RPK on a disc (ISO 9660 level 1 allows only 3 extension characters).
-  LoadedPack loaded;
-  static PackView view;
+  // bootPack (runtime_boot.h) reads it, uploads every TEXR (stored size and flags included), binds GfxAssets / SceneManager /
+  // input actions / saves / audio. The renderer is already initialised (it needs the PAL/NTSC video first); the CTGT view
+  // size reaches it through setVirtualResolution so a PAL console keeps the target's 640x448 layout.
+  static BootState boot;
+  static FileSystemSaveStore saves(fs);
+  static RuntimeAudio audio;
   const char* packPath = fs.device() == Ps2Device::Disc ? "data:/game.rpk" : "data:/game.rpak";
   u32 sprite = 0, fontTex = 0;
   static u32 packTex[GfxAssets::kMaxTextures] = {};
   bool gameMode = false;
-  const PackConsoleTarget* ct = nullptr;
   Rect spriteSrc(0, 0, 32, 32);
-  Span<const u8> bytes = fs.readFile(packPath, arena);
-  if (bytes && view.open(bytes.data, bytes.size, packPath) && world.loadPack(view, &loaded)) {
+  BootDeps deps;
+  deps.fs = &fs; deps.arena = &arena; deps.world = &world;
+  deps.packPath = packPath;
+  deps.renderer = &renderer; deps.initRenderer = false;
+  deps.textureHandles = packTex; deps.textureHandleCapacity = GfxAssets::kMaxTextures;
+  deps.defaultWidth = 640; deps.defaultHeight = 448;
+  deps.onResolution = [](void* user, u32 w, u32 h) { static_cast<GsRenderer*>(user)->setVirtualResolution(w, h); };
+  deps.onResolutionUser = &renderer;
+  deps.saves = &saves;
+  deps.audio = &audio; deps.audioClock = audioClockUs;
+  const bool havePack = bootPack(deps, boot);
+  u32 vw = renderer.width(), vh = renderer.height();
+  if (havePack) {
+    const LoadedPack& loaded = boot.loaded;
+    vw = boot.width; vh = boot.height;
     RLOG_INFO("game", "rensga: pack %s objects=%u textures=%u fonts=%u", packPath, world.objectCount(), loaded.assets.textureCount,
               loaded.assets.fontCount);
-    ct = view.records<PackConsoleTarget>(pack_section::CTGT);
     gameMode = loaded.assets.tilemapCount > 0 || loaded.assets.animCount > 0;
     if (gameMode) {
-      const PackAssets& as = loaded.assets;
-      for (u32 i = 0; i < as.textureCount && i < GfxAssets::kMaxTextures; ++i) {
-        const PackTexRec& t = as.textures[i];
-        TextureDesc d;
-        d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
-        d.pixels = as.texturePixels(t); d.palette = as.texturePalette(t);
-        d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
-        packTex[i] = renderer.uploadTexture(d);
-        if (!packTex[i]) RLOG_ERROR("game", "texture %u upload failed", i);
-      }
-      GfxAssets::bind(&view, &loaded.assets, packTex, as.textureCount);
-      SceneManager::bind(&view, 0);
-      Input::loadActions(view, loaded.inputs, loaded.inputCount);
       RLOG_INFO("game", "rensga: game mode scene=%s scenes=%u", SceneManager::activeSceneName(), SceneManager::sceneCount());
-    } else if (loaded.assets.textureCount > 0) {
+    } else if (loaded.assets.textureCount > 0 && packTex[0]) {
       const PackTexRec& t = loaded.assets.textures[0];
-      TextureDesc d;
-      d.width = t.width; d.height = t.height; d.format = static_cast<u8>(t.format);
-      d.pixels = loaded.assets.texturePixels(t); d.palette = loaded.assets.texturePalette(t);
-      d.storedWidth = t.storedWidth; d.storedHeight = t.storedHeight; d.flags = t.flags;
-      sprite = renderer.uploadTexture(d);
+      sprite = packTex[0];
       spriteSrc = Rect(0, 0, static_cast<Scalar>(t.width), static_cast<Scalar>(t.height));
     }
   } else {
     RLOG_WARN("game", "no usable %s, using the built-in sprite art", packPath);
+    Save::use(&saves);
+    audio.init(&fs, nullptr, audioClockUs);
   }
   buildSprite();
   buildFont();
@@ -204,21 +209,16 @@ int main() {
 #endif
   if (!sprite || !fontTex) RLOG_ERROR("game", "texture upload failed sprite=%u font=%u", sprite, fontTex);
 
-  // Audio (Engine 4): mixer + audsrv. Music streams from the disc root (MUSIC.WAV); clips come from the pack.
-  static RuntimeAudio audio;
-  audio.init(&fs, ct, audioClockUs);
-  if (bytes) audio.registerPackClips(loaded.assets);
+  // Audio (Engine 4): bootPack set up the mixer + audsrv and registered the pack clips. Music streams from the disc root (MUSIC.WAV).
 #ifdef RENSGA_PS2_AUDIO_STRESS
-  audio.beginStress(bytes ? &loaded.assets : nullptr);
+  audio.beginStress(havePack ? &boot.loaded.assets : nullptr);
 #else
   audio.startMusic();
 #endif
 
-  static FileSystemSaveStore saves(fs);
-  Save::use(&saves);
   const u32 stress = gameMode ? 0 : RENSGA_PS2_STRESS_SPRITES < kMaxStress ? RENSGA_PS2_STRESS_SPRITES : kMaxStress;
   Random::InitState(12345);
-  const Scalar W = static_cast<Scalar>(renderer.width()), H = static_cast<Scalar>(renderer.height());
+  const Scalar W = static_cast<Scalar>(vw), H = static_cast<Scalar>(vh);  // the target's view (virtual) size
   for (u32 i = 0; i < stress; ++i) {
     Sprite& s = g_sprites[i];
     s.size = Random::Range(16.0f, 48.0f);
@@ -236,20 +236,23 @@ int main() {
   loop.init(world, LoopConfig::forRefreshHz(video.pal ? 50 : 60));
   Input::bindPlatform(&platform);
   loop.setFixedStepHook(physics::fixedStep, nullptr);
+  g_prof.init(audioClockUs);
+  static ProfilingRenderer profRenderer(renderer, g_prof);  // marks Render just before endFrame (which waits for vsync)
 
-  RLOG_INFO("game", "rensga: stress sprites=%u virtual=%ux%u", stress, renderer.width(), renderer.height());
+  RLOG_INFO("game", "rensga: stress sprites=%u virtual=%ux%u", stress, vw, vh);
   double last = platform.timeSeconds(), windowStart = last;
   VirtualGamepad pad;
   u32 frame = 0;
   while (!platform.shouldQuit() && !Application::quitRequested()) {
+    g_prof.frameBegin();
     const double now = platform.timeSeconds();
     platform.pollInput(pad);
     loop.frame(static_cast<Scalar>(now - last), pad);
     last = now;
-    audio.update();
+    g_prof.mark(ProfSection::Update);
 
     if (gameMode) {
-      renderWorld(world, renderer, Color32(28, 26, 22, 255));
+      renderWorld(world, profRenderer, Color32(28, 26, 22, 255));
     } else {
     renderer.beginFrame(Color32(28, 26, 22, 255));
     for (u32 i = 0; i < stress; ++i) {
@@ -267,8 +270,13 @@ int main() {
     char hud[48];
     snprintf(hud, sizeof(hud), "%u:%u", frame, stress);
     renderer.drawText(fontTex, g_font, 4, 2, hud, Color32(255, 255, 255, 255), 101);
+    g_prof.mark(ProfSection::Render);
     renderer.endFrame();
     }
+    g_prof.mark(ProfSection::Present);
+    audio.update();
+    g_prof.mark(ProfSection::Audio);
+    g_prof.frameEnd();
     ++frame;
 
     if (frame % 60 == 0) {

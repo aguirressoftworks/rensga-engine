@@ -1,0 +1,9 @@
+{
+  "guid": "00000000-0000-4000-8000-0000000a2d03",
+  "importSettings": {
+    "smallerAudio": true,
+    "loop": true,
+    "loopStart": 20,
+    "loopEnd": 180
+  }
+}

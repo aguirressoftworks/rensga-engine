@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "profile": "psp",
+  "scalar": "float",
+  "resolution": [
+    480,
+    272
+  ],
+  "budgets": {
+    "ramBytes": 25165824,
+    "vramBytes": 2097152,
+    "trianglesPerFrame": 20000,
+    "maxObjects": 512,
+    "maxComponentsPerType": 512
+  },
+  "textureFormats": [
+    "clut4",
+    "clut8",
+    "rgba5551",
+    "rgba4444",
+    "rgba8"
+  ],
+  "depth": "zbuffer",
+  "media": "eboot",
+  "allowedComponents": [
+    "Camera"
+  ],
+  "framebuffer": {
+    "buffers": 2,
+    "bpp": 16,
+    "depthBits": 16
+  },
+  "audio": {
+    "sampleRate": 22050,
+    "voices": 16
+  }
+}

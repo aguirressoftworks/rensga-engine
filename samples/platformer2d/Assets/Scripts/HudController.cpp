@@ -4,17 +4,21 @@
 
 using namespace rensga;
 
-// Coins, HP, best score, a message line, and the end of the room: all coins -> "ROOM CLEARED".
-// The best score is stored through Save::SaveInt ("best", "coins"), also by the save point.
+// The HUD of a room (coins, lives, HP, game time, room number, a message line) and the room flow: it starts the room
+// (GameState::BeginRoom saves the progress) and, after the player reached an exit, the goal or lost the last life, waits a moment and
+// loads the next scene. Every text is anchored (UIText.anchor), so the same scene fits 640x448 and 480x272.
 struct HudController : Behaviour {
   REFLECT(HudController)
+  RANGE(1, 3)
+  SERIALIZE_FIELD(i32, roomNumber, 1)
   RANGE(0, 600)
-  SERIALIZE_FIELD(i32, returnDelayTicks, 90)
-  RANGE(0, 6000)
-  SERIALIZE_FIELD(i32, timeBonusTicks, 3600)
+  SERIALIZE_FIELD(i32, exitDelayFrames, 70)
+  RANGE(0, 600)
+  SERIALIZE_FIELD(i32, endDelayFrames, 110)
 
-  Ref<UIText> coinsText, hpText, bestText, messageText;
-  i32 ticksSinceWin = 0;
+  Ref<UIText> coinsText, livesText, hpText, timeText, roomText, messageText;
+  i32 seenExit = 0;
+  i32 framesInExit = 0;
 
   static Ref<UIText> TextOf(const char* objectName) {
     GameObject* go = GameObject::Find(objectName);
@@ -24,33 +28,42 @@ struct HudController : Behaviour {
 
   void Start() override {
     coinsText = TextOf("HudCoins");
+    livesText = TextOf("HudLives");
     hpText = TextOf("HudHp");
-    bestText = TextOf("HudBest");
+    timeText = TextOf("HudTime");
+    roomText = TextOf("HudRoom");
     messageText = TextOf("HudMessage");
-    GameState::best = Save::LoadInt("best", 0);
-    ticksSinceWin = 0;
+    GameState::BeginRoom(roomNumber);
+    GameState::PlayMusic(GameState::kRoomTrack[(roomNumber < 1 ? 1 : (roomNumber > GameState::kRooms ? GameState::kRooms : roomNumber)) - 1]);
+    seenExit = 0;
+    framesInExit = 0;
   }
 
   void Update() override {
-    if (!GameState::won && GameState::coins >= GameState::kTotalCoins) {
-      GameState::won = true;
-      const i32 bonus = Mathf::Max(0, (timeBonusTicks - GameState::fixedTicks) / 4);
-      GameState::score = GameState::RunScore() + bonus;
-      if (GameState::score > GameState::best) GameState::best = GameState::score;
-      GameState::Sfx(GameState::kSfxSave);
-      Debug::Log("rensga: room cleared coins=%d score=%d", static_cast<int>(GameState::coins), static_cast<int>(GameState::score));
-      const bool ok = Save::SaveInt("best", GameState::best) && Save::SaveInt("coins", GameState::coins);
-      Debug::Log("rensga: save readback best=%d coins=%d ok=%d", static_cast<int>(Save::LoadInt("best", -1)),
-                 static_cast<int>(Save::LoadInt("coins", -1)), ok ? 1 : 0);
+    if (GameState::exitRequest != seenExit) {
+      seenExit = GameState::exitRequest;
+      framesInExit = 0;
+      if (seenExit == 1) GameState::Message("ROOM CLEARED");
+      if (seenExit == 2) GameState::Message("YOU MADE IT");
     }
+    if (seenExit != 0) {
+      ++framesInExit;
+      if (seenExit == 1 && framesInExit >= exitDelayFrames) SceneManager::LoadScene(GameState::RoomScene(GameState::room + 1));
+      if (seenExit == 2 && framesInExit >= endDelayFrames) SceneManager::LoadScene("Results");
+      if (seenExit == 3 && framesInExit >= endDelayFrames) SceneManager::LoadScene("GameOver");
+    }
+    char buf[UIText::kMaxText];
     if (UIText* t = coinsText.get()) t->SetInt("COINS ", GameState::coins);
+    if (UIText* t = livesText.get()) t->SetInt("LIVES ", GameState::lives);
     if (UIText* t = hpText.get()) t->SetInt("HP ", GameState::hp);
-    if (UIText* t = bestText.get()) t->SetInt("BEST ", GameState::best);
-    UIText* msg = messageText.get();
-    if (GameState::won) {
-      if (msg) msg->SetInt("ROOM CLEARED  SCORE ", GameState::score);
-      if (++ticksSinceWin > returnDelayTicks && Input::GetButtonDown("Jump")) SceneManager::LoadScene("Title");
-    } else if (msg) {
+    if (UIText* t = roomText.get()) t->SetInt("ROOM ", GameState::room);
+    if (UIText* t = timeText.get()) {
+      char clock[16];
+      GameState::FormatTime(clock, sizeof clock, GameState::ticks);
+      snprintf(buf, sizeof buf, "TIME %s", clock);
+      t->SetText(buf);
+    }
+    if (UIText* msg = messageText.get()) {
       if (GameState::messageTicks > 0) {
         --GameState::messageTicks;
         msg->SetText(GameState::message);

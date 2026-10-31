@@ -28,6 +28,8 @@ bool SdlAudio::init(u32 sampleRate, AudioMixer* mixer) {
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
     return false;
   }
+  RLOG_INFO("audio", "rensga: audio device want.freq=%d have.freq=%d have.samples=%d have.channels=%d driver=%s", want.freq, have.freq,
+            static_cast<int>(have.samples), static_cast<int>(have.channels), SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "?");
   mixer_ = mixer;
   rate_ = sampleRate;
   device_ = dev;

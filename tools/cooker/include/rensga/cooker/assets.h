@@ -50,8 +50,10 @@ struct ModelImport {          // F3.02: glTF import settings
 
 // A texture in a target's binary form (PackTexFormat values, see pack_format.h).
 struct CookedTexture {
-  uint32_t width = 0, height = 0;
-  uint32_t format = 0;                // 0 RGBA8, 1 CLUT4, 2 CLUT8
+  uint32_t width = 0, height = 0;     // source size (what the plugin was given)
+  uint32_t format = 0;                // PackTexFormat: 0 RGBA8, 1 CLUT4, 2 CLUT8, 3 RGBA5551, 4 RGBA4444
+  uint32_t storedWidth = 0, storedHeight = 0;  // 0 = same as width/height (PSP pads to a power of two)
+  uint32_t flags = 0;                 // PackTexRec::flags (kTexSwizzled)
   std::vector<uint8_t> pixels;
   std::vector<uint32_t> palette;      // RGBA8 entries (R in the low byte), 16 or 256 for CLUT
 };

@@ -76,6 +76,13 @@ class AssetDatabase {
   // Settings the cook uses for `target` (override laid over the defaults), as cooker text.
   std::string effectiveSettings(const std::string& guid, const std::string& target) const;
 
+  // ---- sprite slices (F4.08) ----
+  // The top-level "sprites" key of the .meta (see sprite_slices.h for the schema); a null json when the asset has none.
+  nlohmann::json sprites(const std::string& guid) const;
+  // Replaces the "sprites" key and rewrites the .meta; "importSettings" and "targetOverrides" stay untouched. A null json or
+  // an empty object removes the key. False for an unknown GUID or a write error. The next scan() does not report it.
+  bool setSprites(const std::string& guid, const nlohmann::json& sprites);
+
   // ---- file operations (the .meta moves with the file) ----
   bool createFolder(const std::filesystem::path& parent, const std::string& name, std::string& err);
   bool rename(const std::filesystem::path& from, const std::string& newName, std::string& err);  // file or folder

@@ -26,7 +26,7 @@ using nlohmann::json;
 namespace rensga {
 namespace {
 
-constexpr const char* kCookerVersion = "rensga-cooker-4";
+constexpr const char* kCookerVersion = "rensga-cooker-5";
 
 struct Ctx {
   CookResult result;
@@ -525,6 +525,21 @@ lightDone:
   }
   if (!R.errors.empty()) return R;
 
+  // ---- compact meshes (F4.05): only when cooking for the profile's own target; a platform cook keeps float vertices
+  PackMeshExt meshExt = {};
+  bool compactMeshes = false;
+  if (plugin->isProfile() && plugin->hasCompactMeshes() && !vertBytes.empty()) {
+    std::vector<uint8_t> compact;
+    std::string cerr;
+    if (plugin->compactMeshes(vertBytes, compact, meshExt, cerr)) {
+      vertBytes.swap(compact);
+      compactMeshes = true;
+    } else if (!cerr.empty()) {
+      cx.error("compact meshes: " + cerr);
+      return R;
+    }
+  }
+
   // ---- textures, audio, tilemaps, clips, fonts (pack v2)
   CookedAssets cooked;
   {
@@ -650,7 +665,9 @@ lightDone:
   secs.push_back({pack_section::COMP, bytesOf(pcomps.data(), pcomps.size() * sizeof(PackComponent)), static_cast<u32>(pcomps.size())});
   secs.push_back({pack_section::FDAT, fdat, static_cast<u32>(pcomps.size())});
   secs.push_back({pack_section::MESH, bytesOf(meshRecs.data(), meshRecs.size() * sizeof(PackMeshRec)), static_cast<u32>(meshRecs.size())});
-  secs.push_back({pack_section::VERT, vertBytes, static_cast<u32>(vertBytes.size() / sizeof(PackVertex))});
+  secs.push_back({pack_section::VERT, vertBytes,
+                  static_cast<u32>(vertBytes.size() / (compactMeshes ? sizeof(PackVertexCompact) : sizeof(PackVertex)))});
+  if (compactMeshes) secs.push_back({pack_section::MSHX, bytesOf(&meshExt, sizeof meshExt), 1});
   secs.push_back({pack_section::INPT, bytesOf(pinputs.data(), pinputs.size() * sizeof(PackInputAction)), static_cast<u32>(pinputs.size())});
   secs.push_back({pack_section::INPX, bytesOf(cookedInput.ext.data(), cookedInput.ext.size() * sizeof(PackInputActionExt)), static_cast<u32>(cookedInput.ext.size())});
   secs.push_back({pack_section::INPS, bytesOf(&cookedInput.settings, sizeof cookedInput.settings), 1});

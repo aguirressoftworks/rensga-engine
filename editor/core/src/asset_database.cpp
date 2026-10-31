@@ -365,6 +365,25 @@ bool AssetDatabase::setImportSettings(const std::string& guid, const std::string
   return writeMeta(e);
 }
 
+json AssetDatabase::sprites(const std::string& guid) const {
+  const AssetEntry* e = findGuid(guid);
+  if (!e || !e->meta.contains("sprites")) return json();
+  return e->meta["sprites"];
+}
+
+bool AssetDatabase::setSprites(const std::string& guid, const json& sprites) {
+  auto it = byGuid_.find(guid);
+  if (it == byGuid_.end()) return false;
+  AssetEntry& e = entries_[it->second];
+  json meta = e.meta;
+  if (sprites.is_null() || (sprites.is_object() && sprites.empty())) meta.erase("sprites");
+  else if (sprites.is_object()) meta["sprites"] = sprites;
+  else return false;
+  if (meta == e.meta) return true;  // nothing to write
+  e.meta = std::move(meta);
+  return writeMeta(e);
+}
+
 std::string AssetDatabase::effectiveSettings(const std::string& guid, const std::string& target) const {
   const AssetEntry* e = findGuid(guid);
   return e ? effectiveImportSettings(e->meta, target) : std::string();

@@ -30,9 +30,10 @@ jobs:
       - uses: ./.github/actions/rensga-modules
         with: { modules: psp-build }
       - uses: actions/cache@v4
-        with: { path: "~/.local/bin", key: ppsspp-headless-v1.17.1 }
+        with: { path: "~/.local/bin", key: ppsspp-headless-v1.20.4 }
       - run: tools/ci/build_ppsspp_headless.sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: tools/ci/psp.sh            # boots to frame 240 and requires alloc-check allocs=0 (F2.G1)
+      - run: tools/ci/psp_eboot.sh      # F4.02: the release EBOOT.PBP (rensga build --target psp) boots from ms0:/PSP/GAME/RENSGA in PPSSPPHeadless to frame 240, allocs=0
       - run: tools/ci/psp_hello.sh || [ $? = 77 ]   # F4: shared hello world as an EBOOT in PPSSPP (exit 77 = not implemented yet / skipped)
       - run: tools/ci/psp_2d.sh || [ $? = 77 ]      # F4: the 2D slice on PSP in PPSSPP
       - run: tools/ci/templates.sh || [ $? = 77 ]   # F4: the Hub's 2D and 3D templates cook and boot

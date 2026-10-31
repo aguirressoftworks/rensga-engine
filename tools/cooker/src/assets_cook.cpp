@@ -98,11 +98,12 @@ struct CacheReader {
     pos += n;
   }
 };
-constexpr uint32_t kMagicTex = 0x54434752u, kMagicAud = 0x41434752u;  // "RGCT", "RGCA"
+constexpr uint32_t kMagicTex = 0x32544752u, kMagicAud = 0x41434752u;  // "RGT2", "RGCA"
 
 void storeTex(const fs::path& path, const CookedTexture& ct, uint32_t srcW, uint32_t srcH) {
   CacheWriter w;
   w.u32v(kMagicTex); w.u32v(srcW); w.u32v(srcH); w.u32v(ct.width); w.u32v(ct.height); w.u32v(ct.format);
+  w.u32v(ct.storedWidth); w.u32v(ct.storedHeight); w.u32v(ct.flags);
   w.u32v(static_cast<uint32_t>(ct.pixels.size())); w.u32v(static_cast<uint32_t>(ct.palette.size()));
   w.raw(ct.pixels.data(), ct.pixels.size());
   w.raw(ct.palette.data(), ct.palette.size() * 4);
@@ -112,6 +113,7 @@ bool loadTex(const fs::path& path, CookedTexture& ct, uint32_t& srcW, uint32_t& 
   CacheReader r;
   if (!r.load(path) || r.u32v() != kMagicTex) return false;
   srcW = r.u32v(); srcH = r.u32v(); ct.width = r.u32v(); ct.height = r.u32v(); ct.format = r.u32v();
+  ct.storedWidth = r.u32v(); ct.storedHeight = r.u32v(); ct.flags = r.u32v();
   const uint32_t np = r.u32v(), nc = r.u32v();
   if (r.bad || np > r.b.size() || nc > r.b.size()) return false;
   ct.pixels.resize(np);
@@ -173,6 +175,9 @@ bool cookAssets(const std::vector<AssetSource>& sourcesIn, ICookerFormatPlugin& 
     r.width = ct.width;
     r.height = ct.height;
     r.format = ct.format;
+    r.storedWidth = static_cast<uint16_t>(ct.storedWidth);
+    r.storedHeight = static_cast<uint16_t>(ct.storedHeight);
+    r.flags = static_cast<uint16_t>(ct.flags);
     r.pixelBytes = static_cast<uint32_t>(ct.pixels.size());
     r.pixelOffset = blobAdd(out.blob, ct.pixels.data(), ct.pixels.size());
     if (!ct.palette.empty()) {

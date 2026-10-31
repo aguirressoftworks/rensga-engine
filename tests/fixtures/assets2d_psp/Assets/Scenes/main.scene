@@ -1,0 +1,37 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-8000-0000000a2d07",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-8000-0000000000b1",
+   "name": "Cam",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {}
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

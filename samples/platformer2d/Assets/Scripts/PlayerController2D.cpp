@@ -5,7 +5,8 @@
 using namespace rensga;
 
 // Run, jump and animate. Movement runs in FixedUpdate; BoxCollider2D::Move resolves tile collisions.
-// Enemies ask for a hit (knockback + one HP) or a bounce through GameState; the room's demo pilot can replace the pad.
+// Enemies ask for a hit (knockback + one HP) or a bounce through GameState; the demo pilot can replace the pad.
+// Out of HP: one life is lost and the player restarts at the last checkpoint with full HP; out of lives: game over.
 struct PlayerController2D : Behaviour {
   REFLECT(PlayerController2D)
   HEADER("Movement (pixels per second)")
@@ -31,7 +32,6 @@ struct PlayerController2D : Behaviour {
   Scalar knockDir = 0;
 
   void Start() override {
-    GameState::StartRun();
     if (Transform* t = &gameObject()->transform) {
       GameState::checkpointX = t->position().x;
       GameState::checkpointY = t->position().y;
@@ -39,6 +39,7 @@ struct PlayerController2D : Behaviour {
   }
 
   void Update() override {
+    if (GameState::paused || Time::frameCount() == GameState::resumeFrame) return;  // the pause menu has the pad (Resume is a South press)
     if (GameState::botActive) {
       axis = Mathf::Clamp(GameState::botAxis, -1.0f, 1.0f);
       if (GameState::botJump && !prevBotJump) jumpQueued = true;
@@ -54,8 +55,8 @@ struct PlayerController2D : Behaviour {
     BoxCollider2D* box = gameObject()->GetComponent<BoxCollider2D>();
     if (!box) return;
     const Scalar dt = Time::fixedDeltaTime();
-    if (!GameState::won) ++GameState::fixedTicks;
-    if (GameState::respawnRequest) {  // out of HP: back to the last save point
+    if (!GameState::Frozen()) ++GameState::ticks;
+    if (GameState::respawnRequest) {  // out of HP: back to the last checkpoint
       gameObject()->transform.setPosition(Vector3(GameState::checkpointX, GameState::checkpointY, 0));
       vy = 0;
       knockTicks = 0;
@@ -64,7 +65,7 @@ struct PlayerController2D : Behaviour {
       GameState::respawnRequest = false;
     }
     if (GameState::hurtTicks > 0) --GameState::hurtTicks;
-    if (GameState::hurtRequest != 0 && GameState::hurtTicks == 0 && !GameState::won) {
+    if (GameState::hurtRequest != 0 && GameState::hurtTicks == 0 && !GameState::Frozen()) {
       knockDir = static_cast<Scalar>(GameState::hurtRequest);
       knockTicks = 10;
       vy = -300.0f;
@@ -72,8 +73,17 @@ struct PlayerController2D : Behaviour {
       --GameState::hp;
       GameState::Sfx(GameState::kSfxHit);
       if (GameState::hp <= 0) {
-        GameState::respawnRequest = true;
-        GameState::Message("TRY AGAIN");
+        --GameState::lives;
+        Debug::Log("rensga: life lost lives=%d", static_cast<int>(GameState::lives));
+        if (GameState::lives <= 0) {
+          GameState::exitRequest = 3;  // HudController shows the game over scene
+          GameState::Sfx(GameState::kSfxOver);
+          GameState::Message("GAME OVER");
+        } else {
+          GameState::respawnRequest = true;
+          GameState::Sfx(GameState::kSfxLose);
+          GameState::Message("LIFE LOST  LIVES ", GameState::lives);
+        }
       } else {
         GameState::Message("OUCH  HP ", GameState::hp);
       }
@@ -84,7 +94,7 @@ struct PlayerController2D : Behaviour {
       vy = -stompBounce;
       GameState::bounceRequest = false;
     }
-    const bool canMove = !GameState::won;
+    const bool canMove = !GameState::Frozen();
     if (jumpQueued && box->grounded && canMove) {
       vy = -jumpSpeed;
       GameState::Sfx(GameState::kSfxJump);

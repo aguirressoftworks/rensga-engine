@@ -9,6 +9,7 @@ target_sources(rensga_editor_core PRIVATE src/game_module.cpp src/inspector_mode
 target_sources(rensga_editor_core PRIVATE src/scene2d.cpp src/document_gizmos.cpp)  # F3.01 scene (2D layer, built-in gizmos)
 target_sources(rensga_editor_core PRIVATE src/editor_world.cpp src/play_session.cpp src/edit_mode_world.cpp)  # F3.04 Play in editor
 target_sources(rensga_editor_core PRIVATE src/modules_model.cpp)  # Hub > Modules: list, install job, license gate (no ImGui)
+target_sources(rensga_editor_core PRIVATE src/tilemap_edit.cpp src/sprite_slices.cpp)  # F4.08 Editor 7: tile editing and sprite slices (no UI)
 target_include_directories(rensga_editor_core PUBLIC include)
 target_link_libraries(rensga_editor_core PUBLIC rensga_pipeline_headers rensga_cooker_lib
                       rensga_core rensga_api rensga_modules nlohmann_json::nlohmann_json Threads::Threads

@@ -8,6 +8,7 @@
 
 #include "rensga/core/math.h"
 #include "rensga/cooker/assets.h"
+#include "rensga/core/pack_format.h"
 
 namespace rensga {
 
@@ -37,6 +38,16 @@ class ICookerFormatPlugin {
                         std::string& error) {
     (void)mesh; (void)light; (void)baseColor; (void)outVertexBytes; (void)outVertexCount;
     error = "target '" + std::string(id()) + "' has no mesh format yet";
+    return false;
+  }
+  // Compact mesh form (F4.05, MSHX). Only a target's own cook uses it: cook.cpp calls these when the cooked target IS this
+  // plugin's profile, never for a platform cook (linux, windows, android) of the same project, which keeps float vertices.
+  virtual bool hasCompactMeshes() const { return false; }
+  // Converts the float PackVertex bytes cookMesh produced into the compact records plus the one PackMeshExt for the pack.
+  // Returns false (leaving the float form) when there is nothing to compact; `error` is set only for a real failure.
+  virtual bool compactMeshes(const std::vector<uint8_t>& floatVertexBytes, std::vector<uint8_t>& compactBytes,
+                             PackMeshExt& ext, std::string& error) {
+    (void)floatVertexBytes; (void)compactBytes; (void)ext; (void)error;
     return false;
   }
   // false for platform targets (linux, windows, android): they share the project's console profile

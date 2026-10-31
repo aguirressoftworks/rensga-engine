@@ -38,6 +38,27 @@ void note(const EventSink& sink, Stage st, Status s, const std::string& msg) {
 
 constexpr const char* kModuleId = "psp-build";
 
+// PSP-1000 limits (F4.02). RAM is the same data the cooker's budget check uses (profileRamLimitBytes: 32 MiB, PSP-1000);
+// the GU framebuffer is 16-bit 5650 (psp_vram.cpp, engine/backends/render/gu).
+constexpr uint32_t kPspFramebufferBpp = 16;
+uint64_t pspRamLimitBytes(const ConsoleTargetData& t) {
+  if (t.ramLimitBytes) return t.ramLimitBytes;
+  const uint64_t p = profileRamLimitBytes("psp");
+  return p ? p : 32ull * 1024 * 1024;
+}
+
+// "framebuffer".bpp as written in ConsoleTarget.json; a missing field means the PSP default (16).
+uint32_t declaredFramebufferBpp(const fs::path& file) {
+  try {
+    std::ifstream f(file);
+    nlohmann::json j = nlohmann::json::parse(f);
+    if (j.contains("framebuffer") && j["framebuffer"].is_object() && j["framebuffer"].contains("bpp"))
+      return j["framebuffer"]["bpp"].get<uint32_t>();
+  } catch (...) {
+  }
+  return kPspFramebufferBpp;
+}
+
 pipeline::ToolchainRunner makeRunner() {
   return pipeline::ToolchainRunner(kModuleId, repoRoot() / "tools" / "docker" / "psp.sh");
 }
@@ -51,6 +72,12 @@ bool resolveToolchain(pipeline::ToolchainRunner& tr, Stage stage, const EventSin
   }
   note(sink, stage, Status::Progress, std::string("toolchain: ") + pipeline::toolchainBackendName(tr.backend()) + " (" + kModuleId + ")");
   return true;
+}
+
+std::string exitAfterFrames() {
+  const char* e = std::getenv("RENSGA_PSP_EXIT_AFTER_FRAMES");
+  int n = e ? std::atoi(e) : 0;
+  return std::to_string(n > 0 ? n : 0);
 }
 
 int buildJobs() {
@@ -106,6 +133,18 @@ class PspTargetModule : public TargetModule {
         note(sink, Stage::Validate, Status::Failed, "PSP profile requires scalar \"float\" in ConsoleTarget.json");
         return false;
       }
+      if (t.ramBytes > pspRamLimitBytes(t)) {
+        note(sink, Stage::Validate, Status::Failed,
+             "ConsoleTarget.json budgets.ramBytes " + std::to_string(t.ramBytes) + " is over the PSP-1000 limit of " +
+                 std::to_string(pspRamLimitBytes(t)) + " bytes (32 MiB)");
+        return false;
+      }
+      const uint32_t bpp = declaredFramebufferBpp(ctx.project / "ProjectSettings" / "ConsoleTarget.json");
+      if (bpp != kPspFramebufferBpp) {
+        note(sink, Stage::Validate, Status::Failed,
+             "ConsoleTarget.json framebuffer.bpp is " + std::to_string(bpp) + ", the PSP GU framebuffer is 16-bit (5650)");
+        return false;
+      }
     } catch (const std::exception& e) {
       note(sink, Stage::Validate, Status::Failed, e.what());
       return false;
@@ -127,7 +166,10 @@ class PspTargetModule : public TargetModule {
                                     "-DRENSGA_REFLECT_DIR=" + (cmakeDir / "reflect").string(),
                                     "-DRENSGA_PROJECT_DIR=" + ctx.project.string(),
                                     "-DRENSGA_GENERATED_DIR=" + ctx.generatedDir.string(),
-                                    std::string("-DRENSGA_PSP_PRX=") + (ctx.release ? "ON" : "OFF")};
+                                    std::string("-DRENSGA_PSP_PRX=") + (ctx.release ? "ON" : "OFF"),
+                                    // CI only (tools/ci/psp_eboot.sh): RENSGA_PSP_EXIT_AFTER_FRAMES=N makes the game quit cleanly after N
+                                    // frames so a headless emulator run ends. Always passed (0 = never) so the cache never keeps a stale value.
+                                    "-DRENSGA_EXIT_AFTER_FRAMES=" + exitAfterFrames()};
     if (native) cfg.insert(cfg.begin() + 5, {"-G", "Ninja"});
     if (!toolRun(tr, ctx, Stage::Compile, sink, cfg)) return false;
     note(sink, Stage::Compile, Status::Progress, "building rensga_game");

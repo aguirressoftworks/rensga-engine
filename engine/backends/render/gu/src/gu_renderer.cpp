@@ -1,58 +1,95 @@
 #include "rensga/render/gu.h"
 
 #include <pspdisplay.h>
+#include <pspge.h>
 #include <pspgu.h>
 #include <pspgum.h>
+#include <pspiofilemgr.h>
 #include <pspkernel.h>
 #include <string.h>
 
+#include "gu_internal.h"
 #include "rensga/core/log.h"
 
 namespace rensga {
 
 namespace {
-constexpr int kBufWidth = 512;
-constexpr int kScreenW = 480, kScreenH = 272;
-constexpr u32 kFrameSize = kBufWidth * kScreenH * 4;
-constexpr u32 kDepthSize = kBufWidth * kScreenH * 2;
-alignas(64) unsigned int g_list[262144 / 4];  // display list (static, no heap)
+using namespace gu_vram;
+constexpr int kBufWidth = static_cast<int>(kStride);
+constexpr int kScreenWi = static_cast<int>(kScreenW), kScreenHi = static_cast<int>(kScreenH);
+// 5650 is the framebuffer format of F4; 8888 only while the frame dump of main_psp still wants it (see kFbBytesPerPixel).
+constexpr int kFbPsm = kFbBytesPerPixel == 2 ? GU_PSM_5650 : GU_PSM_8888;
+// Two display lists, used on alternate frames: the GE may still be reading list N&1 while the CPU records the next one.
+constexpr u32 kListWords = kGuListBytes / 4;
+alignas(64) unsigned int g_list[2][kListWords];
 
-struct Vtx2D { u32 color; float x, y, z; };
+inline u8* vramUncached() { return reinterpret_cast<u8*>(reinterpret_cast<unsigned>(sceGeEdramGetAddr()) | 0x40000000u); }
+
+void clearBuffer(u32 listIndex, u32 fbOffset, u32 color) {
+  sceGuStart(GU_DIRECT, g_list[listIndex]);
+  sceGuDrawBufferList(kFbPsm, reinterpret_cast<void*>(fbOffset), kBufWidth);
+  sceGuClearColor(color);
+  sceGuClear(GU_COLOR_BUFFER_BIT);
+  sceGuFinish();
+  sceGuSync(0, 0);
+}
 }  // namespace
 
 bool GuRenderer::init(u32 width, u32 height) {
   w_ = width ? width : kScreenW;
   h_ = height ? height : kScreenH;
-  // VRAM layout: draw buffer, display buffer, depth buffer (offsets from VRAM base).
-  void* fbp0 = reinterpret_cast<void*>(0);
-  void* fbp1 = reinterpret_cast<void*>(kFrameSize);
-  void* zbp = reinterpret_cast<void*>(kFrameSize * 2);
-  (void)kDepthSize;
+  map_ = GuViewMap::fit(w_, h_);
+  guInitSpriteStorage(queue_);
+  vram_.init(kTexBegin, kTexEnd);
+  texCount_ = 0;
+  ramTex_ = 0;
+  compact_ = false;
+  // Buffers in VRAM (offsets from the VRAM base): draw buffer, display buffer, 16-bit depth buffer.
+  void* fbp0 = reinterpret_cast<void*>(kFb0);
+  void* fbp1 = reinterpret_cast<void*>(kFb1);
+  void* zbp = reinterpret_cast<void*>(kDepth);
   sceGuInit();
-  sceGuStart(GU_DIRECT, g_list);
-  sceGuDrawBuffer(GU_PSM_8888, fbp0, kBufWidth);
-  sceGuDispBuffer(kScreenW, kScreenH, fbp1, kBufWidth);
+  sceGuStart(GU_DIRECT, g_list[0]);
+  sceGuDrawBuffer(kFbPsm, fbp0, kBufWidth);
+  sceGuDispBuffer(kScreenWi, kScreenHi, fbp1, kBufWidth);
   sceGuDepthBuffer(zbp, kBufWidth);
-  sceGuOffset(2048 - (kScreenW / 2), 2048 - (kScreenH / 2));
-  sceGuViewport(2048, 2048, kScreenW, kScreenH);
+  sceGuOffset(2048 - (kScreenWi / 2), 2048 - (kScreenHi / 2));
+  sceGuViewport(2048, 2048, kScreenWi, kScreenHi);
   sceGuDepthRange(65535, 0);
-  sceGuScissor(0, 0, kScreenW, kScreenH);
+  sceGuScissor(0, 0, kScreenWi, kScreenHi);
   sceGuEnable(GU_SCISSOR_TEST);
   sceGuDepthFunc(GU_GEQUAL);
   sceGuEnable(GU_DEPTH_TEST);
   sceGuDisable(GU_CULL_FACE);  // cooked winding is not guaranteed in the MVP
   sceGuShadeModel(GU_SMOOTH);
   sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
+  // 4x4 ordered dither (zero-mean, -8..7). It is only enabled for the 3D pass: it lifts the banding of a 5650 buffer.
+  static const ScePspIMatrix4 kDither = {{-8, 0, -6, 2}, {4, -4, 6, -2}, {-5, 3, -7, 1}, {7, -1, 5, -3}};
+  sceGuSetDither(&kDither);
   sceGuFinish();
   sceGuSync(0, 0);
   sceDisplayWaitVblankStart();
+  // Both buffers start black, so the first swap shows black and not leftover VRAM.
+  clearBuffer(0, kFb0, 0xFF000000u);
+  clearBuffer(1, kFb1, 0xFF000000u);
   sceGuDisplay(GU_TRUE);
-  RLOG_INFO("gu", "renderer ready %ux%u", w_, h_);
+  drawFb_ = kFb0;  // sceGuInit draws into fbp0; the first endFrame swaps and draws into fb1
+  lastDrawnFb_ = kFb0;
+  frame_ = 0;
+  ready_ = true;
+  RLOG_INFO("gu", "static buffers %u KiB (2 lists %u KiB, %u sprites)", static_cast<unsigned>(guStaticBytes() / 1024),
+            static_cast<unsigned>(2 * kGuListBytes / 1024), static_cast<unsigned>(kMaxSprites));
+  RLOG_INFO("gu", "renderer ready %ux%u fb=%s tex area %u KiB", static_cast<unsigned>(w_), static_cast<unsigned>(h_),
+            kFbPsm == GU_PSM_5650 ? "5650" : "8888", static_cast<unsigned>(kTexArea / 1024));
   return true;
 }
 
 void GuRenderer::setMeshes(const MeshTable& table) {
   table_ = table;
+  compact_ = table.ext && table.ext->format == kMeshFormatCompact16;
+  const u32 compact = compact_ ? table.meshCount : 0;
+  RLOG_INFO("gu", "meshes compact=%u float=%u", static_cast<unsigned>(compact),
+            static_cast<unsigned>(table.meshCount - compact));
   // The pack was written by the CPU; make it visible to the GE.
   sceKernelDcacheWritebackAll();
 }
@@ -60,7 +97,7 @@ void GuRenderer::setMeshes(const MeshTable& table) {
 void GuRenderer::beginFrame(Color32 clear) {
   clear_ = clear;
   drawCount_ = 0;
-  overlayCount_ = 0;
+  queue_.clear();
   view_ = Matrix4::identity();
   proj_ = Matrix4::identity();
 }
@@ -78,12 +115,66 @@ void GuRenderer::drawMesh(u32 meshIndex, const Matrix4& world, u32 sortKey) {
   d.world = world;
 }
 
-void GuRenderer::drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 color) {
-  if (overlayCount_ >= kMaxOverlays) return;
-  overlays_[overlayCount_++] = Overlay{x, y, w, h, color.packedABGR()};
+void GuRenderer::setState3D() {
+  sceGuEnable(GU_DEPTH_TEST);
+  sceGuDepthFunc(GU_GEQUAL);
+  sceGuDisable(GU_BLEND);
+  sceGuDisable(GU_TEXTURE_2D);  // 3D meshes are vertex colored; no state from the 2D pass may leak in
+  sceGuDisable(GU_ALPHA_TEST);
+  sceGuEnable(GU_DITHER);
 }
 
+void GuRenderer::drawMeshes() {
+  setState3D();
+  sceGumMatrixMode(GU_PROJECTION);
+  sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(proj_.m));
+  sceGumMatrixMode(GU_VIEW);
+  sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(view_.m));
+  // Compact meshes: the GE reads signed 16-bit positions as q / 32768; the pack says position = offset + q * scale.
+  Matrix4 unpack = Matrix4::identity();
+  if (compact_) {
+    const PackMeshExt& e = *table_.ext;
+    unpack = Matrix4::translation(Vector3(e.offset[0], e.offset[1], e.offset[2])) *
+             Matrix4::scaling(Vector3(e.scale[0] * 32768.0f, e.scale[1] * 32768.0f, e.scale[2] * 32768.0f));
+  }
+  const PackVertexCompact* compactVerts = reinterpret_cast<const PackVertexCompact*>(table_.vertices);
+  triangles_ = 0;
+  for (u32 i = 0; i < drawCount_; ++i) {
+    const Draw& d = draws_[i];
+    const PackMeshRec& m = table_.meshes[d.mesh];
+    if (m.vertexOffset + m.vertexCount > table_.vertexCount) continue;
+    if (static_cast<u32>(sceGuCheckList()) + kGuListMargin > kGuListBytes) { ++listOverflows_; break; }
+    sceGumMatrixMode(GU_MODEL);
+    if (compact_) {
+      const Matrix4 model = d.world * unpack;
+      sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(model.m));
+    } else {
+      sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(d.world.m));
+    }
+    sceGumUpdateMatrix();
+    if (compact_) {
+      sceGumDrawArray(GU_TRIANGLES, GU_COLOR_8888 | GU_VERTEX_16BIT | GU_TRANSFORM_3D, m.vertexCount, nullptr,
+                      compactVerts + m.vertexOffset);
+    } else {
+      sceGumDrawArray(GU_TRIANGLES, GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D, m.vertexCount, nullptr,
+                      table_.vertices + m.vertexOffset);
+    }
+    triangles_ += m.vertexCount / 3;
+  }
+}
+
+#ifdef RENSGA_GU_SELFTEST
+void guSelfTest(GuRenderer& r, u32 frame);
+#endif
+
 void GuRenderer::endFrame() {
+#ifdef RENSGA_GU_DUMP_FRAME
+  // Dev/CI hook: write host0:/rensga_shot.bmp when frame N starts (frame N-1 is the last one drawn).
+  if (frame_ == RENSGA_GU_DUMP_FRAME) dumpFrame();
+#endif
+#ifdef RENSGA_GU_SELFTEST
+  guSelfTest(*this, frame_);  // dev only: queues a 2D test panel on top of the scene (see gu_selftest.cpp)
+#endif
   // Insertion sort by key, front to back (small N, no heap).
   for (u32 i = 1; i < drawCount_; ++i) {
     Draw t = draws_[i];
@@ -92,46 +183,69 @@ void GuRenderer::endFrame() {
     draws_[j] = t;
   }
 
-  sceGuStart(GU_DIRECT, g_list);
-  sceGuClearColor(clear_.packedABGR());
-  sceGuClearDepth(0);
-  sceGuClear(GU_COLOR_BUFFER_BIT | GU_DEPTH_BUFFER_BIT);
-
-  sceGuEnable(GU_DEPTH_TEST);
-  sceGuDisable(GU_BLEND);
-  sceGumMatrixMode(GU_PROJECTION);
-  sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(proj_.m));
-  sceGumMatrixMode(GU_VIEW);
-  sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(view_.m));
-  triangles_ = 0;
-  for (u32 i = 0; i < drawCount_; ++i) {
-    const Draw& d = draws_[i];
-    const PackMeshRec& m = table_.meshes[d.mesh];
-    if (m.vertexOffset + m.vertexCount > table_.vertexCount) continue;
-    sceGumMatrixMode(GU_MODEL);
-    sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(d.world.m));
-    sceGumUpdateMatrix();
-    sceGumDrawArray(GU_TRIANGLES, GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D, m.vertexCount, nullptr,
-                    table_.vertices + m.vertexOffset);
-    triangles_ += m.vertexCount / 3;
-  }
-
-  if (overlayCount_) {
-    sceGuDisable(GU_DEPTH_TEST);
-    sceGuEnable(GU_BLEND);
-    for (u32 i = 0; i < overlayCount_; ++i) {
-      const Overlay& o = overlays_[i];
-      Vtx2D* v = static_cast<Vtx2D*>(sceGuGetMemory(2 * sizeof(Vtx2D)));
-      v[0] = Vtx2D{o.color, static_cast<float>(o.x), static_cast<float>(o.y), 0};
-      v[1] = Vtx2D{o.color, static_cast<float>(o.x + o.w), static_cast<float>(o.y + o.h), 0};
-      sceGuDrawArray(GU_SPRITES, GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_2D, 2, nullptr, v);
-    }
-  }
-
-  sceGuFinish();
+  // Frame order: sync (the previous frame's list is done), vblank, swap, start(list N&1), build, finish.
+  // finish does not wait: the GE draws this frame while the CPU runs the next update.
   sceGuSync(0, 0);
   sceDisplayWaitVblankStart();
   sceGuSwapBuffers();
+  drawFb_ = drawFb_ == kFb0 ? kFb1 : kFb0;
+  if (uploadsDirty_) {  // one writeback for everything uploaded since the last frame (pack pixels and palettes in RAM)
+    sceKernelDcacheWritebackAll();
+    uploadsDirty_ = false;
+    RLOG_INFO("gu", "vram tex=%u/%u ram_tex=%u", static_cast<unsigned>(vram_.used()), static_cast<unsigned>(vram_.area()),
+              static_cast<unsigned>(ramTex_));
+  }
+  sceGuStart(GU_DIRECT, g_list[frame_ & 1]);
+  sceGuDrawBufferList(kFbPsm, reinterpret_cast<void*>(drawFb_), kBufWidth);  // do not rely on the swap's own command
+  sceGuDisable(GU_DITHER);  // a flat clear color must stay flat; the 3D pass turns dither on
+  sceGuClearColor(clear_.packedABGR());
+  sceGuClearDepth(0);
+  sceGuClear(drawCount_ ? (GU_COLOR_BUFFER_BIT | GU_DEPTH_BUFFER_BIT) : GU_COLOR_BUFFER_BIT);
+  if (drawCount_) drawMeshes();
+  drawSprites();
+  lastListBytes_ = static_cast<u32>(sceGuCheckList());
+  sceGuFinish();
+  lastDrawnFb_ = drawFb_;
+  ++frame_;
+}
+
+void GuRenderer::flush() {
+  if (ready_) sceGuSync(0, 0);
+}
+
+bool GuRenderer::dumpFrame(const char* path) {
+  if (!ready_) return false;
+  flush();
+  const u8* fb = vramUncached() + lastDrawnFb_;
+  const int w = kScreenWi, h = kScreenHi, rowBytes = w * 3;
+  const u32 dataSize = static_cast<u32>(rowBytes * h), fileSize = 54 + dataSize;
+  unsigned char hdr[54] = {'B', 'M'};
+  auto put32 = [&](int o, u32 v) { for (int i = 0; i < 4; ++i) hdr[o + i] = static_cast<unsigned char>((v >> (8 * i)) & 0xff); };
+  put32(2, fileSize); put32(10, 54); put32(14, 40); put32(18, static_cast<u32>(w)); put32(22, static_cast<u32>(h));
+  hdr[26] = 1; hdr[28] = 24; put32(34, dataSize);
+  SceUID fd = sceIoOpen(path, PSP_O_WRONLY | PSP_O_CREAT | PSP_O_TRUNC, 0777);
+  if (fd < 0) return false;
+  bool ok = sceIoWrite(fd, hdr, 54) == 54;
+  unsigned char row[480 * 3];
+  for (int y = h - 1; y >= 0 && ok; --y) {  // BMP rows run bottom to top
+    const u8* src = fb + static_cast<u32>(y) * kStride * kFbBytesPerPixel;
+    for (int x = 0; x < w; ++x) {
+      unsigned char r, g, b;
+      if (kFbBytesPerPixel == 2) {
+        const u32 p = static_cast<u32>(src[x * 2]) | (static_cast<u32>(src[x * 2 + 1]) << 8);  // R0-4 G5-10 B11-15
+        const u32 r5 = p & 31, g6 = (p >> 5) & 63, b5 = (p >> 11) & 31;
+        r = static_cast<unsigned char>((r5 << 3) | (r5 >> 2));
+        g = static_cast<unsigned char>((g6 << 2) | (g6 >> 4));
+        b = static_cast<unsigned char>((b5 << 3) | (b5 >> 2));
+      } else {
+        r = src[x * 4]; g = src[x * 4 + 1]; b = src[x * 4 + 2];
+      }
+      row[x * 3] = b; row[x * 3 + 1] = g; row[x * 3 + 2] = r;
+    }
+    ok = sceIoWrite(fd, row, static_cast<u32>(rowBytes)) == rowBytes;
+  }
+  sceIoClose(fd);
+  return ok;
 }
 
 }  // namespace rensga

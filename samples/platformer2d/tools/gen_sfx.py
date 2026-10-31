@@ -4,7 +4,10 @@
 Writes 22050 Hz mono 16-bit WAVs. Only integer maths and square/triangle/noise oscillators are used (no libm), so
 the output is byte-identical on every machine. Run: python3 tools/gen_sfx.py   (from samples/platformer2d)
   Assets/Audio/jump.wav coin.wav hit.wav save.wav   short effects, packed into the pack (AUDI)
-  Streaming/music.wav                               ~8 s loop, NOT packed: copied next to the pack and streamed from disc
+  Assets/Audio/lose.wav clear.wav select.wav over.wav  (F4.01) life lost, room cleared / goal, menu blip, game over
+  Streaming/music.wav music2.wav music3.wav          ~6-8 s loops, NOT packed: copied next to the pack and streamed from disc
+                                                    (music = title / room 1 / results, music2 = room 2, music3 = room 3)
+make_sample.py calls generate(<project dir>) so a generated project (psp output) gets the same audio.
 """
 import os
 import struct
@@ -99,25 +102,75 @@ def save():
     return out + tone(hz("C6"), 0.18, tri, 0.55, release=1.0)
 
 
-def music():
-    bpm, beats = 120, 16  # 16 beats at 120 bpm = 8 s
+def lose():  # a falling minor third and a low thud
+    return tone(hz("E4"), 0.12, lambda p: square(p, 0.5), 0.4, release=0.2) + tone(hz("C4"), 0.12, lambda p: square(p, 0.5), 0.4, release=0.2) + \
+        tone(hz("G3"), 0.28, tri, 0.5, f_end=hz("C3"), release=0.9)
+
+
+def clear():  # a short rising fanfare
+    out = []
+    for name, sec in (("C5", 0.10), ("E5", 0.10), ("G5", 0.10), ("C6", 0.26), ("G5", 0.08), ("C6", 0.40)):
+        out += tone(hz(name), sec, lambda p: square(p, 0.25), 0.34, release=0.4)
+    return out
+
+
+def select():  # menu blip
+    return tone(hz("A5"), 0.05, lambda p: square(p, 0.5), 0.3, release=0.4)
+
+
+def over():  # sad descending line
+    out = []
+    for name, sec in (("G4", 0.18), ("E4", 0.18), ("C4", 0.18), ("G3", 0.50)):
+        out += tone(hz(name), sec, tri, 0.5, release=0.5)
+    return out
+
+
+def music_track(bpm, bass, lead, bass_wave, lead_duty, lead_vol, hat_every):
+    """A 16-beat loop: a bass note every 2 beats, a lead note every beat, noise hi-hats. All integer / table maths."""
+    beats = 16
     beat = 60.0 / bpm
     total = int(RATE * beat * beats)
     buf = [0] * total
-    bass = ["C3", "C3", "A2", "A2", "F2", "F2", "G2", "G2"]  # one note per 2 beats
     for i, name in enumerate(bass):
-        mix_at(buf, tone(hz(name), beat * 1.9, tri, 0.35, release=0.25), int(RATE * beat * 2 * i))
-    lead = ["E4", "G4", "C5", "G4", "E4", "A4", "C5", "A4", "F4", "A4", "C5", "A4", "D4", "G4", "B4", "G4"]
+        mix_at(buf, tone(hz(name), beat * 1.9, bass_wave, 0.35, release=0.25), int(RATE * beat * 2 * i))
     for i, name in enumerate(lead):
-        mix_at(buf, tone(hz(name), beat * 0.9, lambda p: square(p, 0.25), 0.16, release=0.5), int(RATE * beat * i))
+        mix_at(buf, tone(hz(name), beat * 0.9, lambda p: square(p, lead_duty), lead_vol, release=0.5), int(RATE * beat * i))
     n = Noise(7)
-    for i in range(beats * 2):  # hi-hat on every half beat
-        at = int(RATE * beat * 0.5 * i)
+    for i in range(beats * 2 // hat_every):  # hi-hat on every half beat (or sparser)
+        at = int(RATE * beat * 0.5 * i * hat_every)
         mix_at(buf, [int(n.next() * 0.10 * (1 - k / 600)) for k in range(600)], at)
     return buf
 
 
+def music():  # title, room 1 and the results: the original cheerful loop, 120 bpm in C major
+    return music_track(120, ["C3", "C3", "A2", "A2", "F2", "F2", "G2", "G2"],
+                       ["E4", "G4", "C5", "G4", "E4", "A4", "C5", "A4", "F4", "A4", "C5", "A4", "D4", "G4", "B4", "G4"], tri, 0.25, 0.16, 1)
+
+
+def music2():  # room 2 (slopes and planks): a bouncier loop in G major
+    return music_track(132, ["G2", "G2", "E2", "E2", "C3", "C3", "D3", "D3"],
+                       ["B4", "D5", "G5", "D5", "B4", "E5", "G5", "E5", "C5", "E5", "G5", "E5", "D5", "F5", "A5", "F5"], tri, 0.5, 0.15, 1)
+
+
+def music3():  # room 3 (the gauntlet): faster, minor
+    return music_track(150, ["A2", "A2", "F2", "F2", "D2", "D2", "E2", "E2"],
+                       ["A4", "C5", "E5", "C5", "A4", "F5", "E5", "C5", "F4", "A4", "D5", "A4", "E4", "G#4", "B4", "G#4"], square_bass, 0.125, 0.17, 1)
+
+
+def square_bass(p):
+    return square(p, 0.5) // 2
+
+
+def generate(root):
+    global ROOT
+    ROOT = root
+    for name, fn in (("jump", jump), ("coin", coin), ("hit", hit), ("save", save), ("lose", lose), ("clear", clear), ("select", select),
+                     ("over", over)):
+        write(os.path.join(root, "Assets/Audio", name + ".wav"), fn())
+    write(os.path.join(root, "Streaming/music.wav"), music())
+    write(os.path.join(root, "Streaming/music2.wav"), music2())
+    write(os.path.join(root, "Streaming/music3.wav"), music3())
+
+
 if __name__ == "__main__":
-    for name, fn in (("jump", jump), ("coin", coin), ("hit", hit), ("save", save)):
-        write(os.path.join(ROOT, "Assets/Audio", name + ".wav"), fn())
-    write(os.path.join(ROOT, "Streaming/music.wav"), music())
+    generate(ROOT)

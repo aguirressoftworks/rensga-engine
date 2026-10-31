@@ -1,0 +1,10 @@
+{
+ "format": 1,
+ "texture": "00000000-0000-4000-8000-0000000a2d01",
+ "glyphW": 16,
+ "glyphH": 16,
+ "firstChar": 65,
+ "charCount": 8,
+ "columns": 4,
+ "advance": 12
+}

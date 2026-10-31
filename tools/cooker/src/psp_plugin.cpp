@@ -1,16 +1,26 @@
 // MVP-20: PSP cooker format plugin. Meshes become GU vertices {u32 color; float x,y,z}
-// (GU_COLOR_8888 | GU_VERTEX_32BITF) with the directional light baked into the vertex colors.
+// (GU_COLOR_8888 | GU_VERTEX_32BITF) with the directional light baked into the vertex colors. A cook for the psp target
+// itself then converts them to compact 16-bit vertices (MSHX); F4.05 textures: see psp_format.h.
 #include <math.h>
 #include <string.h>
 
-#include "rensga/core/pack_format.h"
 #include "rensga/cooker/plugin.h"
+#include "rensga/cooker/psp_format.h"
+#include "rensga/core/pack_format.h"
 
 namespace rensga {
 
 class PspCookerPlugin final : public ICookerFormatPlugin {
  public:
   std::string_view id() const override { return "psp"; }
+  bool cookTexture(const ImageRgba& image, const TextureImport& s, CookedTexture& out, std::string& error) override {
+    return pspCookTexture(image, s.format, out, error);
+  }
+  bool hasCompactMeshes() const override { return true; }
+  bool compactMeshes(const std::vector<uint8_t>& floatBytes, std::vector<uint8_t>& compactBytes, PackMeshExt& ext,
+                     std::string& error) override {
+    return pspCompactVertices(floatBytes, compactBytes, ext, error);
+  }
   bool cookMesh(const PrimitiveMesh& mesh, const BakedLight& light, Color32 base, std::vector<uint8_t>& out,
                 uint32_t& outCount, std::string& error) override {
     if (mesh.positions.size() != mesh.normals.size() || mesh.positions.size() % 3 != 0) {

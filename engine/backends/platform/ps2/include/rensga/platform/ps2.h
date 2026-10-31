@@ -42,7 +42,7 @@ enum class Ps2Device { Auto, Disc, Host, Usb };
 // IFileSystem contract (Engine 1): "data:/<rel>" is the game data root and "save:/<rel>" the writable
 // area. Mapping: data:/ = cdrom0:\<REL>;1 (disc), host:<rel> (dev), mass:/<rel> (USB).
 // save:/ = host:<rel> (dev), mc0:/RENSGA/<rel> (memory card slot 1, disc boots; flat names only) or mass:/<rel> (USB).
-// Memory card access goes through libmc with the BIOS-ROM modules (XMCMAN/XMCSERV); no icon.sys is written.
+// Memory card access goes through libmc with the BIOS-ROM modules (XMCMAN/XMCSERV); the first open writes icon.sys + rensga.ico (ps2_icon.h).
 // Streams use a fixed table of 8 slots, no heap. All I/O goes through newlib's POSIX calls (they sit on fio).
 class Ps2FileSystem : public IFileSystem {
  public:

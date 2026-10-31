@@ -572,6 +572,33 @@ void UIText::SetInt(const char* prefix, i32 value) {
   text[n] = 0;
 }
 
+Rect UI::resolveRect(i32 anchor, i32 x, i32 y, i32 w, i32 h, i32 viewW, i32 viewH) {
+  if (anchor < 0 || anchor >= UIAnchor::kCount) anchor = UIAnchor::TopLeft;
+  const i32 col = anchor % 3, row = anchor / 3;  // 0 left / top, 1 centre, 2 right / bottom
+  const i32 ax = col == 0 ? 0 : (col == 1 ? viewW / 2 : viewW), ay = row == 0 ? 0 : (row == 1 ? viewH / 2 : viewH);
+  const i32 px = col == 0 ? 0 : (col == 1 ? w / 2 : w), py = row == 0 ? 0 : (row == 1 ? h / 2 : h);
+  return Rect(static_cast<Scalar>(ax + x - px), static_cast<Scalar>(ay + y - py), static_cast<Scalar>(w), static_cast<Scalar>(h));
+}
+
+i32 UI::textWidth(const PackFontRec& f, const char* text) {
+  if (!text) return 0;
+  const u32 count = f.charCount < kPackFontMaxChars ? f.charCount : kPackFontMaxChars;
+  i32 best = 0, cur = 0;
+  for (const unsigned char* p = reinterpret_cast<const unsigned char*>(text); *p; ++p) {
+    if (*p == '\n') { if (cur > best) best = cur; cur = 0; continue; }
+    if (*p < f.firstChar || static_cast<u32>(*p - f.firstChar) >= count) continue;
+    cur += f.advance[*p - f.firstChar];
+  }
+  return cur > best ? cur : best;
+}
+
+i32 UI::textHeight(const PackFontRec& f, const char* text) {
+  i32 lines = 1;
+  if (text) for (const char* p = text; *p; ++p) if (*p == '\n') ++lines;
+  const i32 lh = f.lineHeight ? f.lineHeight : f.glyphH;
+  return f.glyphH + (lines - 1) * lh;
+}
+
 bool UIButton::isFocused() const {
   World* w = gameObject() ? gameObject()->world : nullptr;
   const ComponentPool* p = w ? w->pool<UIButton>() : nullptr;
@@ -591,20 +618,34 @@ void UI::update(World& world) {
     const GameObject* go = b->gameObject();
     return b->interactable && b->enabled() && go && go->activeInHierarchy();
   };
-  if (g_focusSlot >= p->highWater || !usable(g_focusSlot)) {
-    g_focusSlot = kInvalidIndex;
-    for (u32 i = 0; i < p->highWater; ++i)
-      if (usable(i)) { g_focusSlot = i; break; }
-    if (g_focusSlot == kInvalidIndex) return;
+  // Focus order is reading order on screen (top to bottom, then left to right), not pool order: a pool hands out freed slots in
+  // any order after a scene load, and a menu must always start on its first button. Anchors resolve against the current view size.
+  constexpr u32 kMaxFocus = 32;
+  struct Cand { u32 slot; i32 y, x; } cand[kMaxFocus];
+  u32 n = 0;
+  for (u32 i = 0; i < p->highWater && n < kMaxFocus; ++i) {
+    if (!usable(i)) continue;
+    const UIButton* b = static_cast<const UIButton*>(p->at(i));
+    const Rect r = UI::resolveRect(b->anchor, b->x, b->y, b->w, b->h, static_cast<i32>(g_defaultViewW), static_cast<i32>(g_defaultViewH));
+    Cand c{i, static_cast<i32>(r.y), static_cast<i32>(r.x)};
+    u32 j = n++;
+    while (j > 0 && (cand[j - 1].y > c.y || (cand[j - 1].y == c.y && (cand[j - 1].x > c.x || (cand[j - 1].x == c.x && cand[j - 1].slot > c.slot))))) {
+      cand[j] = cand[j - 1];
+      --j;
+    }
+    cand[j] = c;
   }
+  if (n == 0) { g_focusSlot = kInvalidIndex; return; }
+  u32 pos = 0;
+  bool found = false;
+  for (u32 k = 0; k < n; ++k) if (cand[k].slot == g_focusSlot) { pos = k; found = true; break; }
+  if (!found) pos = 0;
+  g_focusSlot = cand[pos].slot;
   const VirtualGamepad& pad = Input::pad();
   const bool next = pad.pressed.down || pad.pressed.right, prev = pad.pressed.up || pad.pressed.left;
-  if (next || prev) {
-    for (u32 n = 1; n <= p->highWater; ++n) {
-      const u32 i = next ? (g_focusSlot + n) % p->highWater : (g_focusSlot + p->highWater - n % p->highWater) % p->highWater;
-      if (usable(i)) { g_focusSlot = i; break; }
-    }
-  }
+  if (found && next) pos = (pos + 1) % n;
+  else if (found && prev) pos = (pos + n - 1) % n;
+  g_focusSlot = cand[pos].slot;
   if (pad.pressed.south) {
     GameObject* go = static_cast<UIButton*>(p->at(g_focusSlot))->gameObject();
     if (go) {
@@ -708,6 +749,7 @@ void renderGameplay2D(World& world, IRenderer& r) {
   if (!GfxAssets::bound()) return;
   const PackAssets& as = GfxAssets::assets();
   const Scalar vw = static_cast<Scalar>(r.width()), vh = static_cast<Scalar>(r.height());
+  const i32 viewW = static_cast<i32>(r.width()), viewH = static_cast<i32>(r.height());
   Camera2D::setDefaultViewSize(vw, vh);
   // World-space drawing is scrolled by the camera view; the UI below is not.
   Scalar camX = 0, camY = 0;
@@ -770,7 +812,7 @@ void renderGameplay2D(World& world, IRenderer& r) {
   world.forEach<UIImage>([&](UIImage& im) {
     GameObject* go = im.gameObject();
     if (!go || !im.enabled() || !go->activeInHierarchy()) return;
-    const Rect dst(static_cast<Scalar>(im.x), static_cast<Scalar>(im.y), static_cast<Scalar>(im.w), static_cast<Scalar>(im.h));
+    const Rect dst = UI::resolveRect(im.anchor, im.x, im.y, im.w, im.h, viewW, viewH);
     const u32 ti = GfxAssets::textureIndex(im.texture);
     if (ti >= as.textureCount) { r.drawRect(dst, im.color, uiSortKey(im.sortingOrder)); return; }
     const u32 handle = GfxAssets::handle(ti);
@@ -785,7 +827,7 @@ void renderGameplay2D(World& world, IRenderer& r) {
     if (!go || !b.enabled() || !go->activeInHierarchy()) return;
     Color32 c = b.isFocused() ? b.focusColor : b.normalColor;
     if (!b.interactable) c = Color32(c.r / 2, c.g / 2, c.b / 2, c.a);
-    r.drawRect(Rect(static_cast<Scalar>(b.x), static_cast<Scalar>(b.y), static_cast<Scalar>(b.w), static_cast<Scalar>(b.h)), c, uiSortKey(b.sortingOrder));
+    r.drawRect(UI::resolveRect(b.anchor, b.x, b.y, b.w, b.h, viewW, viewH), c, uiSortKey(b.sortingOrder));
   });
 
   world.forEach<UIText>([&](UIText& t) {
@@ -796,7 +838,8 @@ void renderGameplay2D(World& world, IRenderer& r) {
     if (font->texture >= as.textureCount) return;
     const u32 handle = GfxAssets::handle(font->texture);
     if (!handle) return;
-    r.drawText(handle, *font, t.x, t.y, t.text, t.color, uiSortKey(t.sortingOrder) + 1);
+    const Rect box = UI::resolveRect(t.anchor, t.x, t.y, UI::textWidth(*font, t.text), UI::textHeight(*font, t.text), viewW, viewH);
+    r.drawText(handle, *font, static_cast<i32>(box.x), static_cast<i32>(box.y), t.text, t.color, uiSortKey(t.sortingOrder) + 1);
   });
 }
 

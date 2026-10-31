@@ -153,3 +153,18 @@ endif()
 
 # --- F4 hub templates (agent 2b) ---
 # --- end 2b ---
+
+# --- F4.08 part 1 (agent core2d): tilemap editing model, rule tiles, sprite slices (no UI) ---
+if(TARGET rensga_editor_core)
+  add_executable(rensga_tilemap_tests ../test_main.cpp test_tilemap_edit.cpp test_sprite_slices.cpp test_rigidbody_pack.cpp)
+  target_link_libraries(rensga_tilemap_tests PRIVATE rensga_editor_core rensga_cooker_lib)
+  rensga_link_whole_archive(rensga_tilemap_tests PRIVATE rensga_core)   # the built-in components' reflection registrations (Rigidbody2D pack test)
+  rensga_link_whole_archive(rensga_tilemap_tests PRIVATE rensga_api)
+  target_include_directories(rensga_tilemap_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_tilemap_tests PRIVATE
+    RENSGA_SAMPLE_DIR="${CMAKE_SOURCE_DIR}/samples/platformer2d"
+    RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_tilemap")
+  rensga_host_target(rensga_tilemap_tests)
+  add_test(NAME rensga_tilemap_tests COMMAND rensga_tilemap_tests)
+endif()
+# --- end core2d ---

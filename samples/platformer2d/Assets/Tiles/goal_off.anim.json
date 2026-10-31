@@ -1,0 +1,13 @@
+{
+ "format": 1,
+ "name": "goal_off",
+ "texture": "00000000-0000-4000-8000-000000000105",
+ "fps": 1,
+ "loop": true,
+ "grid": {
+  "cellW": 32,
+  "cellH": 32,
+  "start": 4,
+  "count": 1
+ }
+}

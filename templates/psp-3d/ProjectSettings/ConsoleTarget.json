@@ -10,7 +10,9 @@
     "maxObjects": 256,
     "maxComponentsPerType": 256
   },
-  "textureFormats": [],
+  "textureFormats": ["clut4", "clut8", "rgba5551", "rgba4444", "rgba8"],
+  "framebuffer": { "buffers": 2, "bpp": 16, "depthBits": 16 },
+  "audio": { "sampleRate": 22050, "voices": 16 },
   "depth": "zbuffer",
   "media": "eboot",
   "allowedComponents": [

@@ -11,6 +11,14 @@
 
 namespace rensga {
 
+uint64_t profileRamLimitBytes(const std::string& profile) {
+  struct Limit { const char* profile; uint64_t bytes; };
+  static const Limit kLimits[] = {{"psp", 32ull * 1024 * 1024}};  // PSP-1000: 32 MiB, shared with the OS
+  for (const Limit& l : kLimits)
+    if (profile == l.profile) return l.bytes;
+  return 0;
+}
+
 ConsoleTargetData loadConsoleTarget(const std::filesystem::path& file) {
   using nlohmann::json;
   std::ifstream in(file);
@@ -26,6 +34,7 @@ ConsoleTargetData loadConsoleTarget(const std::filesystem::path& file) {
     t.height = j.at("resolution").at(1).get<uint32_t>();
     const json& b = j.at("budgets");
     t.ramBytes = b.at("ramBytes").get<uint64_t>();
+    t.ramLimitBytes = profileRamLimitBytes(t.profile);
     t.vramBytes = b.at("vramBytes").get<uint64_t>();
     t.trianglesPerFrame = b.at("trianglesPerFrame").get<uint64_t>();
     t.maxObjects = b.at("maxObjects").get<uint64_t>();

@@ -14,7 +14,7 @@ struct InputTestHud : Behaviour {
 
   static constexpr int kAxisRows = 10;
   static constexpr int kButtons = 8;
-  static constexpr int kBarX = 232, kBarW = 160;
+  static constexpr int kBarX = 172, kBarW = 96;  // matches the IaB / IaF rows of InputTest.scene (fits 480x272)
 
   InputAction* horizontal = nullptr;
   InputAction* vertical = nullptr;

@@ -7,7 +7,7 @@ TEST(ddol_object_survives_scene_load) {
   Game g;
   CHECK(g.boot(cookSample(), tempDir("ddol")));
   g.run(2);
-  CHECK(GameObject::Find("StartButton") != nullptr);
+  CHECK(GameObject::Find("NewButton") != nullptr);
   GameObject* keep = World::active()->createObject("KeepMe");
   keep->transform.setPosition(Vector3(7, 8, 0));
   GameObject* kid = World::active()->createObject("KeepKid", keep);
@@ -17,7 +17,7 @@ TEST(ddol_object_survives_scene_load) {
   g.frame();
   CHECK_EQ(SceneManager::activeSceneIndex(), 1);
   CHECK(GameObject::Find("Player") != nullptr);
-  CHECK(GameObject::Find("StartButton") == nullptr);   // the old scene is gone
+  CHECK(GameObject::Find("NewButton") == nullptr);   // the old scene is gone
   GameObject* kept = GameObject::Find("KeepMe");
   CHECK(kept != nullptr);
   CHECK(GameObject::Find("KeepKid") != nullptr);       // children go with it

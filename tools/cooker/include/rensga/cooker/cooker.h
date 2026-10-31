@@ -32,7 +32,13 @@ struct ConsoleTargetData {
   // F3.02: optional "framebuffer" {"buffers", "bpp", "depthBits"}; feeds the editor's VRAM map. Defaults: 2 x 32-bit,
   // 16-bit depth when depth == "zbuffer".
   uint32_t fbBuffers = 2, fbBpp = 32, fbDepthBits = 16;
+  // F4.05: hard RAM ceiling of the profile's smallest supported device (psp: PSP-1000, 32 MiB); 0 = no ceiling. Set by
+  // loadConsoleTarget from profileRamLimitBytes; validateBudgets refuses a ramBytes budget above it.
+  uint64_t ramLimitBytes = 0;
 };
+
+// RAM of the smallest device a profile targets, in bytes (0 = unknown profile / no ceiling). Data table in console_target.cpp.
+uint64_t profileRamLimitBytes(const std::string& profile);
 
 // Throws std::runtime_error with a message naming the file and field.
 ConsoleTargetData loadConsoleTarget(const std::filesystem::path& file);

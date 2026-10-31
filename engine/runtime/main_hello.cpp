@@ -1,6 +1,8 @@
 // Engine 0 hello: the same main on every F1 target. Clears to the brand `bg` (dark) color and logs boot +
 // frame heartbeats through the engine logger, using only IPlatform/IRenderer.
 //   rensga_hello [--frames N]     (N = 0 or absent: run until the window closes / forever on PS2)
+// PSP (F4.03/F4.02): the same main builds as rensga_hello.elf / .elf.prx (the hello EBOOT exercise). It exits after
+// RENSGA_EXIT_AFTER_FRAMES frames (PPSSPPHeadless cannot pass --frames) and logs to stdout + host0:/rensga.log.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +16,16 @@
 using PlatformImpl = rensga::Ps2Platform;
 using FsImpl = rensga::Ps2FileSystem;
 using RendererImpl = rensga::GsRenderer;
+#elif defined(RENSGA_PLATFORM_PSP)
+#include <pspkernel.h>
+#include "rensga/platform/psp.h"
+#include "rensga/render/gu.h"
+using PlatformImpl = rensga::PspPlatform;
+using FsImpl = rensga::PspFileSystem;
+using RendererImpl = rensga::GuRenderer;
+PSP_MODULE_INFO("rensga_hello", PSP_MODULE_USER, 1, 0);
+PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER | PSP_THREAD_ATTR_VFPU);
+PSP_HEAP_SIZE_KB(-1024);
 #else
 #if defined(_WIN32)
 #define SDL_MAIN_HANDLED  // plain console main(); no SDL2main/WinMain needed
@@ -49,6 +61,12 @@ int main(int argc, char** argv) {
   u32 maxFrames = 0;
   for (int i = 1; i + 1 < argc; ++i)
     if (!strcmp(argv[i], "--frames")) maxFrames = static_cast<u32>(atoi(argv[i + 1]));
+#if defined(RENSGA_PLATFORM_PSP)
+  pspInstallLogSinks();
+#ifdef RENSGA_EXIT_AFTER_FRAMES
+  maxFrames = RENSGA_EXIT_AFTER_FRAMES;
+#endif
+#endif
 
 #if defined(__ANDROID__)
   static LogcatSink logcat;
@@ -58,7 +76,11 @@ int main(int argc, char** argv) {
   static PlatformImpl platform;
   static RendererImpl renderer;
   if (!platform.init()) return 2;
+#if defined(RENSGA_PLATFORM_PSP)
+  if (!renderer.init(480, 272)) return 3;
+#else
   if (!renderer.init(960, 544)) return 3;
+#endif
 #if defined(RENSGA_PLATFORM_PS2)
   RLOG_INFO("hello", "rensga: ps2 video=%s region=%c", platform.info().pal ? "PAL" : "NTSC", platform.info().region);
 #endif
@@ -86,7 +108,10 @@ int main(int argc, char** argv) {
   }
   if (maxFrames != 0) heap::logAllocCheck();
   RLOG_INFO("hello", "rensga hello: done frames=%u", static_cast<unsigned>(frame));
-#if !defined(RENSGA_PLATFORM_PS2)
+#if defined(RENSGA_PLATFORM_PSP)
+  renderer.flush();
+  log::flushAll();
+#elif !defined(RENSGA_PLATFORM_PS2)
   renderer.shutdown();  // GL objects go before the context
 #endif
   platform.shutdown();

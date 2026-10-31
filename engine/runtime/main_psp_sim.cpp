@@ -7,6 +7,8 @@
 
 #include "rensga/platform/psp.h"
 #include "rensga/Sim.h"
+#include "runtime_boot.h"
+#include "runtime_budget.h"
 
 PSP_MODULE_INFO("rensga_sim", PSP_MODULE_USER, 1, 0);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER | PSP_THREAD_ATTR_VFPU);
@@ -14,16 +16,22 @@ PSP_HEAP_SIZE_KB(-1024);
 
 using namespace rensga;
 
-int main() {
+int main(int, char** argv) {
   pspInstallLogSinks();
   Application::setPlatform(RuntimePlatform::Psp);
   RLOG_INFO("game", "rensga: boot");
   PspPlatform platform;
-  PspFileSystem fs;
   platform.init();
+  char root[128];
+  pspProbeDataRoot(argv ? argv[0] : nullptr, "game.rpak", root, sizeof(root));
+  PspFileSystem fs(root);
 
+  // Arena from the pack's CTGT ramBytes (24 MB when the pack has none).
+  PackConsoleTarget ctgt = {};
+  const bool haveCtgt = peekPackTarget(fs, "data:/game.rpak", ctgt);
+  const size_t ram = haveCtgt && ctgt.ramBytes ? ctgt.ramBytes : 24u * 1024 * 1024;
   Arena arena;
-  if (!arena.create(MemoryConfig::fromRamBudget(24u * 1024 * 1024).arenaBytes)) return 2;
+  if (!arena.create(arenaBytesForRam(ram, 0))) return 2;
 
   u32 frames = 400;
   SimTraceOptions topt;
@@ -49,14 +57,15 @@ int main() {
   World world;
   WorldConfig wcfg;
   if (!world.init(wcfg, arena)) return 2;
-  Span<const u8> bytes = fs.readFile("game.rpak", arena);
-  PackView view;
-  LoadedPack loaded;
-  if (!bytes || !view.open(bytes.data, bytes.size, "host0:/game.rpak") || !world.loadPack(view, &loaded)) {
-    RLOG_ERROR("game", "rensga: cannot load host0:/game.rpak");
+  static BootState boot;  // no renderer: 2D components bind their records with null texture handles (tile collision works)
+  BootDeps deps;
+  deps.fs = &fs; deps.arena = &arena; deps.world = &world;
+  deps.packPath = "data:/game.rpak";
+  if (!bootPack(deps, boot)) {
+    RLOG_ERROR("game", "rensga: cannot load %sgame.rpak", root);
     return 3;
   }
-  Input::loadActions(view, loaded.inputs, loaded.inputCount);
+  logMemBudget(ram, arena);
   const u32 pickups = liveCount(world, "Pickup");
   RLOG_INFO("game", "rensga: scene loaded objects=%u pickups=%u", static_cast<unsigned>(world.objectCount()), static_cast<unsigned>(pickups));
 

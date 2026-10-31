@@ -5,20 +5,20 @@
 
 using namespace sample;
 
-TEST(gameplay_pack_has_two_scenes_and_assets) {
+TEST(gameplay_pack_has_the_game_scenes_and_assets) {
   fs::path pack = cookSample();
   CHECK(!pack.empty());
   Game g;
   CHECK(g.boot(pack, tempDir("scenes")));
-  CHECK_EQ(SceneManager::sceneCount(), 4u);
-  CHECK_EQ(strcmp(SceneManager::sceneName(0), "Title"), 0);
-  CHECK_EQ(strcmp(SceneManager::sceneName(1), "Room"), 0);
-  CHECK_EQ(strcmp(SceneManager::sceneName(2), "RoomBot"), 0);
+  CHECK_EQ(SceneManager::sceneCount(), 9u);
+  static const char* const names[9] = {"Title", "Room", "Room2", "Room3", "GameOver", "Results", "TitleBot", "InputTest", "RoomBot"};
+  for (u32 i = 0; i < 9; ++i) CHECK_EQ(strcmp(SceneManager::sceneName(i), names[i]), 0);
   CHECK_EQ(SceneManager::sceneIndexByName("Room"), 1);
-  CHECK_EQ(g.loaded.assets.tilemapCount, 1u);
-  CHECK_EQ(g.loaded.assets.animCount, 9u);
+  CHECK_EQ(SceneManager::sceneIndexByName("Room3"), 3);
+  CHECK_EQ(g.loaded.assets.tilemapCount, 3u);
+  CHECK_EQ(g.loaded.assets.animCount, 13u);
   // Scene 0 only: the title objects, no player.
-  CHECK(GameObject::Find("StartButton") != nullptr);
+  CHECK(GameObject::Find("NewButton") != nullptr);
   CHECK(GameObject::Find("Player") == nullptr);
 }
 
@@ -34,14 +34,14 @@ TEST(gameplay_scene_load_is_deferred_to_end_of_frame) {
   CHECK(!SceneManager::loadPending());
   CHECK_EQ(SceneManager::activeSceneIndex(), 1);
   CHECK(GameObject::Find("Player") != nullptr);
-  CHECK(GameObject::Find("StartButton") == nullptr);
+  CHECK(GameObject::Find("NewButton") == nullptr);
   CHECK(SceneManager::LoadScene(0));
   g.run(2);
   CHECK(GameObject::Find("Player") == nullptr);
-  CHECK(GameObject::Find("StartButton") != nullptr);
+  CHECK(GameObject::Find("NewButton") != nullptr);
   // A scene can be loaded over and over without running out of pool slots.
   for (int i = 0; i < 20; ++i) { SceneManager::LoadScene(1); g.frame(); SceneManager::LoadScene(0); g.frame(); }
-  CHECK(GameObject::Find("StartButton") != nullptr);
+  CHECK(GameObject::Find("NewButton") != nullptr);
 }
 
 TEST(gameplay_ui_button_press_loads_room) {

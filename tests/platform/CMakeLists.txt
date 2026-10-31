@@ -16,12 +16,13 @@ endif()
 
 # F3.06: PSP pad mapping (pure) and SDL virtual controller + injected keys -> Input.
 if(TARGET rensga_platform_sdl)
-  add_executable(rensga_pad_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp test_pad.cpp)
+  add_executable(rensga_pad_tests ${CMAKE_SOURCE_DIR}/tests/test_main.cpp test_pad.cpp test_psp_sdl_pad.cpp)
   target_link_libraries(rensga_pad_tests PRIVATE rensga_core rensga_platform_sdl)
   target_include_directories(rensga_pad_tests PRIVATE ${CMAKE_SOURCE_DIR}/tests
                              ${CMAKE_SOURCE_DIR}/engine/backends/platform/psp/include)
   rensga_runtime_target(rensga_pad_tests)
-  add_test(NAME pad_psp_map COMMAND rensga_pad_tests pad_psp_)
+  add_test(NAME pad_psp_map COMMAND rensga_pad_tests pad_psp_map)
+  add_test(NAME pad_psp_sdl_map COMMAND rensga_pad_tests pad_psp_sdl)  # F4.03: the SDL controller path means what the native path means
   if(RENSGA_XVFB_RUN)
     add_test(NAME pad_sdl_events COMMAND ${CMAKE_COMMAND} -E env --unset=WAYLAND_DISPLAY SDL_VIDEODRIVER=x11
              ${RENSGA_XVFB_RUN} -a -s "-screen 0 1280x720x24" $<TARGET_FILE:rensga_pad_tests> pad_sdl_)
