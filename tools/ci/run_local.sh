@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs every CI job locally, in the same order and with the same scripts as .github/workflows/ci.yml.
 # Usage: tools/ci/run_local.sh [--install] [--docker] [job...]
-#   (default jobs: linux_host psp psp_eboot psp_hello psp_2d templates editor_tour determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check)
+#   (default jobs: linux_host psp psp_eboot psp_hello psp_2d templates editor_tour determinism psp_gpu_check psp_3d psp_api psp_services api_profile windows windows_run android android_device ps2 ps2_check)
 # Native first, like CI: RENSGA_TOOLCHAIN=native and the build support modules (the toolchains users install from the Hub) in a shared
 # RENSGA_HOME (default build/rensga-home, so each download happens once). Install what a job needs with `--install` (runs
 # `rensga modules install` for the jobs you asked for) or by hand: build/ci/linux-host/tools/modules/rensga-modules install <id>.
@@ -26,13 +26,13 @@ while [ $# -gt 0 ]; do
     *) break ;;
   esac
 done
-jobs=("$@"); [ ${#jobs[@]} -eq 0 ] && jobs=(linux_host psp psp_eboot psp_hello psp_2d templates editor_tour determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check)
+jobs=("$@"); [ ${#jobs[@]} -eq 0 ] && jobs=(linux_host psp psp_eboot psp_hello psp_2d templates editor_tour determinism psp_gpu_check psp_3d psp_api psp_services api_profile windows windows_run android android_device ps2 ps2_check)
 echo "toolchain: $RENSGA_TOOLCHAIN   modules: $RENSGA_HOME/modules"
 if [ "$install" = 1 ] && [ "$RENSGA_TOOLCHAIN" != docker ]; then
   mods=""
   for j in "${jobs[@]}"; do
     case "$j" in
-      psp|psp_eboot|psp_hello|psp_2d|templates|editor_tour|determinism|psp_gpu_check) mods="$mods psp-build" ;;
+      psp|psp_eboot|psp_hello|psp_2d|templates|editor_tour|determinism|psp_gpu_check|psp_3d|psp_api|psp_services) mods="$mods psp-build" ;;
       windows|windows_run) mods="$mods windows-build" ;;
       android|android_device) mods="$mods android-build" ;;
       ps2) mods="$mods ps2-build" ;;

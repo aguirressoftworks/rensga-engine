@@ -45,6 +45,11 @@ jobs:
       - run: tools/ci/determinism.sh    # Linux rensga_headless vs PSP rensga_sim state hash (F2.G2)
       - run: tools/ci/determinism.sh 2d # F4.G2: the 2D slice bot, Linux vs PSP sim, final hash and every frame must match
       - run: tools/ci/psp_gpu_check.sh
+      - run: tools/ci/determinism.sh 3dlit   # F5.14: lit + skinned pack, Linux vs PSP sim: state hash, skinhash and the per-step skin trace must match
+      - run: tools/ci/psp_3d.sh room lights12 det   # F5.01/F5.14: samples/psp3d_walk in PPSSPPHeadless (software GE): lights=4, allocs=0, pixel probes; 3dlit on the cooked room
+      - run: tools/ci/psp_api.sh all   # F5.18: API test ELF on host and PSP; the PSP-only failure demo must be caught
+      - run: tools/ci/psp_services.sh headless   # F5.13/15/16: savedata AUTOSAVE, injected pause, language/battery/clock/memory lines (the SDL mode needs PPSSPPSDL, local only)
+      - run: tools/ci/api_profile.sh   # F5.12: scripts against every profile's generated header, each gated call fails with its hint
   windows:
     runs-on: ubuntu-24.04
     needs: linux-host
