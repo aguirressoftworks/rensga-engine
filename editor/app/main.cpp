@@ -27,6 +27,7 @@
 #include "panels/drawers/drawers.h"
 #include "panels/asset_ui.h"
 #include "panels/modules.h"
+#include "panels/tile_tools.h"
 #include "rensga/editor/editor_log.h"
 #include "rensga/editor/game_module.h"
 
@@ -49,6 +50,7 @@ bool App::openProject(const std::string& dir) {
   }
   log.info("project loaded: " + project.name + " (" + std::to_string(project.scenes.size()) + " scene(s))");
   doc = SceneDocument();
+  tileToolsReset();  // the tilemap edits belonged to the old scene's undo stack
   if (!project.scenes.empty()) {
     if (!doc.load(project.scenes[0].path, err)) log.error("scene load failed: " + err);
     else for (const SceneObject& o : doc.scene().objects)
@@ -212,6 +214,7 @@ int main(int argc, char** argv) {
     }
     tickScripts(app);
     tickModules(app);
+    tileToolsTick(app);
     double t = static_cast<double>(SDL_GetPerformanceCounter() - start) / freq;
     if (autoPlay && !playTriggered && t > 0.3) {
       playTriggered = true;
@@ -276,7 +279,9 @@ int main(int argc, char** argv) {
     applyPlayTint(app);
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplSDL2_NewFrame();
-    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx]) && !modulesUiHolds(app, uiEvents[evIdx])) {
+    tileSimFrame(app);  // scripted mouse of --ui-event tiledrag / spritedrag
+    spriteSimFrame(app);
+    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx]) && !modulesUiHolds(app, uiEvents[evIdx]) && !tileSimHolds() && !spriteSimHolds()) {
       const std::string& e = uiEvents[evIdx++];
       evNext = frame + 6;
       float x = 0, y = 0;
@@ -289,6 +294,8 @@ int main(int argc, char** argv) {
       else if (inspectorHook(app, act, arg)) {}                                 // F3.01: multiselect, addcomp, setfield, undo, ...
       else if (sceneUiHook(app, act, arg)) {}                                  // F3.01: new, selectmany, reparent, pickobj, ...
       else if (assetUiHook(app, act, arg)) {}                                  // F3.02: asset, assettab, assetset, vram, ...
+      else if (tileUiHook(app, act, arg)) {}                                   // F4.08: palette, brush, tile, painttile, tileflag, savetiles, ...
+      else if (spriteUiHook(app, act, arg)) {}                                 // F4.08: spriteeditor, slicegrid, sliceapply, setsprite, ...
       else if (act == "script") createScriptAction(app, arg);                       // Create > C++ Script
       else if (act == "component") createScriptAction(app, arg, ScriptKind::Component);  // Create > C++ Script > Empty Component
       else if (act == "openerror") openBuildError(arg.empty() ? 0 : std::atoi(arg.c_str()));  // double-click a console error
@@ -333,6 +340,8 @@ int main(int argc, char** argv) {
       drawProjectPanel(app);
       drawConsole(app);
       drawDialogs(app);
+      drawTilePalette(app);
+      drawSpriteEditor(app);
     }
     if (app.hub.mode != Mode::Splash) { drawCreateDialogs(app); if (app.hub.mode == Mode::Editor) drawModulesWindow(app); drawModuleDialogs(app); }
     if (shotMode && !focusName.empty() && frame == shotFrames / 2) ImGui::SetWindowFocus(focusName.c_str());

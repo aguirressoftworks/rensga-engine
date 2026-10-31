@@ -8,6 +8,7 @@
 #include "app.h"
 #include "panels/asset_ui.h"
 #include "panels/modules.h"
+#include "panels/tile_tools.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -18,6 +19,7 @@ namespace fs = std::filesystem;
 bool App::saveScene() {
   if (!doc.loaded()) return false;
   std::string err;
+  saveDirtyTilemaps(*this);  // F4.08: modified tilemaps are written with the scene (their edits share its undo history)
   if (!doc.save(err)) { EditorLog::instance().error("save failed: " + err); return false; }
   EditorLog::instance().info("scene saved: " + doc.path().filename().string());
   return true;
@@ -32,6 +34,7 @@ static void handleShortcuts(App& a) {
   if (chord(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_P)) a.session.togglePause();
   else if (chord(ImGuiMod_Ctrl | ImGuiMod_Alt | ImGuiKey_P)) a.session.requestStep();
   else if (chord(ImGuiMod_Ctrl | ImGuiKey_P)) { if (a.session.active()) stopPlayInEditor(a); else doPlay(a); }
+  if (spriteEditorFocused()) return;  // F4.08: the Sprite Editor keeps its own undo history and Delete key
   if (chord(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z) || chord(ImGuiMod_Ctrl | ImGuiKey_Y)) a.doc.redo();
   else if (chord(ImGuiMod_Ctrl | ImGuiKey_Z)) a.doc.undo();
   if (chord(ImGuiMod_Ctrl | ImGuiKey_D)) duplicateSelected(a);
@@ -89,6 +92,13 @@ void drawMenuBar(App& a) {
     if (ImGui::MenuItem("Reset Layout")) a.resetLayout = true;
     ImGui::Separator();
     ImGui::MenuItem("VRAM Map", nullptr, &assetUi().showVram, a.loaded);
+    ImGui::MenuItem("Tile Palette", nullptr, &tileTools().showPalette, a.loaded);
+    if (ImGui::MenuItem("Sprite Editor", nullptr, false, a.loaded)) {
+      const std::string sel = assetUi().selGuid;
+      const AssetEntry* e = sel.empty() ? nullptr : assetUi().sync.db().findGuid(sel);
+      if (e && e->kind == AssetKind::Texture) openSpriteEditor(a, sel);
+      else { spriteUiHook(a, "spritewindow", ""); }
+    }
     if (ImGui::MenuItem("Build Support Modules...")) openModulesFromHub(a);
     ImGui::EndMenu();
   }

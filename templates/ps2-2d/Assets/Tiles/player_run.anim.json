@@ -1,0 +1,13 @@
+{
+ "format": 1,
+ "name": "player_run",
+ "texture": "00000000-0000-4000-8000-000000000102",
+ "fps": 10,
+ "loop": true,
+ "grid": {
+  "cellW": 32,
+  "cellH": 32,
+  "start": 4,
+  "count": 4
+ }
+}

@@ -1,7 +1,8 @@
 // F3.04 (Editor 5): a runtime World built from a scene document, inside the editor process.
 //
 // The open scene is cooked from its in-memory JSON (the file on disk is not read or written) together with the project's
-// assets for the project's console profile, into Library/Cooked/editor/<profile>/game.rpak. The pack is loaded into a
+// assets for the host desktop platform target (linux/windows: the project's profile and budgets, desktop texture and
+// mesh encodings), into Library/Cooked/editor/<host>/game.rpak. The pack is loaded into a
 // World exactly like the desktop player does it (World::loadPack, input actions, scene manager, fixed-step physics hook).
 // Play sessions use it for Play in editor; edit-mode script callbacks can reuse it (F3 stage 3).
 // Scripts come from GameModule: build the world only while the module is loaded, destroy it before an unload.

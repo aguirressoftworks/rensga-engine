@@ -122,6 +122,45 @@ browser shows "Rensga Engine / Platformer 2D" with a gold cube; `tests/sample/te
 Android (APK only; the phone run is manual): cook the pack as above, then `tools/ci/android.sh` writes `build/ci/android/rensga-player.apk`
 with `assets/game.rpak` and `assets/music.wav`.
 
+## Cross-target QA checklist (F4.01 / gate F4.G2)
+
+One codebase, one game: the same scripts and the same scenes run on PS2, PSP, Windows, Linux and Android. The checks below are scripts
+(`tools/ci/run_local.sh <job>` runs the same file as CI). Every job builds and cooks **this** sample, not the 3D template.
+
+| Target | How it is built | How it is checked | Script |
+| --- | --- | --- | --- |
+| Linux | host tree with the sample scripts built into `rensga_desktop` and `rensga-cooker` (`tools/ci/lib.sh` `slice_tools`) | `TitleBot` under xvfb with `GALLIUM_DRIVER=softpipe`: `game complete`, `bot finished the game`, `alloc-check allocs=0`, screenshots of Title and Results | `tools/ci/linux_host.sh` (public CI) |
+| Windows | llvm-mingw cross build of `rensga_desktop.exe` with the sample scripts; the pack is cooked in the job and copied next to the exe with the music | the exe under wine + Xvfb, `TitleBot`: `game complete`, `alloc-check allocs=0`, Results screenshot | `tools/ci/windows.sh`, `windows_run.sh` (public CI) |
+| Android | NDK + SDLActivity + `libmain.so` (the player with the sample scripts); the APK carries `game.rpak` and every `music*.wav` | APK built in public CI; exits 77 locally without the `android-build` module (Google's SDK license is yours to accept). The phone run is deferred. | `tools/ci/android.sh`, `android_device.sh` ("built, not run" without a phone) |
+| PS2 | ps2dev cross build with the sample scripts; the pack is cooked for the ps2 profile; ISO with `GAME.RPK` and `MUSIC*.WAV`, refused if the GS cannot draw the pack (`tools/ci/pack_check.py`) | build only in public CI; locally in PCSX2 (your own BIOS): `game complete`, `prof` lines, `icon.sys ok`, a card save read back, `alloc-check allocs=0`, no texture upload error, Results screenshot | `tools/ci/ps2.sh` (public CI), `ps2_check.sh` (local) |
+| PSP | the generated PSP project (`make_sample.py --profile psp`), cooked for psp (swizzled textures, compact meshes), EBOOT / ELF | PPSSPP headless: `game complete`, a screenshot per room, `allocs=0` | `tools/ci/psp_2d.sh` (PSP slice task) |
+
+Manual pass, once per release candidate, on each target that has a screen (about 5 minutes each; the bot only proves the happy path):
+
+- [ ] **Boot**: the Title shows New Game; Continue is greyed out with an empty save and reads `Continue  ROOM n` after a room was entered.
+- [ ] **Controls**: the D-pad / arrows / left stick move, South / Space jumps, Start / Enter pauses, the pause menu shows Resume and Quit to title, and the South press on Resume does not jump. On Android the touch zones work and the overlay is visible.
+- [ ] **Rooms**: room 1 to 3 are reachable through the exit doors; stomp, coins, the checkpoint flag and one-way planks (Down + jump drops through) behave the same on every target.
+- [ ] **Lives**: lose three lives; Game Over offers Continue (restarts the room with 3 lives) and Quit.
+- [ ] **Results**: the goal flag shows time, coins `n/19` and `NEW BEST TIME` on a first finish; Play again and Title both work.
+- [ ] **Layout**: no text or button leaves the view (640x448 on PS2, Windows, Linux and Android; 480x272 on PSP). Nothing is a solid rectangle where a sprite should be.
+- [ ] **Audio**: the music changes per room (`music.wav`, `music2.wav`, `music3.wav`), effects play, nothing crackles.
+- [ ] **Saves**: quit in room 2 and relaunch: Continue starts room 2 with the same coins, lives and time. PS2: the memory card shows "Rensga Engine / Platformer 2D" with the gold cube in the BIOS browser.
+- [ ] **Budget**: the game logs `alloc-check allocs=0` and a `rensga: prof` line every 60 frames (PS2, PSP, desktop).
+
+Known differences, not bugs: the bot's game time differs per target (wall-clock frames: PS2 2090 to 2365, PSP 2083, desktop 1870 to 2167), and the
+bot may miss a coin when frames are very slow (the wine run under softpipe collected 18 of 19). The headless test is the deterministic one.
+Desktop alloc-checks run with `GALLIUM_DRIVER=softpipe`: llvmpipe's shader JIT allocates through `operator new` (a Mesa artefact, 147 allocations once).
+
+### Evidence (Stage 2, 2026-10-31, `RENSGA_TOOLCHAIN=native`)
+
+| Target | Result |
+| --- | --- |
+| PS2 (PCSX2 2.8.2, ISO 3.8 MB, `ps2_check.sh`) | `game complete coins=19 time=2090`, `bot finished the game`, `rensga: prof` lines, `icon.sys ok, rensga.ico ok`, `memory card ready`, `save selftest previous=-1 wrote=1 readback=1020`, `alloc-check frames=3000 allocs=0`, no texture upload error. Screenshot: the Results scene. |
+| Windows (wine + Xvfb, `windows_run.sh`) | `game complete coins=18 time=2167`, `alloc-check frames=1499 allocs=0`. Screenshot: the Results scene. |
+| Linux desktop (xvfb, softpipe, `linux_host.sh` slice step) | `room cleared 1/2/3`, `game complete coins=19 time=2004`, `bot finished the game`, `alloc-check frames=1499 allocs=0`. Screenshots: Title and Results. |
+| Android | APK step reaches the module check and exits 77 here (module not installed); the build runs in public CI; phone run deferred |
+| PSP | the PSP slice task (`psp_2d.sh`) |
+
 ## Tests
 
 `ctest --test-dir build/host -R platformer` runs `tests/sample`:

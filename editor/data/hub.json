@@ -1,10 +1,25 @@
 {
-  "format": 1,
-  "note": "Project hub data: which target APIs and build targets the Create Project dialog offers. An API is also selectable only when templates/<id>/ exists.",
+  "format": 2,
+  "note": "Project hub data: which target APIs, templates and build targets the Create Project dialog offers. A template card is selectable only when available is true and templates/<dir>/ exists; otherwise it is greyed out with 'Coming in <comingIn>'. An API is selectable when it is available and has a selectable template.",
   "apis": [
     { "id": "psx", "available": false },
     { "id": "psp", "available": true },
-    { "id": "ps2", "available": false }
+    { "id": "ps2", "available": true }
+  ],
+  "templates": [
+    { "api": "psx", "kind": "2d", "dir": "psx-2d", "available": false, "comingIn": "PSX Template 5",
+      "description": "A 2D platformer room on 320x240 in fixed point." },
+    { "api": "psx", "kind": "3d", "dir": "psx-3d", "available": false, "comingIn": "PSX Template 4",
+      "description": "A 3D test level with a controllable character." },
+    { "api": "psp", "kind": "2d", "dir": "psp-2d", "available": true,
+      "description": "2D platformer room, 480x272: tilemap, coins, HUD." },
+    { "api": "psp", "kind": "3d", "dir": "psp-3d", "available": true,
+      "description": "A 3D test level at 480x272 with a character." },
+    { "api": "ps2", "kind": "2d", "dir": "ps2-2d", "available": true,
+      "description": "2D platformer room, 640x448: tilemap, coins, HUD.",
+      "note": "PS2: Play in editor and cooking work now. Console build and run arrive with the PS2 editor module in F8." },
+    { "api": "ps2", "kind": "3d", "dir": "ps2-3d", "available": false, "comingIn": "PS2 Template 4",
+      "description": "A 3D test level at 640x448 with a character." }
   ],
   "buildTargets": [
     { "id": "console", "label": "Console", "available": true },

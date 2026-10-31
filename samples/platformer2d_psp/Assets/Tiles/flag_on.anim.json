@@ -1,0 +1,13 @@
+{
+ "format": 1,
+ "name": "flag_on",
+ "texture": "00000000-0000-4000-8000-000000000105",
+ "fps": 1,
+ "loop": true,
+ "grid": {
+  "cellW": 32,
+  "cellH": 32,
+  "start": 1,
+  "count": 1
+ }
+}

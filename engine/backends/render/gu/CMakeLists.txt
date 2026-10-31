@@ -12,3 +12,8 @@ set(RENSGA_GU_DUMP_FRAME 0 CACHE STRING "GuRenderer: frame that dumps host0:/ren
 if(RENSGA_GU_DUMP_FRAME GREATER 0)
   target_compile_definitions(rensga_render_gu PRIVATE RENSGA_GU_DUMP_FRAME=${RENSGA_GU_DUMP_FRAME})
 endif()
+# F4.07: -DRENSGA_GU_DUMP_FRAMES="20,400,1000" writes host0:/rensga_shot_<frame>.bmp for each listed frame (one run, several screenshots).
+set(RENSGA_GU_DUMP_FRAMES "" CACHE STRING "GuRenderer: comma-separated frames that dump host0:/rensga_shot_<frame>.bmp (empty = off)")
+if(RENSGA_GU_DUMP_FRAMES)
+  target_compile_definitions(rensga_render_gu PRIVATE "RENSGA_GU_DUMP_FRAMES=\"${RENSGA_GU_DUMP_FRAMES}\"")
+endif()

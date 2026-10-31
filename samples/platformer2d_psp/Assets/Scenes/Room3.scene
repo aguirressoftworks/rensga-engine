@@ -1,0 +1,1659 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-8000-000000000305",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-8000-000000000701",
+   "name": "Tilemap",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Tilemap",
+     "fields": {
+      "map": "00000000-0000-4000-8000-000000000113"
+     }
+    },
+    {
+     "type": "TilemapCollider2D",
+     "fields": {
+      "solidOutside": true
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000702",
+   "name": "Player",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     64,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000102",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 5
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000121"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 6,
+      "offsetY": 4,
+      "sizeX": 20,
+      "sizeY": 28
+     }
+    },
+    {
+     "type": "PlayerController2D",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Player",
+   "layer": 1
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000703",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera2D",
+     "fields": {
+      "target": "00000000-0000-4000-8000-000000000702",
+      "targetOffsetX": 16,
+      "targetOffsetY": 16,
+      "deadZoneW": 64,
+      "deadZoneH": 48,
+      "useBounds": true,
+      "boundsX": 0,
+      "boundsY": 0,
+      "boundsW": 1600,
+      "boundsH": 448,
+      "pixelSnap": true
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000704",
+   "name": "HudPanelL",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 4,
+      "y": 4,
+      "w": 112,
+      "h": 28,
+      "color": [
+       0,
+       0,
+       0,
+       140
+      ],
+      "sortingOrder": -2
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000705",
+   "name": "HudPanelC",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 1,
+      "x": 0,
+      "y": 4,
+      "w": 112,
+      "h": 28,
+      "color": [
+       0,
+       0,
+       0,
+       140
+      ],
+      "sortingOrder": -2
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000706",
+   "name": "HudPanelR",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 2,
+      "x": -4,
+      "y": 4,
+      "w": 112,
+      "h": 28,
+      "color": [
+       0,
+       0,
+       0,
+       140
+      ],
+      "sortingOrder": -2
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000707",
+   "name": "HudCoins",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 10,
+      "y": 9,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000708",
+   "name": "HudRoom",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 10,
+      "y": 21,
+      "color": [
+       200,
+       200,
+       200,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000709",
+   "name": "HudLives",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 1,
+      "x": 0,
+      "y": 9,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000070a",
+   "name": "HudHp",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 1,
+      "x": 0,
+      "y": 21,
+      "color": [
+       255,
+       120,
+       120,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000070b",
+   "name": "HudTime",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 2,
+      "x": -10,
+      "y": 9,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000070c",
+   "name": "HudMessage",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": -56,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000070d",
+   "name": "Hud",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "HudController",
+     "fields": {
+      "roomNumber": 3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000070e",
+   "name": "PauseUI",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000070f",
+   "name": "Pause",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "PauseMenu",
+     "fields": {}
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000710",
+   "name": "PausePanel",
+   "parent": "00000000-0000-4000-8000-00000000070e",
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 0,
+      "w": 220,
+      "h": 128,
+      "color": [
+       10,
+       12,
+       30,
+       220
+      ],
+      "sortingOrder": 20
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000711",
+   "name": "PauseTitle",
+   "parent": "00000000-0000-4000-8000-00000000070e",
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": -44,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": 22
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000712",
+   "name": "ResumeButton",
+   "parent": "00000000-0000-4000-8000-00000000070e",
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": -12,
+      "w": 160,
+      "h": 24,
+      "sortingOrder": 21
+     }
+    },
+    {
+     "type": "MenuAction",
+     "fields": {
+      "action": 2
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000713",
+   "name": "ResumeLabel",
+   "parent": "00000000-0000-4000-8000-00000000070e",
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": -12,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 22
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000714",
+   "name": "QuitButton",
+   "parent": "00000000-0000-4000-8000-00000000070e",
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 22,
+      "w": 160,
+      "h": 24,
+      "sortingOrder": 21
+     }
+    },
+    {
+     "type": "MenuAction",
+     "fields": {
+      "action": 3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000715",
+   "name": "QuitLabel",
+   "parent": "00000000-0000-4000-8000-00000000070e",
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 22,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 22
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000716",
+   "name": "Coin1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     140,
+     392,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000717",
+   "name": "Coin2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     472,
+     328,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000718",
+   "name": "Coin3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     600,
+     296,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000719",
+   "name": "Coin4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1140,
+     392,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000071a",
+   "name": "Coin5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1450,
+     328,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000071b",
+   "name": "Coin6",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1500,
+     296,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000103",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 16,
+      "srcH": 16,
+      "sortingOrder": 3
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000124"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "sizeX": 16,
+      "sizeY": 16,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "Coin",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "Coin",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000071c",
+   "name": "SavePoint",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     900,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000105",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 2
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000128"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 8,
+      "offsetY": 0,
+      "sizeX": 16,
+      "sizeY": 32,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "SavePoint",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "tag": "SavePoint",
+   "layer": 3
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000071d",
+   "name": "Walker1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     260,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000104",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 4
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000125"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 4,
+      "offsetY": 12,
+      "sizeX": 24,
+      "sizeY": 20
+     }
+    },
+    {
+     "type": "Walker",
+     "fields": {
+      "patrolMinX": 200,
+      "patrolMaxX": 400
+     }
+    }
+   ],
+   "prefab": null,
+   "tag": "Enemy",
+   "layer": 2
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000071e",
+   "name": "Hopper1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     760,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000104",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 4
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000126"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 4,
+      "offsetY": 12,
+      "sizeX": 24,
+      "sizeY": 20
+     }
+    },
+    {
+     "type": "Hopper",
+     "fields": {
+      "patrolMinX": 700,
+      "patrolMaxX": 850
+     }
+    }
+   ],
+   "prefab": null,
+   "tag": "Enemy",
+   "layer": 2
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000071f",
+   "name": "Walker2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1000,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000104",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 4
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000125"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 4,
+      "offsetY": 12,
+      "sizeX": 24,
+      "sizeY": 20
+     }
+    },
+    {
+     "type": "Walker",
+     "fields": {
+      "patrolMinX": 960,
+      "patrolMaxX": 1100
+     }
+    }
+   ],
+   "prefab": null,
+   "tag": "Enemy",
+   "layer": 2
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000720",
+   "name": "Hopper2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1230,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000104",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 4
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000126"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 4,
+      "offsetY": 12,
+      "sizeX": 24,
+      "sizeY": 20
+     }
+    },
+    {
+     "type": "Hopper",
+     "fields": {
+      "patrolMinX": 1180,
+      "patrolMaxX": 1290
+     }
+    }
+   ],
+   "prefab": null,
+   "tag": "Enemy",
+   "layer": 2
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000721",
+   "name": "Walker3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1340,
+     384,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000104",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 4
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000125"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": 4,
+      "offsetY": 12,
+      "sizeX": 24,
+      "sizeY": 20
+     }
+    },
+    {
+     "type": "Walker",
+     "fields": {
+      "patrolMinX": 1310,
+      "patrolMaxX": 1400
+     }
+    }
+   ],
+   "prefab": null,
+   "tag": "Enemy",
+   "layer": 2
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000722",
+   "name": "Goal",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1536,
+     288,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000105",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "sortingOrder": 2
+     }
+    },
+    {
+     "type": "SpriteAnimator",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-00000000012c"
+     }
+    },
+    {
+     "type": "BoxCollider2D",
+     "fields": {
+      "offsetX": -8,
+      "offsetY": 0,
+      "sizeX": 48,
+      "sizeY": 32,
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "RoomExit",
+     "fields": {
+      "isGoal": true
+     }
+    }
+   ],
+   "prefab": null,
+   "tag": "Exit",
+   "layer": 3
+  }
+ ]
+}

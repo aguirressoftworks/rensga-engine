@@ -85,6 +85,7 @@ class GsRenderer : public IRenderer {
   // Cumulative counters and layout, for tests and the periodic log line.
   struct VramInfo { u32 fbBytes, areaBytes, usedBytes, clutBytes, freeBytes, evictions, uploads; };
   VramInfo vramInfo() const;
+  u32 failedUploads() const { return failedUploads_; }  // uploadTexture calls that returned 0 (logged as ERROR, repeated in the periodic vram line)
 
  // Implementation types (public only so gs_renderer.cpp can keep its fixed tables at file scope).
   struct Command {  // 48 bytes
@@ -108,7 +109,7 @@ class GsRenderer : public IRenderer {
   GsVideo video_;
   bool videoSet_ = false, zbuffer_ = false;
   void* gs_ = nullptr;
-  u32 texCount_ = 0, cmdCount_ = 0;
+  u32 texCount_ = 0, cmdCount_ = 0, failedUploads_ = 0;
   u32 useClock_ = 0, kickEpoch_ = 1;                      // LRU clock; bumps when the queue is kicked
   u32 fbBytes_ = 0, pageBase_ = 0, pageCount_ = 0, clutBase_ = 0;  // layout (bytes / pages)
   u32 evictionsTotal_ = 0, uploadsTotal_ = 0, frameNo_ = 0;

@@ -173,19 +173,23 @@ void GsRenderer::drawText(u32 fontTex, const PackFontRec& f, i32 x, i32 y, const
 u32 GsRenderer::uploadTexture(const TextureDesc& d) {
   if (texCount_ >= kMaxTextures || !d.pixels || d.width == 0 || d.height == 0 || d.width > 1024 || d.height > 1024) {
     RLOG_ERROR("gs", "uploadTexture: bad size %ux%u or no pixels or texture table full (%u)", d.width, d.height, texCount_);
+    ++failedUploads_;
     return 0;
   }
   if (d.flags != 0) {  // swizzled (PSP) data: only the GU renderer reads it
     RLOG_ERROR("gs", "uploadTexture: flags 0x%x (swizzled) are not supported", d.flags);
+    ++failedUploads_;
     return 0;
   }
   const bool clut = d.format != tex_format::RGBA8;
   if (d.format > tex_format::CLUT8 || (clut && !d.palette) || (!clut && (d.width > 256 || d.height > 256))) {
     RLOG_ERROR("gs", "uploadTexture: unsupported format %u (RGBA8 max 256x256, CLUT needs a palette)", d.format);
+    ++failedUploads_;
     return 0;
   }
   if (d.format == tex_format::CLUT4 && (d.width & 1)) {
     RLOG_ERROR("gs", "uploadTexture: CLUT4 width must be even (%u)", d.width);
+    ++failedUploads_;
     return 0;
   }
   Tex& t = g_texStore[texCount_];
@@ -323,6 +327,8 @@ void GsRenderer::logVram() const {
   const VramInfo v = vramInfo();
   RLOG_INFO("gs", "rensga: vram fb=%uKB tex=%uKB used/%uKB area clut=%uKB free=%uKB evictions=%u uploads=%u", v.fbBytes / 1024,
             v.usedBytes / 1024, v.areaBytes / 1024, v.clutBytes / 1024, v.freeBytes / 1024, v.evictions, v.uploads);
+  // A failed upload must never pass as a quiet run (F4.01): repeat it with every periodic line; tools/ci/ps2_check.sh fails on it.
+  if (failedUploads_) RLOG_ERROR("gs", "rensga: texture upload failed (%u so far); sprites that use them draw as solid rectangles", failedUploads_);
 }
 
 void GsRenderer::endFrame() {

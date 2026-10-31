@@ -149,9 +149,42 @@ if(TARGET rensga_editor_core)
 endif()
 
 # --- F4 2D tools (agent 2a) ---
+# F4.08 part 2 (Editor 7): Tile Palette, 2D painting, Sprite Editor, SpriteRenderer sprite picker, on tests/fixtures/paint2d (a copy).
+# Exit 77 = skipped (no xvfb-run / python3). `ctest -L f4_exercises` runs the roadmap exercise.
+if(TARGET rensga-editor)
+  set(PAINT2D ${CMAKE_SOURCE_DIR}/tests/fixtures/paint2d)
+  add_test(NAME editor_tile_palette_ui COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/tile_palette_ui_check.sh $<TARGET_FILE:rensga-editor>
+           ${PAINT2D} ${CMAKE_CURRENT_BINARY_DIR}/tile_palette_ui)
+  set_tests_properties(editor_tile_palette_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600 LABELS "slow;gl" ENVIRONMENT "RENSGA_JOBS=2")
+  add_test(NAME editor_sprite_editor_ui COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/sprite_editor_ui_check.sh $<TARGET_FILE:rensga-editor>
+           ${PAINT2D} ${CMAKE_CURRENT_BINARY_DIR}/sprite_editor_ui)
+  set_tests_properties(editor_sprite_editor_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 600 LABELS "slow;gl" ENVIRONMENT "RENSGA_JOBS=2")
+  add_test(NAME exercise_paint_level COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/exercise_paint_level.sh $<TARGET_FILE:rensga-editor>
+           ${PAINT2D} ${CMAKE_CURRENT_BINARY_DIR}/exercise_paint_level)
+  set_tests_properties(exercise_paint_level PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl;f4_exercises" ENVIRONMENT "RENSGA_JOBS=2")
+endif()
 # --- end 2a ---
 
 # --- F4 hub templates (agent 2b) ---
+# F4.09 / F4.10: the Hub template cards (hub.json), createProject per template, the generated 2D templates.
+if(TARGET rensga_editor_core)
+  add_executable(rensga_hub_tests ../test_main.cpp test_hub_templates.cpp)
+  target_link_libraries(rensga_hub_tests PRIVATE rensga_editor_core)
+  target_include_directories(rensga_hub_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_hub_tests PRIVATE RENSGA_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+                             RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_hub")
+  rensga_host_target(rensga_hub_tests)
+  add_test(NAME rensga_hub_tests COMMAND rensga_hub_tests)
+  # templates/psp-2d and templates/ps2-2d are generated: the committed folders must equal the generator output.
+  add_test(NAME templates_2d_generator COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/templates_2d_check.sh ${CMAKE_SOURCE_DIR})
+  set_tests_properties(templates_2d_generator PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+endif()
+# The Create Project dialog with its six cards, then a fresh PSP 2D project: opened, scripts built, Play in editor, Stop.
+if(TARGET rensga-editor)
+  add_test(NAME editor_hub_templates_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/hub_templates_ui.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_BINARY_DIR}/editor_hub_templates_ui)
+  set_tests_properties(editor_hub_templates_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl" ENVIRONMENT "RENSGA_JOBS=2")
+endif()
 # --- end 2b ---
 
 # --- F4.08 part 1 (agent core2d): tilemap editing model, rule tiles, sprite slices (no UI) ---

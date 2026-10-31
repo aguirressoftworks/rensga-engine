@@ -10,6 +10,7 @@
 
 #include "app.h"
 #include "panels/asset_ui.h"
+#include "panels/tile_tools.h"
 #include "rensga/core/gizmos.h"
 #include "rensga/editor/document_gizmos.h"
 #include "rensga/editor/editor_log.h"
@@ -116,15 +117,8 @@ void drawSceneView(App& a) {
   const ImVec2 cubePos(p1.x - cubeSize - 10, p0.y + 10);
   const ImVec2 ovMin(p0.x + 8, p0.y + 8), ovMax(p0.x + 470, p0.y + 40);
 
-  // textures and tilemaps are found through the asset database
-  static bool resolverSet = false;
-  if (!resolverSet) {
-    a.res2d.setResolver([](const std::string& g) {
-      const AssetEntry* e = assetUi().sync.db().findGuid(g);
-      return e ? e->path : std::filesystem::path();
-    });
-    resolverSet = true;
-  }
+  // textures and tilemaps are found through the asset database; the Tile Palette's in-memory edits win over the files
+  bindScene2dResources(a);
   const std::string scenePath = a.doc.loaded() ? a.doc.path().string() : std::string();
   if (a.doc.loaded() && sv.modeScene != scenePath) {  // a new scene: pick 2D or 3D mode, frame it
     sv.modeScene = scenePath;
@@ -153,6 +147,9 @@ void drawSceneView(App& a) {
   }
   std::vector<SpriteQuad> quads;
   if (s2d.any()) quads = a.res2d.build(s2d, ids);
+
+  // F4.08: with the Tile Palette open in 2D mode, LMB paints the selected Tilemap instead of selecting (Ctrl+click still selects)
+  const bool painting = tilePaintingActive(a, s2d);
 
   // ---- input ----
   const bool windowHot = ImGui::IsWindowHovered();
@@ -377,7 +374,7 @@ void drawSceneView(App& a) {
   ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
   ImGuizmo::SetRect(p0.x, p0.y, sz.x, sz.y);
   ImGuizmo::SetOrthographic(sv.mode2d);
-  ImGuizmo::Enable(sv.drag == 0 && !sv.boxing);
+  ImGuizmo::Enable(sv.drag == 0 && !sv.boxing && !painting);
   M4 vG = viewToRightHanded(ro.view), pG = projToRightHanded(ro.proj);
   std::vector<std::string> tops;
   for (const std::string& g : a.doc.topLevel(a.doc.selection())) {
@@ -385,7 +382,7 @@ void drawSceneView(App& a) {
     if (o && o->active) tops.push_back(g);
   }
   bool overGizmo = false;
-  if (!tops.empty() && !a.doc.playing()) {
+  if (!tops.empty() && !a.doc.playing() && !painting) {
     // pivot: the object's own matrix for one object, else the centre of the objects with no rotation
     M4 pivot = m4Identity();
     if (tops.size() == 1) {
@@ -449,6 +446,17 @@ void drawSceneView(App& a) {
     ImGui::GetWindowDrawList()->AddText(ImVec2(p1.x - ts.x - 12, p0.y + 12), ImGui::GetColorU32(brandToken("text-2")), zl);
   }
 
+  // ---- tile painting (Tile Palette): strokes, hover preview, status label ----
+  {
+    TilePaintView tv;
+    tv.p0 = p0;
+    tv.size = sz;
+    tv.view = ro.view;
+    tv.proj = ro.proj;
+    tv.hot = inView && sv.drag == 0;
+    tileSceneInput(a, s2d, tv);
+  }
+
   // ---- picking: click selects through the ID buffer, a drag selects a rectangle ----
   auto applyHits = [&](const std::vector<std::string>& hits, bool box) {
     const bool shift = io.KeyShift, ctrl = io.KeyCtrl;
@@ -468,7 +476,7 @@ void drawSceneView(App& a) {
     }
   };
   if (inView && io.MouseClicked[0] && !io.KeyAlt) {
-    sv.clickValid = !overGizmo && !cubeHot;
+    sv.clickValid = !overGizmo && !cubeHot && (!painting || io.KeyCtrl);
     sv.clickPos = io.MousePos;
     sv.boxing = false;
   }

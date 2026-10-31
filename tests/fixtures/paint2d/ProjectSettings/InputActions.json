@@ -1,0 +1,15 @@
+{
+ "format": 1,
+ "actions": [
+  {
+   "name": "Pad",
+   "kind": "axis2",
+   "source": "dpad"
+  },
+  {
+   "name": "Jump",
+   "kind": "button",
+   "source": "south"
+  }
+ ]
+}

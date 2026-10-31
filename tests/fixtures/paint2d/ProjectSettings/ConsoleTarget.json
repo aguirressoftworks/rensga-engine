@@ -1,0 +1,40 @@
+{
+ "format": 1,
+ "profile": "ps2",
+ "scalar": "float",
+ "resolution": [
+  640,
+  448
+ ],
+ "budgets": {
+  "ramBytes": 33554432,
+  "vramBytes": 4194304,
+  "trianglesPerFrame": 100000,
+  "maxObjects": 256,
+  "maxComponentsPerType": 256
+ },
+ "textureFormats": [
+  "clut4",
+  "clut8",
+  "rgba8"
+ ],
+ "depth": "zbuffer",
+ "media": "iso",
+ "refreshHz": 60,
+ "audio": {
+  "sampleRate": 22050,
+  "voices": 16
+ },
+ "capabilities": {
+  "rumble": true
+ },
+ "allowedComponents": [
+  "SpriteRenderer",
+  "Tilemap",
+  "TilemapCollider2D",
+  "BoxCollider2D",
+  "Rigidbody2D",
+  "Camera2D",
+  "PaintPlayer"
+ ]
+}

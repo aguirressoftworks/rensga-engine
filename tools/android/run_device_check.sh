@@ -8,7 +8,7 @@
 # Exit: 0 passed or not-run, 1 device present but the check failed, 77 no APK.
 set -u
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-APK="${1:-$REPO/build/ci/android/rensga-player.apk}"
+APK="${1:-${RENSGA_CI_OUT:-$REPO/build/ci}/android/rensga-player.apk}"
 PKG="com.rensga.player"; TMO="${ANDROID_CHECK_TIMEOUT:-60}"
 ADB="$REPO/build/android-sdk/platform-tools/adb"; [ -x "$ADB" ] || ADB="$(command -v adb || true)"
 [ -f "$APK" ] || { echo "android: no APK at $APK (run tools/ci/android.sh)"; exit 77; }
@@ -27,9 +27,9 @@ while [ $SECONDS -lt $end ]; do
   sleep 2
 done
 beat="$("${A[@]}" logcat -d 2>/dev/null | grep -E 'rensga: frame [0-9]+' | tail -1)"
-mkdir -p "$REPO/build/ci/android"
-"${A[@]}" exec-out screencap -p > "$REPO/build/ci/android/device.png" 2>/dev/null \
-  && echo "android: screenshot build/ci/android/device.png" || echo "android: screencap failed"
+mkdir -p "$(dirname "$APK")"
+"${A[@]}" exec-out screencap -p > "$(dirname "$APK")/device.png" 2>/dev/null \
+  && echo "android: screenshot $(dirname "$APK")/device.png" || echo "android: screencap failed"
 "${A[@]}" shell am force-stop "$PKG"
 echo "android: ${line:-<no alloc-check line within ${TMO}s>}"
 echo "android: ${beat:-<no 'rensga: frame' line>}"

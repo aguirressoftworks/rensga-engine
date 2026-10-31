@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # Runs every CI job locally, in the same order and with the same scripts as .github/workflows/ci.yml.
 # Usage: tools/ci/run_local.sh [--install] [--docker] [job...]
-#   (default jobs: linux_host psp psp_hello psp_2d templates editor_tour determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check)
+#   (default jobs: linux_host psp psp_eboot psp_hello psp_2d templates editor_tour determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check)
 # Native first, like CI: RENSGA_TOOLCHAIN=native and the build support modules (the toolchains users install from the Hub) in a shared
 # RENSGA_HOME (default build/rensga-home, so each download happens once). Install what a job needs with `--install` (runs
 # `rensga modules install` for the jobs you asked for) or by hand: build/ci/linux-host/tools/modules/rensga-modules install <id>.
 #   --docker  contributor fallback: RENSGA_TOOLCHAIN=docker (pinned images under tools/docker/)
 #   --install install the modules of the selected jobs first (android-build needs --accept-licenses: set RENSGA_ACCEPT_LICENSES=1 once you read Google's SDK license)
+# F4.01: windows, android and ps2 build and cook the 2D slice (samples/platformer2d); linux_host plays it (TitleBot) on the desktop player and
+# windows_run plays it under wine; ps2_check boots its ISO in PCSX2 (game complete, card save, allocs=0); psp_2d runs it in PPSSPP.
 # linux_host also runs the F2 host checks (touch, hot reload, cook cache, audio-stress); VRAM and PS2 audio stress stay PS2-local (ps2_check).
 # windows_run (wine), android_device (phone via adb, "built, not run" without one) and ps2_check (PCSX2 + your own BIOS, LOCAL ONLY)
-# exit 77 (SKIP) when their prerequisites are missing.
+# exit 77 (SKIP) when their prerequisites are missing (android also when the android-build module is not installed: it needs Google's SDK
+# license, which this script never accepts for you). The summary at the end prints PASS / SKIP / FAIL per job.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -23,16 +26,17 @@ while [ $# -gt 0 ]; do
     *) break ;;
   esac
 done
-jobs=("$@"); [ ${#jobs[@]} -eq 0 ] && jobs=(linux_host psp psp_hello psp_2d templates editor_tour determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check)
+jobs=("$@"); [ ${#jobs[@]} -eq 0 ] && jobs=(linux_host psp psp_eboot psp_hello psp_2d templates editor_tour determinism psp_gpu_check windows windows_run android android_device ps2 ps2_check)
 echo "toolchain: $RENSGA_TOOLCHAIN   modules: $RENSGA_HOME/modules"
 if [ "$install" = 1 ] && [ "$RENSGA_TOOLCHAIN" != docker ]; then
   mods=""
   for j in "${jobs[@]}"; do
     case "$j" in
-      psp|psp_hello|psp_2d|editor_tour|determinism|psp_gpu_check) mods="$mods psp-build" ;;
+      psp|psp_eboot|psp_hello|psp_2d|templates|editor_tour|determinism|psp_gpu_check) mods="$mods psp-build" ;;
       windows|windows_run) mods="$mods windows-build" ;;
       android|android_device) mods="$mods android-build" ;;
-      ps2|ps2_check) mods="$mods ps2-build" ;;
+      ps2) mods="$mods ps2-build" ;;
+      ps2_check) mods="$mods ps2-build pcsx2" ;;
     esac
   done
   mods="$(echo $mods | tr ' ' '\n' | sort -u | tr '\n' ' ')"

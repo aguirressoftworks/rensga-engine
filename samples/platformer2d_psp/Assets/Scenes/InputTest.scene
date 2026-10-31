@@ -1,0 +1,2279 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-8000-000000000304",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-8000-000000000601",
+   "name": "Backdrop",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 1024,
+      "color": [
+       24,
+       28,
+       44,
+       255
+      ],
+      "sortingOrder": -10
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000602",
+   "name": "InTitle",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 6,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000603",
+   "name": "InHint",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 6,
+      "x": 8,
+      "y": -8,
+      "color": [
+       200,
+       200,
+       200,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000604",
+   "name": "InKeys",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 176,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000605",
+   "name": "InAnyKey",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 190,
+      "color": [
+       200,
+       200,
+       200,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000606",
+   "name": "InRumble",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 206,
+      "color": [
+       255,
+       170,
+       90,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000607",
+   "name": "InHud",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "InputTestHud",
+     "fields": {}
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000608",
+   "name": "IaL0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 22,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000609",
+   "name": "IaB0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 22,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000060a",
+   "name": "IaF0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 22,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000060b",
+   "name": "IaC0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 219,
+      "y": 21,
+      "w": 2,
+      "h": 10,
+      "color": [
+       140,
+       150,
+       180,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000060c",
+   "name": "IaL1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 36,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000060d",
+   "name": "IaB1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 36,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000060e",
+   "name": "IaF1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 36,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000060f",
+   "name": "IaC1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 219,
+      "y": 35,
+      "w": 2,
+      "h": 10,
+      "color": [
+       140,
+       150,
+       180,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000610",
+   "name": "IaL2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 50,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000611",
+   "name": "IaB2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 50,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000612",
+   "name": "IaF2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 50,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000613",
+   "name": "IaC2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 219,
+      "y": 49,
+      "w": 2,
+      "h": 10,
+      "color": [
+       140,
+       150,
+       180,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000614",
+   "name": "IaL3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 64,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000615",
+   "name": "IaB3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 64,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000616",
+   "name": "IaF3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 64,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000617",
+   "name": "IaC3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 219,
+      "y": 63,
+      "w": 2,
+      "h": 10,
+      "color": [
+       140,
+       150,
+       180,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000618",
+   "name": "IaL4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 78,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000619",
+   "name": "IaB4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 78,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000061a",
+   "name": "IaF4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 78,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000061b",
+   "name": "IaC4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 219,
+      "y": 77,
+      "w": 2,
+      "h": 10,
+      "color": [
+       140,
+       150,
+       180,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000061c",
+   "name": "IaL5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 92,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000061d",
+   "name": "IaB5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 92,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000061e",
+   "name": "IaF5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 92,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000061f",
+   "name": "IaC5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 219,
+      "y": 91,
+      "w": 2,
+      "h": 10,
+      "color": [
+       140,
+       150,
+       180,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000620",
+   "name": "IaL6",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 106,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000621",
+   "name": "IaB6",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 106,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000622",
+   "name": "IaF6",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 106,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000623",
+   "name": "IaC6",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 219,
+      "y": 105,
+      "w": 2,
+      "h": 10,
+      "color": [
+       140,
+       150,
+       180,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000624",
+   "name": "IaL7",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 120,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000625",
+   "name": "IaB7",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 120,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000626",
+   "name": "IaF7",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 120,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000627",
+   "name": "IaC7",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 219,
+      "y": 119,
+      "w": 2,
+      "h": 10,
+      "color": [
+       140,
+       150,
+       180,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000628",
+   "name": "IaL8",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 134,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000629",
+   "name": "IaB8",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 134,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000062a",
+   "name": "IaF8",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 134,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000062b",
+   "name": "IaL9",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 148,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000062c",
+   "name": "IaB9",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 148,
+      "w": 96,
+      "h": 8,
+      "color": [
+       60,
+       66,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000062d",
+   "name": "IaF9",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 172,
+      "y": 148,
+      "w": 0,
+      "h": 8,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000062e",
+   "name": "Ib0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 284,
+      "y": 22,
+      "color": [
+       150,
+       150,
+       150,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000062f",
+   "name": "Ib1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 284,
+      "y": 36,
+      "color": [
+       150,
+       150,
+       150,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000630",
+   "name": "Ib2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 284,
+      "y": 50,
+      "color": [
+       150,
+       150,
+       150,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000631",
+   "name": "Ib3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 284,
+      "y": 64,
+      "color": [
+       150,
+       150,
+       150,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000632",
+   "name": "Ib4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 284,
+      "y": 78,
+      "color": [
+       150,
+       150,
+       150,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000633",
+   "name": "Ib5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 284,
+      "y": 92,
+      "color": [
+       150,
+       150,
+       150,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000634",
+   "name": "Ib6",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 284,
+      "y": 106,
+      "color": [
+       150,
+       150,
+       150,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000635",
+   "name": "Ib7",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 284,
+      "y": 120,
+      "color": [
+       150,
+       150,
+       150,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

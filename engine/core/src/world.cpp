@@ -1,3 +1,4 @@
+#include <cstring>
 #include "rensga/core/world.h"
 
 #include <string.h>
@@ -272,9 +273,15 @@ ComponentPool* World::ensurePool(const TypeInfo& type, u32 capacity) {
     p.generations[i] = 1;
     p.flags[i] = 0;
   }
-  // Keep poolOrder_ sorted by script execution order (lower first); equal orders keep creation order.
+  // Keep poolOrder_ sorted by script execution order (lower first). Equal orders sort by type
+  // name: type ids depend on static-init/link order, which differs between builds, so creation
+  // order would break cross-target determinism.
   u32 at = poolCount_;
-  while (at > 0 && pools_[poolOrder_[at - 1]].type->executionOrder > type.executionOrder) {
+  while (at > 0) {
+    const TypeInfo* prev = pools_[poolOrder_[at - 1]].type;
+    bool after = prev->executionOrder > type.executionOrder ||
+                 (prev->executionOrder == type.executionOrder && std::strcmp(prev->name, type.name) > 0);
+    if (!after) break;
     poolOrder_[at] = poolOrder_[at - 1];
     --at;
   }

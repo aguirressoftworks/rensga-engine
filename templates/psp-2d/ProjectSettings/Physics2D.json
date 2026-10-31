@@ -1,0 +1,15 @@
+{
+ "format": 1,
+ "layers": [
+  "Default",
+  "Player",
+  "Enemy",
+  "Pickup"
+ ],
+ "ignore": [
+  [
+   "Enemy",
+   "Pickup"
+  ]
+ ]
+}

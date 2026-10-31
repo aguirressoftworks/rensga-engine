@@ -7,6 +7,7 @@
 
 #include "app.h"
 #include "panels/asset_ui.h"
+#include "panels/tile_tools.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -207,6 +208,12 @@ bool drawAssetInspector(App& a) {
   ImGui::TextDisabled("GUID %s", e.guid.c_str());
   if (ImGui::IsItemClicked()) ImGui::SetClipboardText(e.guid.c_str());
   ImGui::TextDisabled("%s", kb(e.size).c_str());
+  if (e.kind == AssetKind::Texture) {  // F4.08
+    if (ImGui::Button("Open Sprite Editor", ImVec2(-FLT_MIN, 0))) openSpriteEditor(a, e.guid);
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Slice this texture into named sprites (grid or manual rectangles, pivots)");
+  } else if (e.kind == AssetKind::Tilemap) {
+    if (ImGui::Button("Open Tile Palette", ImVec2(-FLT_MIN, 0))) openTilePalette(a, e.guid);
+  }
 
   const std::vector<ImportField> base = fieldsFor(u, e, u.tab);
   if (base.empty()) {

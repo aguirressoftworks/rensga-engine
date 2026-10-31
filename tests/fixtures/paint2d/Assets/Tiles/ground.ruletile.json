@@ -1,0 +1,17 @@
+{
+ "format": 1,
+ "tileset": "00000000-0000-4000-8000-0000000b2d01",
+ "neighbours": 4,
+ "outside": "filled",
+ "default": 1,
+ "members": [
+  0
+ ],
+ "rules": [
+  {
+   "mask": 0,
+   "care": 1,
+   "tile": 0
+  }
+ ]
+}

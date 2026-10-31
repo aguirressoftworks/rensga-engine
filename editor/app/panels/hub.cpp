@@ -7,11 +7,17 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <cstring>
 #include <ctime>
 
+#include <map>
+
 #include "app.h"
 #include "modules.h"
+#include "panels/thumbnails.h"
+#include "rensga/cooker/assets.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -22,6 +28,11 @@ namespace fs = std::filesystem;
 // ---------------------------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------------------------
+// The template card picked in the Create Project dialog: an index into HubData::templates (-1 = none). It lives here because
+// HubState (app.h) belongs to the app shell; hubInit and the dialog keep it in step with HubState::api.
+static int g_template = -1;
+static bool g_closeCreate = false;   // set by the hub-submit test hook: close the dialog on its next frame
+
 void hubInit(App& a, const std::string& homeOverride) {
   a.hub.settings.load(HubSettings::resolveHome(homeOverride));
   fs::path root = RENSGA_SOURCE_DIR;
@@ -30,6 +41,7 @@ void hubInit(App& a, const std::string& homeOverride) {
   a.hub.api = -1;
   for (size_t i = 0; i < a.hub.data.apis.size(); ++i)
     if (a.hub.data.apiSelectable(i)) { a.hub.api = static_cast<int>(i); break; }
+  g_template = a.hub.api >= 0 ? a.hub.data.defaultTemplate(a.hub.data.apis[a.hub.api].id) : -1;
   a.hub.rescan = true;
 }
 
@@ -379,18 +391,108 @@ static void suggestName(App& a) {
 
 static bool submitCreate(App& a) {
   HubState& h = a.hub;
-  if (h.api < 0 || h.build < 0) return false;
-  fs::path dir;
-  std::string err;
-  if (!createProject(h.data, h.settings, h.name, h.data.apis[h.api].id, h.data.buildTargets[h.build].id, dir, err)) {
-    h.createError = err;
+  if (h.api < 0 || h.build < 0 || g_template < 0 || g_template >= static_cast<int>(h.data.templates.size())) {
+    h.createError = "Pick a template.";
+    std::printf("hub-create: refused: %s\n", h.createError.c_str());
     return false;
   }
+  fs::path dir;
+  std::string err;
+  const HubTemplate& tm = h.data.templates[static_cast<size_t>(g_template)];
+  if (!createProject(h.data, h.settings, h.name, tm, h.data.buildTargets[h.build].id, dir, err)) {
+    h.createError = err;
+    std::printf("hub-create: refused: %s\n", err.c_str());
+    return false;
+  }
+  std::printf("hub-create: ok template=%s dir=%s\n", tm.dir.c_str(), dir.string().c_str());
   EditorLog::instance().info("project created: " + dir.string());
   h.createError.clear();
   h.rescan = true;
   a.pendingProject = dir.string();
   return true;
+}
+
+// Thumbnails of the template cards: templates/<dir>/thumbnail.png, decoded once. A missing file leaves a plain placeholder.
+static ImTextureID templateThumb(const App& a, const HubTemplate& t, ImVec2& size) {
+  static std::map<std::string, GlImage> cache;
+  static std::map<std::string, bool> tried;
+  GlImage& img = cache[t.dir];
+  if (!tried[t.dir]) {
+    tried[t.dir] = true;
+    std::ifstream f(a.hub.data.templatesDir / t.dir / "thumbnail.png", std::ios::binary);
+    if (f) {
+      std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+      ImageRgba rgba;
+      std::string err;
+      if (decodePng(bytes, rgba, err)) img.upload(rgba.rgba.data(), static_cast<int>(rgba.width), static_cast<int>(rgba.height), false);
+    }
+  }
+  size = ImVec2(static_cast<float>(img.w), static_cast<float>(img.h));
+  return img.tex ? img.id() : ImTextureID{};
+}
+
+// One template card. Returns true when it was clicked. Disabled cards are greyed, say "Coming in <phase>" and never select.
+static bool templateCard(App& a, const HubTemplate& t, bool selected, ImVec2 size) {
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  const ImVec2 p0 = ImGui::GetCursorScreenPos(), p1(p0.x + size.x, p0.y + size.y);
+  const bool ok = t.selectable();
+  ImGui::PushID(t.dir.c_str());
+  ImGui::InvisibleButton("##card", size);
+  const bool hovered = ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled);
+  const bool clicked = ok && ImGui::IsItemClicked(0);
+  ImGui::PopID();
+  const ImVec4 surf = brandToken("surface");
+  dl->AddRectFilled(p0, p1, ImGui::GetColorU32(ok && hovered ? brandToken("surface-2") : surf), 6.0f);
+  dl->AddRect(p0, p1, ImGui::GetColorU32(selected ? brandRamp("cerrado.400") : (ok && hovered ? brandToken("border-strong") : brandToken("border"))),
+              6.0f, 0, selected ? 2.0f : 1.0f);
+  const ImU32 textCol = ImGui::GetColorU32(ok ? brandToken("text") : brandToken("muted"));
+  const ImU32 mutedCol = ImGui::GetColorU32(ok ? brandToken("text-2") : brandToken("muted"));
+  // thumbnail (or a placeholder box) on the left
+  const float pad = 8, tw = 96, th = 54;
+  const ImVec2 t0(p0.x + pad, p0.y + pad), t1(t0.x + tw, t0.y + th);
+  ImVec2 isz;
+  ImTextureID tex = templateThumb(a, t, isz);
+  if (tex) {   // fitted into the box, aspect kept (480x272 and 640x448 shots)
+    dl->AddRectFilled(t0, t1, ImGui::GetColorU32(brandToken("surface-2")), 4.0f);
+    const float sc = std::min(tw / isz.x, th / isz.y), iw = isz.x * sc, ih = isz.y * sc;
+    const ImVec2 i0(t0.x + (tw - iw) * 0.5f, t0.y + (th - ih) * 0.5f);
+    dl->AddImage(tex, i0, ImVec2(i0.x + iw, i0.y + ih), ImVec2(0, 0), ImVec2(1, 1), ok ? IM_COL32_WHITE : IM_COL32(255, 255, 255, 90));
+  } else {
+    dl->AddRectFilled(t0, t1, ImGui::GetColorU32(brandToken("surface-2")), 4.0f);
+    ImGui::PushFont(a.fonts.uiBold, 20);
+    const ImVec2 ts = ImGui::CalcTextSize(t.title.c_str());
+    dl->AddText(a.fonts.uiBold, 20, ImVec2(t0.x + (tw - ts.x) * 0.5f, t0.y + (th - ts.y) * 0.5f), ImGui::GetColorU32(brandToken("muted")), t.title.c_str());
+    ImGui::PopFont();
+  }
+  dl->AddRect(t0, t1, ImGui::GetColorU32(brandToken("border")), 4.0f);
+  const float tx = t0.x + tw + 10, wrap = p1.x - tx - pad;
+  dl->AddText(a.fonts.uiBold, 16, ImVec2(tx, p0.y + pad - 1), textCol, t.title.c_str());
+  // status word (never color alone)
+  std::string status = selected ? "Selected" : (ok ? "" : (t.available ? "Missing folder" : "Coming in " + t.comingIn));
+  if (!status.empty()) {
+    const ImU32 sc = ImGui::GetColorU32(selected ? brandRamp("cerrado.300") : brandToken("muted"));
+    ImGui::PushFont(a.fonts.ui, 12);
+    const ImVec2 ss = ImGui::CalcTextSize(status.c_str());
+    ImGui::PopFont();
+    dl->AddText(a.fonts.ui, 12, ImVec2(p1.x - pad - ss.x, p0.y + pad + 1), sc, status.c_str());
+  }
+  dl->AddText(a.fonts.ui, 13, ImVec2(tx, p0.y + pad + 20), mutedCol, t.description.c_str(), nullptr, wrap);
+  if (hovered && !ok) {
+    ImGui::SetTooltip("%s", t.available ? ("Missing folder templates/" + t.dir).c_str() : ("Coming in " + t.comingIn).c_str());
+  }
+  return clicked;
+}
+
+// Keeps the picked template in step with the API radio: same kind in the new API when it can be picked, else its default.
+static void syncTemplate(HubState& h) {
+  if (h.api < 0 || h.api >= static_cast<int>(h.data.apis.size())) { g_template = -1; return; }
+  const std::string& api = h.data.apis[static_cast<size_t>(h.api)].id;
+  if (g_template >= 0 && g_template < static_cast<int>(h.data.templates.size()) && h.data.templates[static_cast<size_t>(g_template)].api == api &&
+      h.data.templates[static_cast<size_t>(g_template)].selectable())
+    return;
+  const std::string kind = g_template >= 0 && g_template < static_cast<int>(h.data.templates.size()) ? h.data.templates[static_cast<size_t>(g_template)].kind : "3d";
+  int i = h.data.findTemplate(api, kind);
+  g_template = (i >= 0 && h.data.templates[static_cast<size_t>(i)].selectable()) ? i : h.data.defaultTemplate(api);
 }
 
 static void disabledTip(bool disabled) {
@@ -414,8 +516,9 @@ void drawCreateDialogs(App& a) {
   }
   ImVec2 c = ImGui::GetMainViewport()->GetCenter();
   ImGui::SetNextWindowPos(c, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-  ImGui::SetNextWindowSize(ImVec2(520, 0));
+  ImGui::SetNextWindowSize(ImVec2(720, 0));
   if (ImGui::BeginPopupModal("Create Project", nullptr, ImGuiWindowFlags_NoResize)) {
+    if (g_closeCreate) { g_closeCreate = false; ImGui::CloseCurrentPopup(); }
     ImGui::PushFont(a.fonts.uiBold, 15);
     ImGui::TextUnformatted("Project name");
     ImGui::PopFont();
@@ -425,7 +528,12 @@ void drawCreateDialogs(App& a) {
     std::string nameErr = validateProjectName(h.name, h.settings.projectsPath);
     ImGui::PushStyleColor(ImGuiCol_Text, nameErr.empty() || !h.name[0] ? brandToken("muted") : brandToken("danger"));
     if (!nameErr.empty() && h.name[0]) ImGui::TextUnformatted(nameErr.c_str());
-    else ImGui::TextWrapped("Created in %s", (h.settings.projectsPath / h.name).string().c_str());
+    else {   // one line: a long path keeps its tail
+      std::string where = (h.settings.projectsPath / h.name).string(), shown = where;
+      const float room = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Created in ...").x;
+      while (shown.size() > 8 && ImGui::CalcTextSize(shown.c_str()).x > room) shown.erase(0, 1);
+      ImGui::Text("Created in %s%s", shown.size() < where.size() ? "..." : "", shown.c_str());
+    }
     ImGui::PopStyleColor();
     ImGui::Spacing();
     ImGui::PushFont(a.fonts.uiBold, 15);
@@ -443,10 +551,53 @@ void drawCreateDialogs(App& a) {
       ImGui::EndDisabled();
       disabledTip(!ok);
     }
+    ImGui::PopStyleColor();
+    ImGui::PopStyleVar();
+    syncTemplate(h);
+    ImGui::Spacing();
+    ImGui::PushFont(a.fonts.uiBold, 15);
+    ImGui::TextUnformatted("Template");
+    ImGui::PopFont();
+    {
+      // One row per target API with its 2D and 3D card; the picked API's row is the one Create uses.
+      const float labelW = 70, gap = 8, rowH = 70;
+      const float cardW = (ImGui::GetContentRegionAvail().x - labelW - gap * 2) * 0.5f;
+      for (size_t ai = 0; ai < h.data.apis.size(); ++ai) {
+        const HubApi& api = h.data.apis[ai];
+        const ImVec2 rowPos = ImGui::GetCursorScreenPos();
+        ImVec4 col; std::string label;
+        targetLook(api.id, col, label);
+        ImGui::BeginGroup();
+        badge(ImGui::GetWindowDrawList(), ImVec2(rowPos.x, rowPos.y + (rowH - 26) * 0.5f), label, h.data.apiSelectable(ai) ? col : brandToken("border-strong"), 26);
+        ImGui::EndGroup();
+        for (const char* kind : {"2d", "3d"}) {
+          ImGui::SetCursorScreenPos(ImVec2(rowPos.x + labelW + (kind[0] == '2' ? 0 : cardW + gap), rowPos.y));
+          const int ti = h.data.findTemplate(api.id, kind);
+          if (ti < 0) { ImGui::Dummy(ImVec2(cardW, rowH)); continue; }
+          const bool sel = g_template == ti;
+          if (templateCard(a, h.data.templates[static_cast<size_t>(ti)], sel, ImVec2(cardW, rowH))) {
+            g_template = ti;
+            h.api = static_cast<int>(ai);
+          }
+        }
+        ImGui::SetCursorScreenPos(ImVec2(rowPos.x, rowPos.y + rowH + 4));
+      }
+      if (g_template >= 0 && !h.data.templates[static_cast<size_t>(g_template)].note.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, brandToken("info"));
+        ImGui::TextUnformatted("Note:");
+        ImGui::PopStyleColor();
+        ImGui::SameLine();
+        ImGui::PushTextWrapPos(0);
+        ImGui::TextUnformatted(h.data.templates[static_cast<size_t>(g_template)].note.c_str());
+        ImGui::PopTextWrapPos();
+      }
+    }
     ImGui::Spacing();
     ImGui::PushFont(a.fonts.uiBold, 15);
     ImGui::TextUnformatted("Target build");
     ImGui::PopFont();
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
+    ImGui::PushStyleColor(ImGuiCol_Border, brandToken("border-strong"));
     for (size_t i = 0; i < h.data.buildTargets.size(); ++i) {
       const HubBuildTarget& b = h.data.buildTargets[i];
       ImGui::BeginDisabled(!b.available);
@@ -480,7 +631,7 @@ void drawCreateDialogs(App& a) {
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
-    bool can = nameErr.empty() && h.api >= 0;
+    bool can = nameErr.empty() && h.api >= 0 && g_template >= 0 && h.data.templates[static_cast<size_t>(g_template)].selectable();
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - 10 - 110 - 8 - 110);
     if (ImGui::Button("Cancel", ImVec2(110, 32))) ImGui::CloseCurrentPopup();
     ImGui::SameLine();
@@ -517,16 +668,31 @@ void drawCreateDialogs(App& a) {
   }
 }
 
-// --ui-event hooks: hub-new, hub-name:<n>, hub-submit, hub-open:<index>, hub-picker, hub-change
+// --ui-event hooks: hub-new, hub-name:<n>, hub-submit, hub-open:<index>, hub-picker, hub-change, hub-api:<id>, hub-template:<2d|3d>, hub-dump
 bool hubHook(App& a, const std::string& act, const std::string& arg) {
   HubState& h = a.hub;
   if (act == "hub-new") h.openCreate = true;
   else if (act == "hub-name") { ImGui::ClearActiveID(); std::snprintf(h.name, sizeof h.name, "%s", arg.c_str()); }
-  else if (act == "hub-submit") submitCreate(a);
+  else if (act == "hub-submit") g_closeCreate = submitCreate(a);
   else if (act == "hub-open") openEntry(a, std::atoi(arg.c_str()));
   else if (act == "hub-picker") h.goPicker = true;
   else if (act == "hub-change") h.openChange = true;
-  else return false;
+  else if (act == "hub-api") {   // hub-api:<id> picks the Target API of the Create Project dialog (only a selectable one)
+    int found = -1;
+    for (size_t i = 0; i < h.data.apis.size(); ++i) if (h.data.apis[i].id == arg) found = static_cast<int>(i);
+    if (found >= 0 && h.data.apiSelectable(static_cast<size_t>(found))) { h.api = found; syncTemplate(h); std::printf("hub-api: %s\n", arg.c_str()); }
+    else std::printf("hub-api: %s is not selectable\n", arg.c_str());
+  } else if (act == "hub-template") {   // hub-template:<2d|3d> picks the template card of the current API (only a selectable one)
+    const int ti = h.api >= 0 ? h.data.findTemplate(h.data.apis[static_cast<size_t>(h.api)].id, arg) : -1;
+    if (ti >= 0 && h.data.templates[static_cast<size_t>(ti)].selectable()) { g_template = ti; std::printf("hub-template: %s\n", h.data.templates[static_cast<size_t>(ti)].dir.c_str()); }
+    else if (ti >= 0) std::printf("hub-template: %s refused: Coming in %s\n", h.data.templates[static_cast<size_t>(ti)].dir.c_str(), h.data.templates[static_cast<size_t>(ti)].comingIn.c_str());
+    else std::printf("hub-template: no %s template\n", arg.c_str());
+  } else if (act == "hub-dump") {   // the six cards and the dialog state, one line each
+    for (const std::string& l : h.data.dumpTemplates()) std::printf("%s\n", l.c_str());
+    syncTemplate(h);
+    std::printf("hub-dump: api=%s template=%s\n", h.api >= 0 ? h.data.apis[static_cast<size_t>(h.api)].id.c_str() : "none",
+                g_template >= 0 ? h.data.templates[static_cast<size_t>(g_template)].dir.c_str() : "none");
+  } else return false;
   return true;
 }
 

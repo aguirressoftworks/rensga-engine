@@ -172,6 +172,30 @@ void GuRenderer::endFrame() {
   // Dev/CI hook: write host0:/rensga_shot.bmp when frame N starts (frame N-1 is the last one drawn).
   if (frame_ == RENSGA_GU_DUMP_FRAME) dumpFrame();
 #endif
+#ifdef RENSGA_GU_DUMP_FRAMES
+  {
+    // Dev/CI hook (F4.07): "a,b,c" frame numbers; each one writes host0:/rensga_shot_<frame>.bmp (frame N-1 is the last one drawn).
+    // Parsed from the string literal every frame (a few dozen compares, no heap); the paths are built in a stack buffer.
+    const char* p = RENSGA_GU_DUMP_FRAMES;
+    while (*p) {
+      u32 n = 0;
+      bool digits = false;
+      while (*p >= '0' && *p <= '9') { n = n * 10 + static_cast<u32>(*p - '0'); ++p; digits = true; }
+      if (digits && n == frame_) {
+        char path[48] = "host0:/rensga_shot_";
+        size_t o = 19;
+        char num[12];
+        int nd = 0;
+        for (u32 v = n; v || !nd; v /= 10) num[nd++] = static_cast<char>('0' + v % 10);
+        while (nd) path[o++] = num[--nd];
+        const char ext[] = ".bmp";
+        for (size_t i = 0; i < sizeof(ext); ++i) path[o++] = ext[i];
+        dumpFrame(path);
+      }
+      while (*p && (*p < '0' || *p > '9')) ++p;
+    }
+  }
+#endif
 #ifdef RENSGA_GU_SELFTEST
   guSelfTest(*this, frame_);  // dev only: queues a 2D test panel on top of the scene (see gu_selftest.cpp)
 #endif

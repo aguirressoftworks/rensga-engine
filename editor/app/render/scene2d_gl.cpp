@@ -71,6 +71,22 @@ bool Scene2DResources::textureSize(const std::string& guid, int& w, int& h) {
 
 const TilemapData* Scene2DResources::tilemap(const std::string& guid) {
   if (guid.empty() || !resolve_) return nullptr;
+  if (live_) {
+    if (const TilemapEdit* e = live_(guid)) {
+      MapEntry& m = maps_[guid];
+      if (!m.ok || m.live != static_cast<long long>(e->revision())) {
+        m.data.tileset = e->tileset();
+        m.data.tileSize = e->tileSize();
+        m.data.width = e->width();
+        m.data.height = e->height();
+        m.data.tiles.assign(e->tiles().begin(), e->tiles().end());
+        m.ok = true;
+        m.live = static_cast<long long>(e->revision());
+        m.stamp = 0;
+      }
+      return &m.data;
+    }
+  }
   auto it = maps_.find(guid);
   if (it != maps_.end() && !due("m:" + guid)) return it->second.ok ? &it->second.data : nullptr;
   const fs::path path = resolve_(guid);
@@ -79,6 +95,7 @@ const TilemapData* Scene2DResources::tilemap(const std::string& guid) {
   if (it != maps_.end() && it->second.stamp == stamp) return it->second.ok ? &it->second.data : nullptr;
   MapEntry e;
   e.stamp = stamp;
+  e.live = -1;
   e.ok = readTilemap(path, e.data);
   MapEntry& slot = maps_[guid];
   slot = std::move(e);

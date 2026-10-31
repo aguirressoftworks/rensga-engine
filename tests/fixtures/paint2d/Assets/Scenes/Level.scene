@@ -1,0 +1,40 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-8000-0000000b2d07",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-8000-0000000b2d11",
+   "name": "Camera2D",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera2D",
+     "fields": {
+      "deadZoneW": 64,
+      "deadZoneH": 48
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

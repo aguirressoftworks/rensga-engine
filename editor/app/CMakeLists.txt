@@ -8,6 +8,7 @@ add_executable(rensga-editor
   panels/actions.cpp panels/layout.cpp panels/menus.cpp panels/toolbar.cpp panels/hierarchy.cpp panels/inspector.cpp
   panels/drawers/registry.cpp panels/drawers/basic.cpp panels/drawers/reference.cpp panels/drawers/unity_event.cpp panels/drawers/add_component.cpp
   panels/scripts.cpp panels/hub.cpp panels/console.cpp panels/status_bar.cpp panels/project_panel.cpp panels/asset_ui.cpp panels/asset_inspector.cpp panels/vram_map.cpp panels/thumbnails.cpp panels/scene_view.cpp panels/game_view.cpp panels/play.cpp panels/modules.cpp
+  panels/tile_tools.cpp panels/sprite_editor.cpp panels/drawers/component_extras.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/brand_palette.cpp)
 target_include_directories(rensga-editor PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(rensga-editor SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/third_party/stb)

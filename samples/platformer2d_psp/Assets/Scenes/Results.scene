@@ -1,0 +1,465 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-8000-000000000307",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-8000-000000000901",
+   "name": "Backdrop",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 0,
+      "w": 1280,
+      "h": 1024,
+      "color": [
+       30,
+       80,
+       70,
+       255
+      ],
+      "sortingOrder": -10
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000902",
+   "name": "ResBand",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 1,
+      "x": 0,
+      "y": 38,
+      "w": 220,
+      "h": 32,
+      "color": [
+       15,
+       50,
+       45,
+       255
+      ],
+      "sortingOrder": -9
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000903",
+   "name": "ResText",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 1,
+      "x": 0,
+      "y": 50,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000904",
+   "name": "ResTime",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": -30,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000905",
+   "name": "ResCoins",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": -16,
+      "color": [
+       250,
+       210,
+       40,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000906",
+   "name": "ResBest",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": -2,
+      "color": [
+       200,
+       200,
+       200,
+       255
+      ],
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000907",
+   "name": "AgainButton",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 30,
+      "w": 176,
+      "h": 24,
+      "sortingOrder": 5
+     }
+    },
+    {
+     "type": "MenuAction",
+     "fields": {
+      "action": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000908",
+   "name": "AgainLabel",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 30,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 6
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-000000000909",
+   "name": "MenuButton",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 62,
+      "w": 176,
+      "h": 24,
+      "sortingOrder": 5
+     }
+    },
+    {
+     "type": "MenuAction",
+     "fields": {
+      "action": 3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000090a",
+   "name": "MenuLabel",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 62,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 6
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-8000-00000000090b",
+   "name": "ResInit",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ResultsScreen",
+     "fields": {}
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

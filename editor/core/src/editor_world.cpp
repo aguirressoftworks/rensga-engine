@@ -26,10 +26,19 @@ bool EditorWorld::build(const fs::path& projectRoot, const std::string& target, 
   const fs::path root = fs::absolute(projectRoot);
   const std::string sceneRel = fs::relative(fs::absolute(sceneFile), root, ec).generic_string();
 
+  // Play in editor draws with the desktop renderer, so it cooks the desktop form of the project: the host
+  // platform target keeps the project's profile and budgets but skips console-only encodings (swizzled
+  // textures, compact meshes) that only the console renderer reads. `target` names the profile for logs.
+#ifdef _WIN32
+  const std::string hostTarget = "windows";
+#else
+  const std::string hostTarget = "linux";
+#endif
+  (void)target;
   CookOptions opt;
   opt.project = root;
-  opt.target = target;
-  opt.outDir = root / "Library" / "Cooked" / "editor" / target;
+  opt.target = hostTarget;
+  opt.outDir = root / "Library" / "Cooked" / "editor" / hostTarget;
   opt.sceneOverrides[sceneRel] = sceneDoc.dump();
   opt.budgetsAreWarnings = true;
   std::string firstError;

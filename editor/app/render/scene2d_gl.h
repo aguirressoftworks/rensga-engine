@@ -10,6 +10,7 @@
 
 #include "render/scene_renderer.h"
 #include "rensga/editor/scene2d.h"
+#include "rensga/editor/tilemap_edit.h"
 
 namespace rensga {
 namespace editor {
@@ -20,6 +21,10 @@ class Scene2DResources {
   struct Tex { unsigned gl = 0; int w = 0, h = 0; long long stamp = 0; };
 
   void setResolver(Resolver r) { resolve_ = std::move(r); }
+  // F4.08: in-memory tilemaps (the Tile Palette's TilemapEdit) win over the file: the Scene view shows an edit the moment it
+  // is made (the edit's revision() tells when to convert it again) instead of waiting for the file to be saved and re-read.
+  using LiveTilemap = std::function<const TilemapEdit*(const std::string& tilemapGuid)>;
+  void setLiveTilemaps(LiveTilemap f) { live_ = std::move(f); }
   // Main thread, current GL context. Files are re-read when their modification time changes (checked about once a second).
   const Tex* texture(const std::string& guid);
   bool textureSize(const std::string& guid, int& w, int& h);
@@ -30,9 +35,10 @@ class Scene2DResources {
   std::vector<SpriteQuad> build(const Scene2D& scene, const std::map<std::string, unsigned>& ids);
 
  private:
-  struct MapEntry { TilemapData data; bool ok = false; long long stamp = 0; };
+  struct MapEntry { TilemapData data; bool ok = false; long long stamp = 0; long long live = -1; };
   struct Checked { std::chrono::steady_clock::time_point at; };
   Resolver resolve_;
+  LiveTilemap live_;
   std::map<std::string, Tex> tex_;
   std::map<std::string, MapEntry> maps_;
   std::map<std::string, std::chrono::steady_clock::time_point> checked_;

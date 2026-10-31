@@ -1,0 +1,50 @@
+{
+ "format": 1,
+ "profile": "psp",
+ "scalar": "float",
+ "resolution": [
+  480,
+  272
+ ],
+ "budgets": {
+  "ramBytes": 25165824,
+  "vramBytes": 2097152,
+  "trianglesPerFrame": 20000,
+  "maxObjects": 256,
+  "maxComponentsPerType": 256
+ },
+ "textureFormats": [
+  "clut4",
+  "clut8",
+  "rgba5551",
+  "rgba4444",
+  "rgba8"
+ ],
+ "framebuffer": {
+  "buffers": 2,
+  "bpp": 16,
+  "depthBits": 16
+ },
+ "depth": "zbuffer",
+ "media": "eboot",
+ "refreshHz": 60,
+ "audio": {
+  "sampleRate": 22050,
+  "voices": 16
+ },
+ "allowedComponents": [
+  "SpriteRenderer",
+  "SpriteAnimator",
+  "Tilemap",
+  "TilemapCollider2D",
+  "BoxCollider2D",
+  "Rigidbody2D",
+  "UIText",
+  "UIImage",
+  "UIButton",
+  "Camera2D",
+  "PlayerController2D",
+  "Coin",
+  "HudController"
+ ]
+}

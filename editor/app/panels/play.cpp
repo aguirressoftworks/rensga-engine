@@ -10,6 +10,7 @@
 
 #include "app.h"
 #include "panels/asset_ui.h"
+#include "panels/tile_tools.h"
 #include "rensga/core/reflect_json.h"
 #include "rensga/editor/editor_log.h"
 #include "rensga/platform/sdl.h"
@@ -28,6 +29,7 @@ bool startPlayInEditor(App& a) {
     if (sync == ScriptSync::Failed) { log.error("play: fix script compile errors first"); return false; }
   }
   std::string err;
+  if (const int n = saveDirtyTilemaps(a)) log.info("play: saved " + std::to_string(n) + " modified tilemap(s) before cooking");  // the cook reads tilemaps from disk
   a.editWorld.release();  // the edit-mode World shares the engine's global state with the session
   log.info("play: cooking '" + a.doc.path().stem().string() + "' for " + a.project.target + " (from memory)");
   if (!a.session.start(a.doc, a.project.root, a.project.target, err)) {

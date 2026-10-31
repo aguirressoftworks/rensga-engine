@@ -90,15 +90,28 @@ bool HubData::load(const fs::path& dataFile, const fs::path& tdir) {
   templatesDir = tdir;
   apis.clear();
   buildTargets.clear();
+  templates.clear();
   json j;
   if (!readJson(dataFile, j)) return false;
+  for (const json& t : j.value("templates", json::array())) {
+    HubTemplate x;
+    x.api = t.value("api", "");
+    x.kind = t.value("kind", "");
+    x.dir = t.value("dir", "");
+    x.title = x.kind == "2d" ? "2D" : (x.kind == "3d" ? "3D" : x.kind);
+    x.description = t.value("description", "");
+    x.note = t.value("note", "");
+    x.comingIn = t.value("comingIn", "");
+    x.available = t.value("available", false);
+    std::error_code ec;
+    x.present = !x.dir.empty() && fs::exists(tdir / x.dir / "ProjectSettings" / "Project.json", ec);
+    if (!x.api.empty() && !x.dir.empty()) templates.push_back(std::move(x));
+  }
   for (const json& a : j.value("apis", json::array())) {
     HubApi x;
     x.id = a.value("id", "");
     x.available = a.value("available", false);
-    std::error_code ec;
-    x.hasTemplate = fs::exists(tdir / x.id / "ProjectSettings" / "Project.json", ec) ||
-                    fs::exists(tdir / (x.id + "-3d") / "ProjectSettings" / "Project.json", ec);
+    for (const HubTemplate& t : templates) if (t.api == x.id && t.selectable()) x.hasTemplate = true;
     if (!x.id.empty()) apis.push_back(std::move(x));
   }
   for (const json& b : j.value("buildTargets", json::array())) {
@@ -109,6 +122,30 @@ bool HubData::load(const fs::path& dataFile, const fs::path& tdir) {
     if (!x.id.empty()) buildTargets.push_back(std::move(x));
   }
   return !apis.empty() && !buildTargets.empty();
+}
+
+int HubData::findTemplate(const std::string& api, const std::string& kind) const {
+  for (size_t i = 0; i < templates.size(); ++i)
+    if (templates[i].api == api && templates[i].kind == kind) return static_cast<int>(i);
+  return -1;
+}
+
+int HubData::defaultTemplate(const std::string& api) const {
+  for (const char* k : {"3d", "2d"}) {
+    int i = findTemplate(api, k);
+    if (i >= 0 && templates[i].selectable()) return i;
+  }
+  return -1;
+}
+
+std::vector<std::string> HubData::dumpTemplates() const {
+  std::vector<std::string> out;
+  for (const HubTemplate& t : templates) {
+    std::string l = "template: " + t.dir + " api=" + t.api + " kind=" + t.kind + " state=" + (t.selectable() ? "available" : "disabled");
+    if (!t.selectable()) l += " reason=" + (t.available ? std::string("missing folder templates/") + t.dir : "Coming in " + t.comingIn);
+    out.push_back(std::move(l));
+  }
+  return out;
 }
 
 std::string validateProjectName(const std::string& name, const fs::path& projectsPath) {
@@ -127,17 +164,30 @@ std::string validateProjectName(const std::string& name, const fs::path& project
 
 bool createProject(const HubData& data, const HubSettings& s, const std::string& name, const std::string& api,
                    const std::string& buildTarget, fs::path& outDir, std::string& err) {
+  int i = data.defaultTemplate(api);
+  if (i < 0) { err = "no template for " + api; return false; }
+  return createProject(data, s, name, data.templates[static_cast<size_t>(i)], buildTarget, outDir, err);
+}
+
+bool createProject(const HubData& data, const HubSettings& s, const std::string& name, const HubTemplate& tmpl,
+                   const std::string& buildTarget, fs::path& outDir, std::string& err) {
   err = validateProjectName(name, s.projectsPath);
   if (!err.empty()) return false;
-  fs::path src = data.templatesDir / api;
+  if (!tmpl.selectable()) {
+    err = tmpl.available ? "The template folder templates/" + tmpl.dir + " is missing."
+                         : "The " + tmpl.api + " " + tmpl.title + " template is not available yet" +
+                               (tmpl.comingIn.empty() ? std::string(".") : ". Coming in " + tmpl.comingIn + ".");
+    return false;
+  }
+  const std::string& api = tmpl.api;
+  const fs::path src = data.templatesDir / tmpl.dir;
   const fs::path dst = s.projectsPath / name;
   std::error_code ec;
-  if (!fs::exists(src / "ProjectSettings" / "Project.json", ec)) src = data.templatesDir / (api + "-3d");  // templates/<api>-3d (F4)
-  if (!fs::exists(src / "ProjectSettings" / "Project.json", ec)) { err = "no template for " + api; return false; }
   fs::create_directories(dst, ec);
   for (fs::recursive_directory_iterator it(src, ec), end; !ec && it != end; it.increment(ec)) {
     fs::path rel = fs::relative(it->path(), src);
     if (*rel.begin() == "Library") { if (it->is_directory()) it.disable_recursion_pending(); continue; }
+    if (rel == "thumbnail.png") continue;   // the Hub card image, not part of the project
     std::error_code e2;
     if (it->is_directory()) fs::create_directories(dst / rel, e2);
     else fs::copy_file(it->path(), dst / rel, fs::copy_options::overwrite_existing, e2);

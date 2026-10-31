@@ -15,6 +15,7 @@
 #include "app.h"
 #include "panels/asset_ui.h"
 #include "panels/drawers/drawers.h"
+#include "panels/tile_tools.h"
 #include "rensga/core/reflect.h"
 #include "rensga/core/reflect_json.h"
 #include "rensga/core/reflect_method.h"
@@ -206,6 +207,7 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
         ImGui::PopID();
       }
       if (inTable) ImGui::EndTable();
+      drawComponentExtras(a, cr.type, cr.refs, multi);  // F4.08: sprite picker, Open Tile Palette
       ImGui::EndDisabled();
     } else {
       // The scene JSON keeps the component and saves it unchanged (the script may be compiling, renamed or removed).

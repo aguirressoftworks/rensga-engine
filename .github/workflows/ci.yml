@@ -2,6 +2,8 @@
 # users install from the Hub or `rensga modules install`), then runs the same tools/ci/<job>.sh as tools/ci/run_local.sh.
 # No Docker anywhere: RENSGA_TOOLCHAIN=native. Modules that upstream does not publish for a host come from toolchains.yml.
 # PS2 alloc-check (tools/ci/ps2_check.sh) is local only: PCSX2 needs the user's own BIOS, so public CI only builds the PS2 ISO.
+# F4.01: every cross-target job builds and cooks the 2D slice (samples/platformer2d), not the 3D template: linux-host plays it on the
+# desktop player, windows plays it under wine, android builds the APK with it, ps2 builds its ISO (GAME.RPK), psp_2d runs it in PPSSPP.
 name: ci
 on:
   push:
@@ -16,7 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update && sudo apt-get install -y cmake g++ make libsdl2-dev xvfb libgl1-mesa-dri libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl-dev
-      - run: tools/ci/linux_host.sh   # build, ctest (incl. F2: touch, pack hot reload, cook cache, desktop audio-stress on SDL disk audio, tests/modules), editor-core check, hello
+      - run: tools/ci/linux_host.sh   # build, ctest (incl. F2: touch, pack hot reload, cook cache, desktop audio-stress on SDL disk audio, tests/modules), editor-core check, hello, F4.01: the 2D slice bot on the desktop player (game complete, allocs=0)
+      - uses: actions/upload-artifact@v4
+        with: { name: rensga-slice-linux, path: "build/ci/linux-slice-run/*.png" }
       # The module CLI and the project CLI built here are reused by every other job (what we test is what users get).
       - run: tar czf host-cli.tgz -C "$GITHUB_WORKSPACE" build/ci/linux-host/tools/modules/rensga-modules build/ci/linux-host/tools/cli/rensga
       - uses: actions/upload-artifact@v4
@@ -34,25 +38,28 @@ jobs:
       - run: tools/ci/build_ppsspp_headless.sh && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: tools/ci/psp.sh            # boots to frame 240 and requires alloc-check allocs=0 (F2.G1)
       - run: tools/ci/psp_eboot.sh      # F4.02: the release EBOOT.PBP (rensga build --target psp) boots from ms0:/PSP/GAME/RENSGA in PPSSPPHeadless to frame 240, allocs=0
-      - run: tools/ci/psp_hello.sh || [ $? = 77 ]   # F4: shared hello world as an EBOOT in PPSSPP (exit 77 = not implemented yet / skipped)
-      - run: tools/ci/psp_2d.sh || [ $? = 77 ]      # F4: the 2D slice on PSP in PPSSPP
-      - run: tools/ci/templates.sh || [ $? = 77 ]   # F4: the Hub's 2D and 3D templates cook and boot
+      - run: tools/ci/psp_hello.sh   # F4.02: shared hello world as an EBOOT in PPSSPP
+      - run: tools/ci/psp_2d.sh slice   # F4: the 2D slice on PSP in PPSSPP
+      - run: tools/ci/templates.sh   # F4: the Hub's 2D and 3D templates cook and boot
       - run: tools/ci/editor_tour.sh || [ $? = 77 ]   # F3 exercises: samples/editor_tour plays in PPSSPP and builds an EBOOT.PBP
       - run: tools/ci/determinism.sh    # Linux rensga_headless vs PSP rensga_sim state hash (F2.G2)
+      - run: tools/ci/determinism.sh 2d # F4.G2: the 2D slice bot, Linux vs PSP sim, final hash and every frame must match
       - run: tools/ci/psp_gpu_check.sh
   windows:
     runs-on: ubuntu-24.04
     needs: linux-host
     steps:
       - uses: actions/checkout@v4
+      # The host packages are for the slice cooker (a host build of rensga-cooker with the slice scripts); wine + Xvfb run the exe.
+      - run: sudo apt-get update && sudo apt-get install -y cmake g++ make libsdl2-dev wine wine64 xvfb libgl1-mesa-dri
       - uses: ./.github/actions/rensga-modules
         with: { modules: windows-build }
-      - run: tools/ci/windows.sh
-      # F2.G1: run rensga_desktop.exe under wine + Xvfb and require alloc-check allocs=0. Exit 77 (wine missing) is not a failure.
-      - run: sudo apt-get update && sudo apt-get install -y wine wine64 xvfb libgl1-mesa-dri
-      - run: tools/ci/windows_run.sh || [ $? = 77 ]
+      - run: tools/ci/windows.sh   # cross-builds the slice player, cooks the slice pack in this job, copies pack + music next to the exe
+      # F4.G2: run rensga_desktop.exe under wine + Xvfb, TitleBot plays the whole game: "game complete" and alloc-check allocs=0.
+      # Exit 77 only when wine/xvfb are missing, which the install above rules out, so any exit code fails the job.
+      - run: tools/ci/windows_run.sh
       - uses: actions/upload-artifact@v4
-        with: { name: rensga-hello-windows, path: build/ci/windows/engine/runtime/ }
+        with: { name: rensga-slice-windows, path: "build/ci/windows/engine/runtime/\nbuild/ci/windows/windows_slice.png" }
   android:
     runs-on: ubuntu-24.04
     needs: linux-host
@@ -63,7 +70,7 @@ jobs:
       # CI accepts it explicitly with --accept-licenses (a user is asked in the Hub). Nothing from Google is redistributed by us.
       - uses: ./.github/actions/rensga-modules
         with: { modules: android-build, accept-licenses: "true" }
-      - run: tools/ci/android.sh
+      - run: tools/ci/android.sh   # cooks the slice and builds the APK with it (assets/game.rpak + every music*.wav)
       # F2.G1: no phone on a runner, so this prints "android: built, not run (no device)". Run it locally with a phone attached.
       - run: tools/ci/android_device.sh
       - uses: actions/upload-artifact@v4
@@ -73,8 +80,11 @@ jobs:
     needs: linux-host
     steps:
       - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y cmake g++ make libsdl2-dev   # host cooker for the slice pack
       - uses: ./.github/actions/rensga-modules
         with: { modules: ps2-build }
-      - run: tools/ci/ps2.sh   # ELFs + ISO written by our own rensga-iso (no xorriso, no Docker); build only
+      # The 2D slice: cooked for ps2 here, refused if the GS cannot draw it (tools/ci/pack_check.py), ISO with GAME.RPK + MUSIC*.WAV.
+      # Written by our own rensga-iso (no xorriso, no Docker); build only. Boot + game complete + card save: tools/ci/ps2_check.sh (local).
+      - run: tools/ci/ps2.sh
       - uses: actions/upload-artifact@v4
-        with: { name: rensga-hello-ps2, path: "build/ci/ps2/rensga.iso\nbuild/ci/ps2/engine/runtime/rensga_hello.elf" }
+        with: { name: rensga-slice-ps2, path: "build/ci/ps2/rensga.iso\nbuild/ci/ps2/native/engine/runtime/rensga_hello.elf" }

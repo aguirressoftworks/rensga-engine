@@ -7,6 +7,7 @@
 
 #include "app.h"
 #include "panels/asset_ui.h"
+#include "panels/tile_tools.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -138,6 +139,8 @@ static bool openAsset(App& a, const Tile& t) {
   AssetUi& u = assetUi();
   if (t.kind == AssetKind::Folder) { u.folder = relOf(a, t.path); u.search[0] = 0; return true; }
   if (t.kind == AssetKind::Scene) return openSceneFile(a, t.path);
+  if (t.kind == AssetKind::Texture && !t.guid.empty()) { openSpriteEditor(a, t.guid); return true; }   // F4.08
+  if (t.kind == AssetKind::Tilemap && !t.guid.empty()) { openTilePalette(a, t.guid); return true; }
   if (t.kind == AssetKind::Script) {
     if (!openInExternalEditor(t.path)) EditorLog::instance().warn("cannot open " + t.path.string() + " with " + externalEditorCommand());
     return true;
