@@ -210,3 +210,38 @@ if(TARGET rensga-editor AND TARGET rensga)
   set_tests_properties(editor_emu_play PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl;emulator" ENVIRONMENT "RENSGA_JOBS=2")
 endif()
 # --- F5 emu-play end ---
+
+# --- F5 B2 begin ---
+# F5.06-F5.08: target rules as data (preview, import, inspector field gating) and the console-form cook (decoded textures, budgets,
+# validation findings). One UI test drives the real editor on samples/psp3d_room (screenshots of the validation list, the dithered
+# Game view with the device frame, and the import tab).
+if(TARGET rensga_editor_core)
+  add_executable(rensga_preview_rules_tests ../test_main.cpp test_preview_rules.cpp)
+  target_link_libraries(rensga_preview_rules_tests PRIVATE rensga_editor_core rensga_cooker_lib rensga_api)
+  target_include_directories(rensga_preview_rules_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_preview_rules_tests PRIVATE RENSGA_ROOM_DIR="${CMAKE_SOURCE_DIR}/samples/psp3d_room"
+    RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_preview")
+  rensga_host_target(rensga_preview_rules_tests)
+  add_test(NAME rensga_preview_rules_tests COMMAND rensga_preview_rules_tests)
+endif()
+if(TARGET rensga-editor)
+  add_test(NAME editor_preview_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/preview_ui_check.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/psp3d_room ${CMAKE_CURRENT_BINARY_DIR}/preview_ui)
+  set_tests_properties(editor_preview_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl" ENVIRONMENT "RENSGA_JOBS=2")
+endif()
+# --- F5 B2 end ---
+
+# --- F5 B3 begin ---
+# F5.23 docked Emulator panel (X11 reparent, focus follows the pointer, Undock/Dock, floating and forced-Wayland fallbacks) and F5.10 Profiler
+# panel + PPSSPP WebSocket debugger, with a real PPSSPPSDL under xvfb (rensga-xtool tree, X screenshots). 77 = skipped.
+if(TARGET rensga-editor)
+  add_test(NAME editor_profiler_feed_ui COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/profiler_feed_ui.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/templates/psp-3d ${CMAKE_CURRENT_BINARY_DIR}/profiler_feed)
+  set_tests_properties(editor_profiler_feed_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300 LABELS "gl")
+  if(TARGET rensga-xtool)
+    add_test(NAME editor_dock_emulator_ui COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/dock_emulator_ui.sh $<TARGET_FILE:rensga-editor>
+             ${CMAKE_SOURCE_DIR}/templates/psp-3d ${CMAKE_CURRENT_BINARY_DIR}/dock_emulator $<TARGET_FILE:rensga-xtool>)
+    set_tests_properties(editor_dock_emulator_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl;emulator" ENVIRONMENT "RENSGA_JOBS=2")
+  endif()
+endif()
+# --- F5 B3 end ---

@@ -61,6 +61,7 @@ void buildTestCube() {
 u64 clockUs() { return static_cast<u64>(sceKernelGetSystemTimeWide()); }
 
 FrameProfiler g_prof;
+char g_profScene[32] = {};
 #if RENSGA_PSP_STRESS_SPRITES > 0
 SpriteStress g_stress;
 #endif
@@ -226,8 +227,16 @@ int main(int, char** argv) {
 #endif
 
   g_prof.init(clockUs);
+  {  // F5.11 (B4): per-scene budgets in the "rensga: budget" lines; triangles and VRAM from the pack's ConsoleTarget
+    ProfBudget pb;
+    pb.draws = kDefaultDrawBudget;
+    pb.textures = kDefaultTextureBudget;
+    if (haveCtgt) { pb.triangles = ctgt.trianglesPerFrame; pb.vramBytes = ctgt.vramBytes; }
+    g_prof.setBudget(pb);
+  }
   static ProfilingRenderer profRenderer(renderer, g_prof);
   profRenderer.setEndHook(endHook);
+  if (havePack) profRenderer.observeMeshes(boot.loaded.meshes);  // F5.11 (B4): triangle counts of the budget line
   g_pump.world = &world; g_pump.target = &profRenderer; g_pump.gu = &renderer;
   platform.setFramePump(pumpOneFrame, nullptr);
   platform.setGraphicsProbe(vramUsed, &renderer);
@@ -280,6 +289,11 @@ int main(int, char** argv) {
     g_stress.step(480, 272);
 #endif
     g_prof.mark(ProfSection::Update);
+    {  // F5.11 (B4)
+      const char* sn = SceneManager::activeSceneName();
+      if (strcmp(sn, g_profScene) != 0) { strncpy(g_profScene, sn, sizeof(g_profScene) - 1); g_prof.setScene(g_profScene); }
+      g_prof.noteResources(havePack ? boot.loaded.assets.textureCount : 0, vramUsed(&renderer));
+    }
     renderWorld(world, profRenderer);  // the Render mark is taken in ProfilingRenderer::endFrame, just before the swap
     g_prof.mark(ProfSection::Present);
     if (platform.dialogActive()) {  // OSK: after this frame's list is finished and the GE idle, before the next endFrame swaps

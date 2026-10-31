@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cfloat>
+#include <cstdio>
 #include <fstream>
 #include <functional>
 #include <map>
@@ -15,6 +16,7 @@
 #include "app.h"
 #include "panels/asset_ui.h"
 #include "panels/drawers/drawers.h"
+#include "panels/preview_state.h"
 #include "panels/tile_tools.h"
 #include "rensga/core/reflect.h"
 #include "rensga/core/reflect_json.h"
@@ -24,6 +26,8 @@
 
 namespace rensga {
 namespace editor {
+
+void drawValidation(App& a);  // below
 
 namespace {
 
@@ -52,6 +56,20 @@ std::set<std::string> allowedComponents(App& a) {
     json j = json::parse(in);
     for (const json& n : j.value("allowedComponents", json::array())) cached.insert(n.get<std::string>());
   } catch (...) {}
+  return cached;
+}
+
+// F5.08: the target's field rules (module + missing features + ConsoleTarget "fieldRules"), cached by ConsoleTarget.json mtime.
+const InspectorRules& inspectorRules(App& a, const std::string& targetName) {
+  static std::string cachedFor;
+  static InspectorRules cached;
+  std::error_code ec;
+  auto mt = std::filesystem::last_write_time(a.project.root / "ProjectSettings" / "ConsoleTarget.json", ec);
+  const std::string key = a.project.root.string() + "|" + a.target + "|" + std::to_string(ec ? 0 : mt.time_since_epoch().count());
+  if (key != cachedFor) {
+    cachedFor = key;
+    cached = effectiveInspectorRules(a.targetModule(), consoleTargetFor(a.project.root), a.project.root, targetName);
+  }
   return cached;
 }
 
@@ -88,13 +106,15 @@ std::string withUndoStep(App& a, const char* what, const std::function<OpResult(
 }
 
 void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::string>& allowed, const std::string& targetName,
-                   const std::vector<std::string>& sel, const std::string& primary, bool multi) {
+                   const std::vector<std::string>& sel, const std::string& primary, bool multi, const InspectorRules& rules) {
   const bool playing = a.doc.playing();
   const SceneObject* po = a.doc.find(primary);
   if (!po) return;
   const ComponentRef& pr = cr.refs[0];
   const TypeInfo* ti = TypeRegistry::instance().find(cr.type.c_str());
-  const std::string grey = greyReason(cr.type, allowed, targetName);
+  std::string grey = greyReason(cr.type, allowed, targetName);
+  const std::string featureWhy = fieldGreyReason(rules, cr.type, "*");  // F5.08: the whole component is unusable on this target
+  if (grey.empty() && !featureWhy.empty()) grey = featureWhy;
   const bool missing = ti == nullptr;
 
   ImGui::PushID(rowIdx);
@@ -173,7 +193,8 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
   if (open) {
     if (!grey.empty()) {
       ImGui::PushStyleColor(ImGuiCol_Text, brandToken("warn"));
-      ImGui::TextWrapped("Not supported by %s: the cook will reject this component.", targetName.c_str());
+      if (!featureWhy.empty()) ImGui::TextWrapped("[!] %s", featureWhy.c_str());
+      else ImGui::TextWrapped("Not supported by %s: the cook will reject this component.", targetName.c_str());
       ImGui::PopStyleColor();
     }
     if (ti) {
@@ -193,7 +214,11 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
         }
         if (!inTable) inTable = beginFields("##f");
         if (!inTable) break;
-        row(prettyFieldName(f.name).c_str(), f.tooltip);
+        const std::string fieldWhy = fieldGreyReason(rules, cr.type, f.name);
+        if (!fieldWhy.empty()) ImGui::PushStyleColor(ImGuiCol_Text, brandToken("muted"));
+        row(prettyFieldName(f.name).c_str(), fieldWhy.empty() ? f.tooltip : fieldWhy.c_str());
+        if (!fieldWhy.empty()) ImGui::PopStyleColor();
+        ImGui::BeginDisabled(!fieldWhy.empty());
         ImGui::PushID(f.name);
         DrawCtx ctx{a, f, pr.guid + "/" + std::to_string(pr.index) + "/" + f.name, pr.guid, multi && fieldMixed(a.doc, cr.refs, f.name)};
         const json cur = fieldValue(a.doc, pr, f.name);
@@ -205,6 +230,14 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
         }
         if (f.tooltip && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", f.tooltip);
         ImGui::PopID();
+        ImGui::EndDisabled();
+        if (!fieldWhy.empty() && fieldWhy != featureWhy) {  // the reason, in words (not colour alone), under the greyed field
+          ImGui::TableNextRow();
+          ImGui::TableSetColumnIndex(1);
+          ImGui::PushStyleColor(ImGuiCol_Text, brandToken("warn"));
+          ImGui::TextWrapped("[!] %s", fieldWhy.c_str());
+          ImGui::PopStyleColor();
+        }
       }
       if (inTable) ImGui::EndTable();
       drawComponentExtras(a, cr.type, cr.refs, multi);  // F4.08: sprite picker, Open Tile Palette
@@ -232,6 +265,153 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
 
 }  // namespace
 
+// ---- F5.07 / F5.08: the scene cooked in the target's form, and the validation list --------------------------------------------
+PreviewOptions& previewOptions() {
+  static PreviewOptions o;
+  return o;
+}
+
+namespace {
+struct ScenePreviewCache {
+  ConsolePreview cp;
+  std::string key, err, root;
+  double checkedAt = -100;
+  bool have = false;
+};
+ScenePreviewCache g_sp;
+}  // namespace
+
+const ConsolePreview* scenePreview(App& a, bool force, std::string* err) {
+  ScenePreviewCache& c = g_sp;
+  if (err) err->clear();
+  if (!a.loaded || !a.doc.loaded() || a.target.empty() || !CookerPluginRegistry::instance().find(a.target)) {
+    if (err) *err = "this project has no cooker plugin for its target";
+    return nullptr;
+  }
+  const double now = ImGui::GetTime();
+  if (force || now - c.checkedAt > 0.5) {
+    c.checkedAt = now;
+    const std::string key = a.project.root.string() + "|" + a.target + "|" + a.doc.path().string() + "|" + a.doc.document().dump();
+    if (force || key != c.key || !c.have) {
+      c.key = key;
+      c.have = true;
+      c.root = a.project.root.string();
+      if (!cookConsolePreview(a.project.root, a.target, a.doc.path(), a.doc.document(), c.cp)) c.err = c.cp.error;
+      else c.err.clear();
+    }
+  }
+  if (!c.cp.ok) {
+    if (err) *err = c.err;
+    return nullptr;
+  }
+  return &c.cp;
+}
+
+void drawValidation(App& a) {
+  ImGui::Spacing();
+  const ConsolePreview* cp = scenePreview(a);
+  int nw = 0, ne = 0;
+  if (cp) { nw = cp->count(ValidationItem::Warning); ne = cp->count(ValidationItem::Error); }
+  char title[96];
+  std::snprintf(title, sizeof title, "Scene validation  (%d error%s, %d warning%s)###validation", ne, ne == 1 ? "" : "s", nw, nw == 1 ? "" : "s");
+  if (!ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen)) return;
+  std::string err;
+  if (!cp) {
+    scenePreview(a, false, &err);
+    ImGui::TextWrapped("%s", err.empty() ? "No validation for this project." : err.c_str());
+    return;
+  }
+  if (ImGui::SmallButton("Validate again")) scenePreview(a, true);
+  ImGui::SameLine();
+  ImGui::TextDisabled("%s cook, %.0f ms", cp->target.c_str(), cp->ms);
+  if (cp->items.empty()) {
+    ImGui::TextColored(brandToken("ok"), "[ok]");
+    ImGui::SameLine();
+    ImGui::TextUnformatted("The scene fits the target's limits.");
+    return;
+  }
+  int idx = 0;
+  for (const ValidationItem& it : cp->items) {
+    ImGui::PushID(idx++);
+    const bool bad = it.severity == ValidationItem::Error;
+    ImGui::PushStyleColor(ImGuiCol_Text, brandToken(bad ? "danger" : "warn"));
+    ImGui::TextUnformatted(bad ? "[x]" : "[!]");
+    ImGui::PopStyleColor();
+    ImGui::SameLine();
+    ImGui::TextDisabled("%s", it.category.c_str());
+    ImGui::SameLine();
+    const bool clickable = !it.objectGuid.empty() && a.doc.find(it.objectGuid);
+    const std::string label = (it.objectName.empty() ? it.text : it.objectName + " " + it.text);
+    ImGui::BeginGroup();
+    ImGui::PushTextWrapPos(0);
+    ImGui::TextUnformatted(label.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::EndGroup();
+    if (clickable) {
+      if (ImGui::IsItemHovered()) { ImGui::SetTooltip("Select %s", it.objectName.c_str()); ImGui::SetMouseCursor(ImGuiMouseCursor_Hand); }
+      if (ImGui::IsItemClicked()) a.doc.select(it.objectGuid);
+    } else if (!it.asset.empty() && ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("%s", it.asset.c_str());
+    }
+    ImGui::PopID();
+  }
+}
+
+bool previewHook(App& a, const std::string& act, const std::string& arg) {
+  PreviewOptions& po = previewOptions();
+  if (act == "preview") {  // preview:dither=1,frame=1,safe=0,color=16,textures=1,lights=1,bars=1 | preview:reset
+    po.initialized = true;
+    if (arg == "reset") { po = PreviewOptions(); return true; }
+    size_t pos = 0;
+    while (pos < arg.size()) {
+      size_t e = arg.find(',', pos);
+      const std::string kv = arg.substr(pos, e == std::string::npos ? std::string::npos : e - pos);
+      const size_t eq = kv.find('=');
+      const std::string k = kv.substr(0, eq), v = eq == std::string::npos ? "1" : kv.substr(eq + 1);
+      const int n = std::atoi(v.c_str());
+      if (k == "dither") po.dither = n != 0;
+      else if (k == "frame") po.deviceFrame = n != 0;
+      else if (k == "safe") po.safeArea = n != 0;
+      else if (k == "color") po.quantize = n <= 16;
+      else if (k == "textures") po.consoleTextures = n != 0;
+      else if (k == "lights") po.lightLimit = n != 0;
+      else if (k == "bars") po.bars = n != 0;
+      else std::printf("preview: unknown key '%s'\n", k.c_str());
+      if (e == std::string::npos) break;
+      pos = e + 1;
+    }
+    return true;
+  }
+  if (act == "previewdump") {
+    const PreviewRules pr = effectivePreviewRules(a.targetModule(), consoleTargetFor(a.project.root));
+    std::printf("preview: %dx%d colorBits=%d dither=%d maxLights=%d | quantize=%d dither=%d frame=%d safe=%d textures=%d lightLimit=%d bars=%d\n", pr.width, pr.height,
+                pr.colorBits, pr.dither, pr.maxLightsPerObject, po.quantize, po.dither, po.deviceFrame, po.safeArea, po.consoleTextures, po.lightLimit, po.bars);
+    return true;
+  }
+  if (act == "validate" || act == "validatesel") {
+    std::string err;
+    const ConsolePreview* cp = scenePreview(a, true, &err);
+    if (!cp) { std::printf("validate: unavailable (%s)\n", err.c_str()); return true; }
+    if (act == "validatesel") {
+      const size_t n = static_cast<size_t>(std::atoi(arg.c_str()));
+      if (n < cp->items.size() && !cp->items[n].objectGuid.empty()) {
+        a.doc.select(cp->items[n].objectGuid);
+        std::printf("validate: selected %s\n", cp->items[n].objectName.c_str());
+      } else std::printf("validate: finding %zu names no object\n", n);
+      return true;
+    }
+    std::printf("validate: %zu finding(s) errors=%d warnings=%d target=%s packBytes=%llu triangles=%llu textureBytes=%llu\n", cp->items.size(),
+                cp->count(ValidationItem::Error), cp->count(ValidationItem::Warning), cp->target.c_str(), static_cast<unsigned long long>(cp->packBytes),
+                static_cast<unsigned long long>(cp->triangles), static_cast<unsigned long long>(cp->textureBytes));
+    int i = 0;
+    for (const ValidationItem& it : cp->items)
+      std::printf("validate-item: %d %s %s object=%s %s\n", i++, it.severity == ValidationItem::Error ? "error" : "warning", it.category.c_str(),
+                  it.objectName.empty() ? "-" : it.objectName.c_str(), it.text.c_str());
+    return true;
+  }
+  return false;
+}
+
 void drawInspector(App& a) {
   if (inspectorGesture() && !ImGui::IsAnyItemActive()) { a.doc.endGesture(); inspectorGesture() = false; }
   if (!a.showInspector) return;
@@ -243,6 +423,7 @@ void drawInspector(App& a) {
   const SceneObject* o = a.doc.find(a.doc.selected());
   if (!o) {
     ImGui::TextDisabled("Select an object");
+    drawValidation(a);
     ImGui::End();
     return;
   }
@@ -348,13 +529,15 @@ void drawInspector(App& a) {
     }
     if (rows.size() < (o->components.size())) ImGui::TextDisabled("Showing components all selected objects share");
   }
-  for (size_t i = 0; i < rows.size(); ++i) drawComponent(a, rows[i], static_cast<int>(i), allowed, targetName, sel, guid, multi);
+  const InspectorRules& frules = inspectorRules(a, targetName);
+  for (size_t i = 0; i < rows.size(); ++i) drawComponent(a, rows[i], static_cast<int>(i), allowed, targetName, sel, guid, multi, frules);
 
   ImGui::Spacing();
   ImGui::BeginDisabled(a.doc.playing());
   if (ImGui::Button("Add Component", ImVec2(-FLT_MIN, 0))) ImGui::OpenPopup("addcomp");
   ImGui::EndDisabled();
   drawAddComponentPopup(a, "addcomp", sel, allowed, targetName);
+  drawValidation(a);
   // a script dragged from the Project window onto the Inspector goes on the selected objects
   ImGuiWindow* win = ImGui::GetCurrentWindow();
   if (!a.doc.playing() && ImGui::BeginDragDropTargetCustom(win->Rect(), win->ID)) {
@@ -426,6 +609,7 @@ bool inspectorHook(App& a, const std::string& act, const std::string& arg) {
     OpResult r = editObjects(a.doc, sel, arg.substr(0, eq), v);
     return fail(r.reason);
   }
+  if (previewHook(a, act, arg)) return true;
   if (act == "inspscroll") { g_scrollTo = static_cast<float>(std::atof(arg.c_str())); return true; }
   if (act == "undo") { a.doc.undo(); return true; }
   if (act == "redo") { a.doc.redo(); return true; }

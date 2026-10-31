@@ -26,6 +26,8 @@
 #include "app.h"
 #include "panels/drawers/drawers.h"
 #include "panels/asset_ui.h"
+#include "panels/dock_debug.h"   // F5.10 / F5.23
+#include "panels/emulator_manager.h"   // F5.04 / F5.09
 #include "panels/modules.h"
 #include "panels/tile_tools.h"
 #include "rensga/editor/editor_log.h"
@@ -153,6 +155,7 @@ int main(int argc, char** argv) {
   if (!gl) { std::fprintf(stderr, "GL 3.3 context failed: %s\n", SDL_GetError()); return 1; }
   SDL_GL_MakeCurrent(window, gl);
   SDL_GL_SetSwapInterval(shotMode ? 0 : 1);
+  initEmbed(window);  // F5.23: backend for the docked Emulator panel (RENSGA_EMBED=auto|dock|float|off)
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -281,7 +284,7 @@ int main(int argc, char** argv) {
     ImGui_ImplSDL2_NewFrame();
     tileSimFrame(app);  // scripted mouse of --ui-event tiledrag / spritedrag
     spriteSimFrame(app);
-    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx]) && !consoleUiHolds(app, uiEvents[evIdx]) && !modulesUiHolds(app, uiEvents[evIdx]) && !tileSimHolds() && !spriteSimHolds()) {
+    if (frame >= evNext && evIdx < uiEvents.size() && !uiEventHolds(app, uiEvents[evIdx]) && !playUiHolds(app, uiEvents[evIdx]) && !consoleUiHolds(app, uiEvents[evIdx]) && !profilerUiHolds(app, uiEvents[evIdx]) && !modulesUiHolds(app, uiEvents[evIdx]) && !emulatorUiHolds(app, uiEvents[evIdx]) && !tileSimHolds() && !spriteSimHolds()) {
       const std::string& e = uiEvents[evIdx++];
       evNext = frame + 6;
       float x = 0, y = 0;
@@ -289,7 +292,10 @@ int main(int argc, char** argv) {
       const std::string act = e.substr(0, c), arg = c == std::string::npos ? std::string() : e.substr(c + 1);
       // test hooks that run the same code paths as the UI
       if (hubHook(app, act, arg)) {}
+      else if (emulatorHook(app, act, arg)) {}                                 // F5.04 / F5.09: emulators, emuinfo, emugate, buildrun, ...
       else if (modulesHook(app, act, arg)) {}                                  // Hub > Modules: modules, modinstall, modaccept, modremove, playconsole, ...
+      else if (dockUiHook(app, act, arg)) {}                                   // F5.23: dockemu, undockemu, dumpembed, embedpointer, emulator
+      else if (profilerUiHook(app, act, arg)) {}                               // F5.10: profiler, profilerdump, profilerdebugger, profilerport, ...
       else if (consoleUiHook(app, act, arg)) {}                                // F5.19-22: consolepause, consolestep, consolewait, ...
       else if (playUiHook(app, act, arg)) {}                                   // F3.04: playedit, pause, step, stopedit, playset, ...
       else if (inspectorHook(app, act, arg)) {}                                 // F3.01: multiselect, addcomp, setfield, undo, ...
@@ -337,6 +343,8 @@ int main(int argc, char** argv) {
       drawHierarchy(app);
       drawSceneView(app);
       drawGameView(app);
+      drawEmulatorView(app);
+      drawProfiler(app);
       drawInspector(app);
       drawProjectPanel(app);
       drawConsole(app);
@@ -344,10 +352,10 @@ int main(int argc, char** argv) {
       drawTilePalette(app);
       drawSpriteEditor(app);
     }
-    if (app.hub.mode != Mode::Splash) { drawCreateDialogs(app); if (app.hub.mode == Mode::Editor) drawModulesWindow(app); drawModuleDialogs(app); }
+    if (app.hub.mode != Mode::Splash) { drawCreateDialogs(app); if (app.hub.mode == Mode::Editor) drawModulesWindow(app); drawModuleDialogs(app); if (app.hub.mode == Mode::Editor) drawEmulatorManager(app); }
     if (shotMode && !focusName.empty() && frame == shotFrames / 2) ImGui::SetWindowFocus(focusName.c_str());
     if (ImGuiWindow* nw = ImGui::GetCurrentContext()->NavWindow) {
-      static const char* const kPanels[] = {"Hierarchy", "Inspector", "Project", "Console", "Scene", "Game"};
+      static const char* const kPanels[] = {"Hierarchy", "Inspector", "Project", "Console", "Scene", "Game", "Emulator", "Profiler"};
       for (const char* pn : kPanels) if (!std::strcmp(nw->RootWindow->Name, pn)) focusedPanel = pn;
     }
     ImGui::Render();
@@ -386,6 +394,7 @@ int main(int argc, char** argv) {
 
   saveLayout(app);
   app.saveCamera();
+  shutdownEmbed();
   stopPlayInEditor(app);
   app.play.stop();
   app.play.pump();

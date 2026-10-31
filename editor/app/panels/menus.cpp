@@ -7,6 +7,8 @@
 
 #include "app.h"
 #include "panels/asset_ui.h"
+#include "panels/dock_debug.h"
+#include "panels/emulator_manager.h"
 #include "panels/modules.h"
 #include "panels/tile_tools.h"
 #include "rensga/editor/editor_log.h"
@@ -34,6 +36,7 @@ static void handleShortcuts(App& a) {
   if (chord(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_P)) a.session.togglePause();
   else if (chord(ImGuiMod_Ctrl | ImGuiMod_Alt | ImGuiKey_P)) a.session.requestStep();
   else if (chord(ImGuiMod_Ctrl | ImGuiKey_P)) { if (a.session.active()) stopPlayInEditor(a); else doPlay(a); }
+  if (chord(ImGuiMod_Ctrl | ImGuiKey_B) && a.loaded) doBuildAndRun(a);   // F5.09 (Unity: Build and Run)
   if (spriteEditorFocused()) return;  // F4.08: the Sprite Editor keeps its own undo history and Delete key
   if (chord(ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_Z) || chord(ImGuiMod_Ctrl | ImGuiKey_Y)) a.doc.redo();
   else if (chord(ImGuiMod_Ctrl | ImGuiKey_Z)) a.doc.undo();
@@ -50,6 +53,8 @@ void drawMenuBar(App& a) {
     if (ImGui::MenuItem("New Project...")) a.hub.openCreate = true;
     if (ImGui::MenuItem("Open Project...")) a.hub.goPicker = true;
     if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, a.doc.loaded())) a.saveScene();
+    ImGui::Separator();
+    if (ImGui::MenuItem("Build and Run", "Ctrl+B", false, a.loaded && !a.target.empty())) doBuildAndRun(a);   // F5.09: release package, then the emulator
     ImGui::Separator();
     if (ImGui::MenuItem("Quit")) a.quitRequested = true;
     ImGui::EndMenu();
@@ -91,6 +96,8 @@ void drawMenuBar(App& a) {
     }
     if (ImGui::MenuItem("Reset Layout")) a.resetLayout = true;
     ImGui::Separator();
+    ImGui::MenuItem("Emulator", nullptr, &dockDebug().showEmulator, a.loaded);  // F5.23
+    ImGui::MenuItem("Profiler", nullptr, &dockDebug().showProfiler, a.loaded);  // F5.10
     ImGui::MenuItem("VRAM Map", nullptr, &assetUi().showVram, a.loaded);
     ImGui::MenuItem("Tile Palette", nullptr, &tileTools().showPalette, a.loaded);
     if (ImGui::MenuItem("Sprite Editor", nullptr, false, a.loaded)) {
@@ -100,6 +107,7 @@ void drawMenuBar(App& a) {
       else { spriteUiHook(a, "spritewindow", ""); }
     }
     if (ImGui::MenuItem("Build Support Modules...")) openModulesFromHub(a);
+    if (ImGui::MenuItem("Emulators...", nullptr, false, a.loaded)) openEmulatorManager(a);   // F5.04
     ImGui::EndMenu();
   }
   if (ImGui::BeginMenu("Help")) {

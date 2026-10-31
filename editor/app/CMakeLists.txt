@@ -32,6 +32,21 @@ if(WIN32)  # not built or tested yet: export everything and let the module link 
 endif()
 rensga_host_target(rensga-editor)
 
+# --- F5 dock+debug begin ---
+# F5.23 docked Emulator panel (X11: XReparentWindow, Win32: SetParent, floating fallback) and F5.10 Profiler panel.
+target_sources(rensga-editor PRIVATE platform/x11_embed.cpp platform/win32_embed.cpp panels/emulator_view.cpp panels/profiler.cpp)
+if(NOT WIN32)
+  find_package(PkgConfig QUIET)
+  if(PkgConfig_FOUND)
+    pkg_check_modules(RENSGA_EDITOR_X11 QUIET IMPORTED_TARGET x11)
+  endif()
+  if(TARGET PkgConfig::RENSGA_EDITOR_X11)
+    target_link_libraries(rensga-editor PRIVATE PkgConfig::RENSGA_EDITOR_X11)
+    target_compile_definitions(rensga-editor PRIVATE RENSGA_HAVE_X11=1)
+  endif()
+endif()
+# --- F5 dock+debug end ---
+
 add_test(NAME editor_core_console_agnostic
          COMMAND ${CMAKE_SOURCE_DIR}/tools/check_editor_core.sh)
 
@@ -41,3 +56,8 @@ add_test(NAME editor_script_build_ui
                  ${CMAKE_SOURCE_DIR}/templates/psp-3d ${CMAKE_BINARY_DIR}/editor_script_build_console.png)
 set_tests_properties(editor_script_build_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 LABELS "slow;gl"
                      ENVIRONMENT "RENSGA_JOBS=2")
+
+# --- F5 B1 begin ---
+# F5.04 / F5.09: Window > Emulators, the "emulator missing" offer, Build and Run.
+target_sources(rensga-editor PRIVATE panels/emulator_manager.cpp)
+# --- F5 B1 end ---

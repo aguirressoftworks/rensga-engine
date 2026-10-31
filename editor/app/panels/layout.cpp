@@ -22,8 +22,10 @@ static void buildDefaultLayout(ImGuiID root, ImVec2 size) {
   ImGui::DockBuilderDockWindow("Inspector", right);
   ImGui::DockBuilderDockWindow("Project", bottom);
   ImGui::DockBuilderDockWindow("Console", bottom);
+  ImGui::DockBuilderDockWindow("Profiler", bottom);  // F5.10
   ImGui::DockBuilderDockWindow("Scene", center);
   ImGui::DockBuilderDockWindow("Game", center);
+  ImGui::DockBuilderDockWindow("Emulator", center);  // F5.23
   ImGui::DockBuilderFinish(root);
 }
 

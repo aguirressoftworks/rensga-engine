@@ -1,0 +1,346 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000000501",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000000001",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     1.9,
+     5.5
+    ],
+    "rotation": [
+     -0.104528,
+     -0.0,
+     -0.0,
+     0.994522
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {
+      "fov": 60.0,
+      "nearClip": 0.3,
+      "farClip": 60.0
+     }
+    },
+    {
+     "type": "RoomRig",
+     "fields": {
+      "autoWalk": false,
+      "distance": 5.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000002",
+   "name": "Room",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-000000000503",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000506"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000003",
+   "name": "RenderSettings",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "RenderSettings",
+     "fields": {
+      "ambient": [
+       70,
+       70,
+       80,
+       255
+      ],
+      "fogEnabled": true,
+      "fogColor": [
+       40,
+       44,
+       60,
+       255
+      ],
+      "fogStart": 8.0,
+      "fogEnd": 24.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000004",
+   "name": "Character",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     2
+    ],
+    "rotation": [
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SkinnedMeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-000000000501",
+      "material": "00000000-0000-4000-8000-000000000505"
+     }
+    },
+    {
+     "type": "Animation",
+     "fields": {
+      "clip": "00000000-0000-4000-8000-000000000501",
+      "playAutomatically": true,
+      "wrapMode": 2,
+      "speed": 1.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000005",
+   "name": "Sun",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     6,
+     0
+    ],
+    "rotation": [
+     0.461749,
+     0.0,
+     0.0,
+     0.887011
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 0,
+      "color": [
+       255,
+       244,
+       224,
+       255
+      ],
+      "intensity": 0.8,
+      "range": 0.0,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000006",
+   "name": "PointRed",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -4,
+     2.2,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       255,
+       90,
+       70,
+       255
+      ],
+      "intensity": 1.0,
+      "range": 7.0,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000007",
+   "name": "PointGreen",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     4,
+     2.2,
+     -2
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       90,
+       255,
+       110,
+       255
+      ],
+      "intensity": 1.0,
+      "range": 7.0,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000008",
+   "name": "PointBlue",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     2.2,
+     -6
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       90,
+       130,
+       255,
+       255
+      ],
+      "intensity": 1.0,
+      "range": 7.0,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

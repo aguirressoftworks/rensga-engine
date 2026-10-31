@@ -1,9 +1,12 @@
 #include "rensga/editor/import_settings.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
+#include "rensga/cooker/model3d.h"
 #include "rensga/cooker/plugin.h"
 
 namespace rensga {
@@ -24,7 +27,7 @@ std::vector<std::string> buildTargetIds(const std::string& projectTarget) {
   return out;
 }
 
-std::vector<ImportField> importFields(AssetKind kind, const ConsoleTargetData& ct, bool isProjectTarget) {
+std::vector<ImportField> importFields(AssetKind kind, const ConsoleTargetData& ct, bool isProjectTarget, const ImportRules* rules) {
   std::vector<ImportField> f;
   if (kind == AssetKind::Texture) {
     ImportField fmt;
@@ -45,6 +48,13 @@ std::vector<ImportField> importFields(AssetKind kind, const ConsoleTargetData& c
     ms.options = {"0", "32", "64", "128", "256", "512", "1024"};
     ms.def = 0;
     ms.help = "Longest edge in pixels. 0 keeps the source size.";
+    if (rules && isProjectTarget && rules->maxTextureSize) {
+      ms.options.erase(std::remove_if(ms.options.begin() + 1, ms.options.end(),
+                                      [&](const std::string& o) { return static_cast<uint32_t>(std::atoi(o.c_str())) > rules->maxTextureSize; }),
+                       ms.options.end());
+      ms.help = "Longest edge in pixels. 0 keeps the source size, and the cook still scales anything over " + std::to_string(rules->maxTextureSize) +
+                " down to fit this target.";
+    }
     f.push_back(ms);
     ImportField fl;
     fl.key = "filter";
@@ -70,6 +80,9 @@ std::vector<ImportField> importFields(AssetKind kind, const ConsoleTargetData& c
     sr.options = {"0", "44100", "22050", "11025"};
     sr.def = 0;
     sr.help = "Resamples down to this rate (Hz). 0 keeps the source rate.";
+    if (rules && isProjectTarget)
+      for (int r : rules->audioRates)
+        if (std::find(sr.options.begin(), sr.options.end(), std::to_string(r)) == sr.options.end()) sr.options.push_back(std::to_string(r));
     f.push_back(sr);
     ImportField mono;
     mono.key = "mono";
@@ -104,6 +117,16 @@ std::vector<ImportField> importFields(AssetKind kind, const ConsoleTargetData& c
     nm.options = {"import", "flat"};
     nm.def = "import";
     f.push_back(nm);
+    if (rules && isProjectTarget && rules->vertexPrecisions.size() > 1) {
+      ImportField vp;
+      vp.key = "vertexPrecision";
+      vp.label = "Vertices";
+      vp.type = "enum";
+      vp.options = rules->vertexPrecisions;
+      vp.def = rules->vertexPrecisions.back();
+      vp.help = "float = 32-bit positions, normals and UVs; 16bit = compact vertices (about half the memory, small rounding error).";
+      f.push_back(vp);
+    }
   }
   return f;
 }
@@ -160,6 +183,8 @@ ImportOutcome AssetImporter::import(const AssetEntry& asset, const std::string& 
     r.tex.width = t.width;
     r.tex.height = t.height;
     r.tex.format = t.format;
+    r.storedWidth = t.storedW();
+    r.storedHeight = t.storedH();
     r.tex.pixels.assign(out.blob.begin() + t.pixelOffset, out.blob.begin() + t.pixelOffset + t.pixelBytes);
     if (t.paletteCount) {
       r.tex.palette.resize(t.paletteCount);
@@ -179,6 +204,87 @@ ImportOutcome AssetImporter::import(const AssetEntry& asset, const std::string& 
   }
   r.ok = true;
   return r;
+}
+
+static bool isPow2(uint32_t v) { return v && !(v & (v - 1)); }
+static std::string kbText(uint64_t b) {
+  char t[48];
+  if (b >= 1024 * 1024) std::snprintf(t, sizeof t, "%.2f MB", b / 1048576.0);
+  else std::snprintf(t, sizeof t, "%.1f KB", b / 1024.0);
+  return t;
+}
+
+AssetCost textureCost(const ImportOutcome& o, const ImportRules& rules) {
+  AssetCost c;
+  if (!o.ok) return c;
+  c.valid = true;
+  c.vramBytes = o.cookedBytes;
+  c.ramBytes = o.cookedBytes;
+  char d[160];
+  std::snprintf(d, sizeof d, "%u x %u (stored %u x %u), %s", o.tex.width, o.tex.height, o.storedWidth, o.storedHeight, cookedTextureDescription(o.tex).c_str());
+  c.detail = d;
+  if (o.srcWidth && o.srcHeight && (o.tex.width < o.srcWidth || o.tex.height < o.srcHeight))
+    c.notes.push_back("The cook will downscale " + std::to_string(o.srcWidth) + " x " + std::to_string(o.srcHeight) + " to " + std::to_string(o.tex.width) +
+                      " x " + std::to_string(o.tex.height) + (rules.maxTextureSize ? " (limit " + std::to_string(rules.maxTextureSize) + ")" : std::string()) + ".");
+  if (rules.pow2Warn) {
+    const uint32_t w = o.srcWidth ? std::min(o.srcWidth, o.tex.width) : o.tex.width, h = o.srcHeight ? std::min(o.srcHeight, o.tex.height) : o.tex.height;
+    if (!isPow2(w) || !isPow2(h)) {
+      const uint64_t wasted = o.storedWidth && o.storedHeight ? static_cast<uint64_t>(o.storedWidth) * o.storedHeight - static_cast<uint64_t>(o.tex.width) * o.tex.height : 0;
+      c.notes.push_back(std::to_string(w) + " x " + std::to_string(h) + " is not a power of two: stored as " + std::to_string(o.storedWidth) + " x " +
+                        std::to_string(o.storedHeight) + (wasted ? " (" + std::to_string(wasted) + " padded texels)" : std::string()) + ".");
+    }
+  }
+  return c;
+}
+
+AssetCost audioCost(const ImportOutcome& o) {
+  AssetCost c;
+  if (!o.ok) return c;
+  c.valid = true;
+  c.ramBytes = o.cookedBytes;
+  c.detail = std::to_string(o.audioRate) + " Hz, " + std::to_string(o.audioChannels) + " channel(s), " + kbText(o.cookedBytes);
+  return c;
+}
+
+AssetCost modelCost(const fs::path& file, const ConsoleTargetData& ct, const std::string& vertexPrecision, bool compactCapable) {
+  AssetCost c;
+  GltfModel g;
+  std::string err;
+  ModelImport mi;
+  if (!importGltfModel(file, mi, true, 30, g, err)) { c.notes.push_back("Cannot read the model: " + err); return c; }
+  const uint64_t verts = g.mesh.positions.size();
+  const bool compact = compactCapable && vertexPrecision != "float" && uvFitsC16(g.mesh);
+  const uint64_t stride = g.skinned ? (compact ? 28 : 44) : (compact ? 20 : 36);
+  c.valid = true;
+  c.ramBytes = verts * stride;
+  uint32_t batches = 1, dropped = 0;
+  if (g.skinned && ct.maxBonesPerDraw) {
+    SkinSplitResult sr;
+    std::string w, e;
+    LitMesh in = g.mesh;
+    in.weights.assign(g.mesh.positions.size(), std::array<uint8_t, 8>{});
+    // weights are set by the split from the influences
+    if (splitSkinnedMesh(in, g.influences, ct.maxBonesPerDraw, sr, w, e)) {
+      batches = static_cast<uint32_t>(sr.batches.size());
+      dropped = sr.droppedInfluences;
+      c.ramBytes = static_cast<uint64_t>(sr.mesh.positions.size()) * stride + sr.batches.size() * sizeof(PackBoneBatch);
+    }
+  }
+  char d[200];
+  std::snprintf(d, sizeof d, "%llu vertices, %llu triangles, %s vertices (%llu bytes each)", static_cast<unsigned long long>(verts),
+                static_cast<unsigned long long>(verts / 3), compact ? "16-bit" : "float", static_cast<unsigned long long>(stride));
+  c.detail = d;
+  if (g.skinned) {
+    c.detail += ", " + std::to_string(g.joints.size()) + " joints, " + std::to_string(batches) + " bone batch(es), " + std::to_string(g.clips.size()) + " clip(s)";
+    if (ct.maxSkinnedJoints && g.joints.size() > ct.maxSkinnedJoints)
+      c.notes.push_back(std::to_string(g.joints.size()) + " joints is over the limit of " + std::to_string(ct.maxSkinnedJoints) + ": the cook refuses this skin.");
+    if (ct.maxBonesPerDraw && batches > 1)
+      c.notes.push_back("The skin is split into " + std::to_string(batches) + " batches of at most " + std::to_string(ct.maxBonesPerDraw) + " bones (one draw each).");
+    if (dropped) c.notes.push_back(std::to_string(dropped) + " influences are dropped to fit the batches.");
+  }
+  if (compactCapable && vertexPrecision != "float" && !uvFitsC16(g.mesh)) c.notes.push_back("UVs outside [0, 2) do not fit 16-bit vertices: this mesh stays float.");
+  for (const std::string& w : g.warnings) c.notes.push_back(w);
+  return c;
 }
 
 std::vector<uint8_t> cookedTextureToRgba(const CookedTexture& t) {

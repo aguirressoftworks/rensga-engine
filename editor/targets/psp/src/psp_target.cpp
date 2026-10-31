@@ -1,5 +1,7 @@
 // PSP target module: cooker plugin lookup, compile with the PSP Build Support module (native; Docker as contributor fallback), EBOOT packaging, PPSSPP launcher.
+#include <cstring>
 #include <fstream>
+#include <tuple>
 #include <sstream>
 
 #include <nlohmann/json.hpp>
@@ -10,6 +12,7 @@
 #include "rensga/pipeline/process.h"
 #include "rensga/pipeline/toolchain.h"
 #include "ppsspp_launcher.h"
+#include "psp_package.h"
 #include "psp_vram.h"
 
 namespace rensga {
@@ -105,6 +108,29 @@ bool prescanReflection(const BuildContext& ctx, const EventSink& sink, const fs:
       ps, [&](const std::string& l) { note(sink, Stage::Compile, Status::Progress, l); }, ctx.cancel);
   if (rc != 0) note(sink, Stage::Compile, Status::Failed, "reflection codegen failed (exit " + std::to_string(rc) + ")");
   return rc == 0;
+}
+
+// A release build dir (Library/Build/psp-release) holds the ELF too, but Build and Run must boot what a player gets: EBOOT.PBP.
+class ReleaseAwareLauncher : public PpssppLauncher {
+ public:
+  bool start(const pipeline::LaunchSpec& spec, pipeline::EventSink sink) override {
+    pipeline::LaunchSpec s = spec;
+    std::error_code ec;
+    const fs::path eboot = spec.workingDir / "EBOOT.PBP";
+    if (s.executable.empty() && spec.workingDir.filename().string().size() > 8 && spec.workingDir.filename().string().rfind("-release") != std::string::npos && fs::exists(eboot, ec))
+      s.executable = eboot;
+    return PpssppLauncher::start(s, std::move(sink));
+  }
+};
+
+// Width and height from a PNG's IHDR; false when the file is not a PNG.
+bool pngSize(const fs::path& file, uint32_t& w, uint32_t& h) {
+  std::ifstream f(file, std::ios::binary);
+  unsigned char b[24];
+  if (!f.read(reinterpret_cast<char*>(b), sizeof b) || std::memcmp(b, "\x89PNG\r\n\x1a\n", 8) != 0) return false;
+  w = (b[16] << 24) | (b[17] << 16) | (b[18] << 8) | b[19];
+  h = (b[20] << 24) | (b[21] << 16) | (b[22] << 8) | b[23];
+  return true;
 }
 
 class PspTargetModule : public TargetModule {
@@ -209,7 +235,7 @@ class PspTargetModule : public TargetModule {
     const fs::path stamp = ctx.buildDir.parent_path() / (cmakeDir.filename().string() + ".compile-stamp");
     if (fs::exists(elfOut, ec) && pipeline::stampMatches(stamp, fingerprint)) {
       note(sink, Stage::Compile, Status::Progress, "compile skipped: no script, engine or build option changed since the last build");
-      return placeOutputs(ctx, elfOut, elfOut, sink);
+      return placeOutputs(ctx, cmakeDir / "engine" / "runtime" / "rensga_game.elf", elfOut, sink);   // the PRX is next to the CMake tree's ELF
     }
 
     note(sink, Stage::Compile, Status::Progress, "reflection codegen");
@@ -251,22 +277,91 @@ class PspTargetModule : public TargetModule {
     return true;
   }
 
+  // F5.03-F5.05: PARAM.SFO (title, disc ID, version from the project), ICON0 / PIC1 (the project's or placeholders made from the
+  // brand tokens by tools/psp/make_package_art.py), optional SND0.AT3 (the project's; there is no AT3 encoder in the module), then
+  // pack-pbp. Next to EBOOT.PBP the build dir gets game.rpak, every streamed music*.wav and LICENSES/.
   bool package(const BuildContext& ctx, EventSink sink) override {
-    std::string title = "Rensga Game";
-    try {
-      std::ifstream f(ctx.project / "ProjectSettings" / "Project.json");
-      title = nlohmann::json::parse(f).value("name", title);
-    } catch (...) {
-    }
+    std::vector<std::string> warns;
+    PackageSettings ps = loadPackageSettings(ctx.project, &warns);
+    for (const std::string& w : warns) note(sink, Stage::Package, Status::Progress, "warning: " + w);
     pipeline::ToolchainRunner tr = makeRunner();
     if (!resolveToolchain(tr, Stage::Package, sink)) return false;
-    fs::path icon = fs::path(RENSGA_PSP_ASSETS_DIR) / "ICON0.png";
-    fs::path sfo = ctx.buildDir / "PARAM.SFO";
-    if (!toolRun(tr, ctx, Stage::Package, sink, {"mksfoex", "-d", "MEMSIZE=1", title, sfo.string()})) return false;
-    std::vector<std::string> pack = {"pack-pbp", (ctx.buildDir / "EBOOT.PBP").string(), sfo.string(), icon.string(),
-                                     "NULL", "NULL", "NULL", "NULL", (ctx.buildDir / "rensga_game.prx").string(), "NULL"};
+    std::error_code ec;
+    const fs::path artDir = ctx.buildDir / "package";
+    fs::create_directories(artDir, ec);
+
+    // Art: the project's own files win; a missing ICON0 / PIC1 is made once per build.
+    fs::path icon = ps.icon0, pic = ps.pic1;
+    if (icon.empty() || pic.empty()) {
+      ProcessSpec gen;
+#ifdef _WIN32
+      gen.argv = {"python", "-I", (repoRoot() / "tools" / "psp" / "make_package_art.py").string(), "--title", ps.title, "--out", artDir.string()};
+#else
+      gen.argv = {"python3", "-I", (repoRoot() / "tools" / "psp" / "make_package_art.py").string(), "--title", ps.title, "--out", artDir.string()};
+#endif
+      gen.cwd = repoRoot();
+      int rc = pipeline::runProcess(gen, [&](const std::string& l) { note(sink, Stage::Package, Status::Progress, l); }, ctx.cancel);
+      if (rc == 0) {
+        if (icon.empty()) icon = artDir / "ICON0.png";
+        if (pic.empty()) pic = artDir / "PIC1.png";
+        note(sink, Stage::Package, Status::Progress, "package art: placeholder " + std::string(ps.icon0.empty() ? "ICON0 " : "") + (ps.pic1.empty() ? "PIC1 " : "") +
+                                                      "made from the project name (put your own in ProjectSettings/Package/)");
+      } else {
+        note(sink, Stage::Package, Status::Progress, "warning: python3 is not available, using the bundled ICON0 and no PIC1");
+        if (icon.empty()) icon = fs::path(RENSGA_PSP_ASSETS_DIR) / "ICON0.png";
+      }
+    }
+    for (const auto& [what, file, w, h] : {std::tuple<const char*, fs::path, uint32_t, uint32_t>{"ICON0.png", icon, 144, 80}, {"PIC1.png", pic, 480, 272}}) {
+      uint32_t pw = 0, ph = 0;
+      if (!file.empty() && pngSize(file, pw, ph) && (pw != w || ph != h))
+        note(sink, Stage::Package, Status::Progress, std::string("warning: ") + what + " is " + std::to_string(pw) + "x" + std::to_string(ph) + ", the XMB expects " + std::to_string(w) + "x" + std::to_string(h));
+    }
+
+    const fs::path sfo = ctx.buildDir / "PARAM.SFO";
+    if (!toolRun(tr, ctx, Stage::Package, sink,
+                 {"mksfoex", "-d", "MEMSIZE=1", "-s", "DISC_ID=" + ps.discId, "-s", "DISC_VERSION=" + ps.version, "-s", "APP_VER=" + ps.appVer, ps.title, sfo.string()}))
+      return false;
+    const std::string snd = ps.snd0.empty() ? "NULL" : ps.snd0.string();
+    std::vector<std::string> pack = {"pack-pbp", (ctx.buildDir / "EBOOT.PBP").string(), sfo.string(), icon.string(), "NULL", "NULL",
+                                     pic.empty() ? "NULL" : pic.string(), snd, (ctx.buildDir / "rensga_game.prx").string(), "NULL"};
     if (!toolRun(tr, ctx, Stage::Package, sink, pack)) return false;
-    return fs::exists(ctx.buildDir / "EBOOT.PBP");
+    if (!fs::exists(ctx.buildDir / "EBOOT.PBP", ec)) return false;
+
+    // The data that goes next to the EBOOT (ms0:/PSP/GAME/<folder>/): the pack is already there, add streamed audio and the licenses.
+    int tracks = 0;
+    for (const fs::path& w : streamedAudio(ctx.project, ctx.cookedPack)) {
+      fs::copy_file(w, ctx.buildDir / w.filename(), fs::copy_options::overwrite_existing, ec);
+      if (ec) { note(sink, Stage::Package, Status::Failed, "cannot copy " + w.string()); return false; }
+      ++tracks;
+    }
+    std::string err;
+    const auto lic = writeLicenseFiles(ctx.buildDir / "LICENSES", repoRoot(), tr.manager().root(kModuleId), err);
+    if (!err.empty()) { note(sink, Stage::Package, Status::Failed, err); return false; }
+    note(sink, Stage::Package, Status::Progress,
+         "package: " + ps.title + " [" + ps.discId + " v" + ps.version + "], " + std::to_string(tracks) + " music file(s), " + std::to_string(lic.size()) + " license file(s) in " +
+             (ctx.buildDir / "LICENSES").string());
+    return true;
+  }
+
+  // F5.04: what the editor shows in Window > Emulators and uses for the install offer.
+  ToolchainInfo toolchain() const override {
+    ToolchainInfo t;
+    t.moduleId = kModuleId;
+    t.installed = makeRunner().manager().isInstalled(kModuleId);
+    return t;
+  }
+  EmulatorInfo emulator() const override {
+    EmulatorInfo e;
+    e.path = PpssppLauncher::findExecutable();
+    if (!e.path.empty()) e.version = PpssppLauncher::installedVersion(e.path.string());
+    e.resetSandbox = [](const fs::path& project) {
+      std::error_code ec;
+      const fs::path sb = project / "Library" / "Emulators" / "ppsspp";
+      if (fs::is_symlink(sb, ec)) { fs::remove(sb, ec); return !ec; }
+      fs::remove_all(sb, ec);
+      return !ec;
+    };
+    return e;
   }
 
   pipeline::EmulatorLauncher& launcher() override { return launcher_; }
@@ -280,7 +375,7 @@ class PspTargetModule : public TargetModule {
       return false;
     }
   };
-  PpssppLauncher launcher_;
+  ReleaseAwareLauncher launcher_;
 };
 
 }  // namespace

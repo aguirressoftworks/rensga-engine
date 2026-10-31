@@ -380,7 +380,7 @@ G = lambda kind, n: '00000000-0000-4000-%s-%012x' % (kind, n)
 GUID = {
     'blocky': G('8000', 0x501), 'blocky_png': G('8000', 0x502), 'room': G('8000', 0x503), 'room_png': G('8000', 0x504),
     'mat_char': G('8000', 0x505), 'mat_room': G('8000', 0x506), 'mat_pillar': G('8000', 0x507), 'mat_marker': G('8000', 0x508),
-    'scene_room': G('a000', 0x501), 'scene_lights': G('a000', 0x502),
+    'scene_room': G('a000', 0x501), 'scene_lights': G('a000', 0x502), 'scene_bot': G('a000', 0x503),
     'cube': G('8000', 0xc001), 'plane': G('8000', 0xc004),
 }
 def meta(guid): return json.dumps({'guid': guid, 'importSettings': {}}, indent=1) + '\n'
@@ -391,11 +391,11 @@ def obj(n, name, pos, comps, rot=(0, 0, 0, 1), scale=(1, 1, 1), parent=None):
             'transform': {'position': list(pos), 'rotation': [r6(x) for x in rot], 'scale': list(scale)},
             'components': [{'type': t, 'fields': f} for t, f in comps], 'prefab': None}
 
-def camera_obj(n, pos, pitch):
+def camera_obj(n, pos, pitch, extra=()):
     # the engine camera looks down its local -z (view = inverse of the transform), so a camera on +z already faces the
     # room; a negative turn about x tilts it down by `pitch` degrees
     r = qaxis((1, 0, 0), -pitch)
-    return obj(n, 'Camera', pos, [('Camera', {'fov': 60.0, 'nearClip': 0.3, 'farClip': 60.0})], rot=r)
+    return obj(n, 'Camera', pos, [('Camera', {'fov': 60.0, 'nearClip': 0.3, 'farClip': 60.0})] + list(extra), rot=r)
 
 def light(n, name, pos, typ, color, intensity, rng, mode=0, rot=(0, 0, 0, 1)):
     return obj(n, name, pos, [('Light', {'type': typ, 'color': list(color), 'intensity': intensity, 'range': rng, 'renderMode': mode})], rot=rot)
@@ -407,17 +407,23 @@ def settings_obj(n, ambient, fog):
 
 def scene(guid, objects): return J({'format': 1, 'guid': guid, 'objects': objects})
 
-def build_sample():
+def build_sample(scripted=False):
+    # scripted=True builds samples/psp3d_walk: the same assets and scenes, plus the RoomRig script (third-person camera, nub only)
+    # and a RoomBot scene where a fixed script walks the character (an emulator has no pad). The plain sample has no scripts, so the
+    # cooker without project scripts can cook it.
     files = {}
+    rig = lambda auto, dist=5.0: [('RoomRig', {'autoWalk': auto, 'distance': dist})] if scripted else []
     def add(rel, data): files[rel] = data
-    add('ProjectSettings/Project.json', J({'format': 1, 'name': 'Psp3dRoom', 'target': 'psp', 'scenes': [GUID['scene_room'], GUID['scene_lights']]}))
+    add('ProjectSettings/Project.json', J({'format': 1, 'name': 'Psp3dWalk' if scripted else 'Psp3dRoom', 'target': 'psp',
+                                           'scenes': [GUID['scene_room'], GUID['scene_lights']] + ([GUID['scene_bot']] if scripted else [])}))
     ct = json.loads(open(os.path.join(ROOT, 'templates/psp-3d/ProjectSettings/ConsoleTarget.json')).read())
     ct['allowedComponents'] = ['MeshRenderer', 'SkinnedMeshRenderer', 'Animation', 'Light', 'RenderSettings', 'Camera',
-                               'DirectionalLight', 'CharacterController', 'BoxCollider', 'SphereCollider']
+                               'DirectionalLight', 'CharacterController', 'BoxCollider', 'SphereCollider'] + (['RoomRig'] if scripted else [])
     add('ProjectSettings/ConsoleTarget.json', J(ct))
     add('ProjectSettings/InputActions.json', J({'format': 1, 'actions': [
         {'name': 'Move', 'kind': 'axis2', 'source': 'nub'}, {'name': 'Jump', 'kind': 'button', 'source': 'south'},
-        {'name': 'CameraLeft', 'kind': 'button', 'source': 'l'}, {'name': 'CameraRight', 'kind': 'button', 'source': 'r'}]}))
+        {'name': 'CameraLeft', 'kind': 'button', 'source': 'l'}, {'name': 'CameraRight', 'kind': 'button', 'source': 'r'}]
+        + ([{'name': 'CameraUp', 'kind': 'button', 'source': 'up'}, {'name': 'CameraDown', 'kind': 'button', 'source': 'down'}] if scripted else [])}))
     for p in ('cube', 'plane'):
         src = os.path.join(ROOT, 'templates/psp-3d/Assets/Primitives/%s.prim.json' % p)
         add('Assets/Primitives/%s.prim.json' % p, open(src).read())
@@ -437,13 +443,14 @@ def build_sample():
         add('Assets/Materials/%s.mat.json.meta' % name, meta(GUID[key]))
     add('Assets/Scenes/Room.scene.meta', meta(GUID['scene_room']))
     add('Assets/Scenes/Lights12.scene.meta', meta(GUID['scene_lights']))
+    if scripted: add('Assets/Scenes/RoomBot.scene.meta', meta(GUID['scene_bot']))
     # Room scene
     ch = obj(4, 'Character', (0, 0, 2), [
         ('SkinnedMeshRenderer', {'mesh': GUID['blocky'], 'material': GUID['mat_char']}),
         ('Animation', {'clip': GUID['blocky'], 'playAutomatically': True, 'wrapMode': 2, 'speed': 1.0})],
         rot=qaxis((0, 1, 0), 180.0))
     room = [
-        camera_obj(1, (0, 1.9, 5.5), 12.0),
+        camera_obj(1, (0, 1.9, 5.5), 12.0, rig(False)),
         obj(2, 'Room', (0, 0, 0), [('MeshRenderer', {'mesh': GUID['room'], 'color': [255, 255, 255, 255], 'material': GUID['mat_room']})]),
         settings_obj(3, (70, 70, 80, 255), ([40, 44, 60, 255], 8.0, 24.0)),
         ch,
@@ -453,8 +460,16 @@ def build_sample():
         light(8, 'PointBlue', (0, 2.2, -6), 1, (90, 130, 255, 255), 1.0, 7.0),
     ]
     add('Assets/Scenes/Room.scene', scene(GUID['scene_room'], room))
+    if scripted:  # RoomBot: same room, ids 0x2xx, the character walks a circle by itself
+        bot = json.loads(json.dumps(room))
+        for o in bot:
+            n = int(o['guid'].split('-')[-1], 16)
+            o['guid'] = G('9000', 0x200 + n)
+            for c in o['components']:
+                if c['type'] == 'RoomRig': c['fields']['autoWalk'] = True; c['fields']['fogToggleFrame'] = 100
+        add('Assets/Scenes/RoomBot.scene', scene(GUID['scene_bot'], bot))
     # Lights12 scene: 4 x 3 grid of cubes, 12 colored point lights above
-    objs = [camera_obj(0x101, (0, 7.0, 9.5), 38.0),  # ids 0x1xx: unique across the scenes of one pack
+    objs = [camera_obj(0x101, (0, 7.0, 9.5), 38.0, rig(True)),  # ids 0x1xx: unique across the scenes of one pack
             obj(0x102, 'Floor', (0, 0, 0), [('MeshRenderer', {'mesh': GUID['plane'], 'color': [200, 200, 200, 255], 'material': GUID['mat_pillar']})], scale=(2, 1, 2)),
             settings_obj(0x103, (40, 40, 48, 255), None)]
     n = 0x110
@@ -529,7 +544,7 @@ def preview(path):
 # ---------------------------------------------------------------- driver
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 
-def generate(out, sample):
+def generate(out, sample, walk=None):
     stats = {}
     for name, fn in (('blocky_walk', build_character_gltf), ('room', build_room_gltf)):
         text, binb, pngb, st = fn()
@@ -543,6 +558,11 @@ def generate(out, sample):
         for name, sub in (('blocky_walk', None), ('room', None)):
             for ext, d in (('gltf', 'Models'), ('png', 'Textures')):
                 shutil.copyfile(os.path.join(out, '%s.%s' % (name, ext)), os.path.join(sample, 'Assets', d, '%s.%s' % (name, ext)))
+    if walk:
+        for rel, data in build_sample(True).items(): write(os.path.join(walk, rel), data)
+        for ext, d in (('gltf', 'Models'), ('png', 'Textures')):
+            for name in ('blocky_walk', 'room'):
+                shutil.copyfile(os.path.join(out, '%s.%s' % (name, ext)), os.path.join(walk, 'Assets', d, '%s.%s' % (name, ext)))
     return stats
 
 def tree(d):
@@ -555,6 +575,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', default=os.path.join(ROOT, 'tests/fixtures/gltf'))
     ap.add_argument('--sample', default=os.path.join(ROOT, 'samples/psp3d_room'))
+    ap.add_argument('--walk', default=os.path.join(ROOT, 'samples/psp3d_walk'))
     ap.add_argument('--no-sample', action='store_true')
     ap.add_argument('--check', action='store_true')
     ap.add_argument('--preview')
@@ -563,10 +584,10 @@ def main():
     if a.preview: preview(a.preview); print('preview', a.preview); return 0
     if a.check:
         with tempfile.TemporaryDirectory() as t:
-            o, s = os.path.join(t, 'o'), os.path.join(t, 's')
-            generate(o, s)
+            o, s, w = os.path.join(t, 'o'), os.path.join(t, 's'), os.path.join(t, 'w')
+            generate(o, s, w)
             bad = 0
-            for want, got, label in ((o, a.out, 'fixtures'), (s, sample, 'sample')):
+            for want, got, label in ((o, a.out, 'fixtures'), (s, sample, 'sample'), (w, a.walk, 'walk')):
                 if got is None: continue
                 T = tree(want)
                 for rel, data in T.items():
@@ -575,7 +596,7 @@ def main():
                         print('DIFF', label, rel); bad += 1
             print('check: %s' % ('FAIL (%d)' % bad if bad else 'OK, files identical'))
             return 1 if bad else 0
-    st = generate(a.out, sample)
+    st = generate(a.out, sample, a.walk if sample else None)
     print(json.dumps(st))
     return 0
 

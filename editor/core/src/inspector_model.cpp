@@ -480,3 +480,96 @@ OpResult editObjects(SceneDocument& d, const std::vector<std::string>& guids, co
 
 }  // namespace editor
 }  // namespace rensga
+
+// ---- target rules as data (F5.06 / F5.07 / F5.08) -------------------------------------------------------------------
+namespace rensga {
+namespace editor {
+
+PreviewRules effectivePreviewRules(const TargetModule* tm, const ConsoleTargetData& ct) {
+  PreviewRules r = tm ? tm->previewRules(ct) : PreviewRules{static_cast<int>(ct.width), static_cast<int>(ct.height)};
+  if (r.width <= 0) r.width = static_cast<int>(ct.width);
+  if (r.height <= 0) r.height = static_cast<int>(ct.height);
+  if (r.colorBits >= 32 && ct.fbBpp > 0 && ct.fbBpp < 32) r.colorBits = static_cast<int>(ct.fbBpp);
+  if (r.colorBits <= 16) r.dither = true;
+  if (r.maxLightsPerObject == 0) r.maxLightsPerObject = static_cast<int>(ct.maxLightsPerObject);
+  return r;
+}
+
+ImportRules effectiveImportRules(const TargetModule* tm, const ConsoleTargetData& ct) {
+  ImportRules r = tm ? tm->importRules(ct) : ImportRules{};
+  if (r.maxTextureSize == 0) r.maxTextureSize = ct.maxTextureSize;
+  if (ct.hasFeature("textureSwizzle")) r.pow2Warn = true;  // swizzled textures are stored at power-of-two sizes
+  if (r.clutDepths.empty())
+    for (const std::string& f : ct.textureFormats) {
+      if (f == "clut4") r.clutDepths.push_back(4);
+      if (f == "clut8") r.clutDepths.push_back(8);
+    }
+  if (r.vertexPrecisions.empty() && tm) {
+    ICookerFormatPlugin& p = const_cast<TargetModule*>(tm)->cookerPlugin();
+    r.vertexPrecisions = p.hasCompactMeshes() ? std::vector<std::string>{"float", "16bit"} : std::vector<std::string>{"float"};
+  }
+  if (r.audioRates.empty() && ct.audioSampleRate) {
+    r.audioRates.push_back(static_cast<int>(ct.audioSampleRate));
+    if (ct.audioSampleRate % 2 == 0) r.audioRates.push_back(static_cast<int>(ct.audioSampleRate / 2));
+  }
+  return r;
+}
+
+namespace {
+
+struct FeatureGate {
+  const char* feature;
+  const char* component;
+  const char* field;  // "*" = every field
+  const char* what;   // what the feature is
+  const char* fix;    // the hint RENSGA_REQUIRES_FEATURE gives (docs/rensga-engine/api-availability.md)
+};
+const FeatureGate kGates[] = {
+    {"lighting", "Light", "*", "Run-time lights", "bake light into vertex colors (DirectionalLight)"},
+    {"lighting", "RenderSettings", "ambient", "Run-time lights", "bake light into vertex colors (DirectionalLight)"},
+    {"fog", "RenderSettings", "fogEnabled", "Distance fog", "fade to the background color in the art"},
+    {"fog", "RenderSettings", "fogColor", "Distance fog", "fade to the background color in the art"},
+    {"fog", "RenderSettings", "fogStart", "Distance fog", "fade to the background color in the art"},
+    {"fog", "RenderSettings", "fogEnd", "Distance fog", "fade to the background color in the art"},
+    {"skinning", "SkinnedMeshRenderer", "*", "Skeletal animation", "use sprite or vertex animation"},
+    {"skinning", "Animation", "*", "Skeletal animation", "use sprite or vertex animation"},
+};
+
+}  // namespace
+
+InspectorRules effectiveInspectorRules(const TargetModule* tm, const ConsoleTargetData& ct, const std::filesystem::path& projectRoot,
+                                       const std::string& targetName) {
+  InspectorRules r = tm ? tm->inspectorRules(ct) : InspectorRules{};
+  if (r.allowedComponents.empty()) r.allowedComponents = ct.allowedComponents;
+  if (!ct.features.empty())  // a profile that lists no features (unknown profile) gates nothing, like a build with no generated header
+    for (const FeatureGate& g : kGates)
+      if (!ct.hasFeature(g.feature))
+        r.fieldRules.push_back({g.component, g.field,
+                                std::string(g.what) + " is not available on " + targetName + " (feature '" + g.feature + "'): " + g.fix + "."});
+  try {
+    std::ifstream in(projectRoot / "ProjectSettings" / "ConsoleTarget.json");
+    nlohmann::json j = nlohmann::json::parse(in, nullptr, false);
+    if (j.is_object() && j.contains("fieldRules") && j["fieldRules"].is_array())
+      for (const nlohmann::json& e : j["fieldRules"])
+        if (e.is_object() && e.contains("component") && e.contains("reason"))
+          r.fieldRules.push_back({e.value("component", ""), e.value("field", "*"), e.value("reason", "")});
+  } catch (...) {
+  }
+  return r;
+}
+
+std::string fieldGreyReason(const InspectorRules& rules, const std::string& component, const std::string& field) {
+  const bool whole = field.empty() || field == "*";
+  for (const FieldRule& fr : rules.fieldRules) {
+    if (fr.component != component) continue;
+    if (whole) {
+      if (fr.field == "*") return fr.reason;
+    } else if (fr.field == "*" || fr.field == field) {
+      return fr.reason;
+    }
+  }
+  return "";
+}
+
+}  // namespace editor
+}  // namespace rensga

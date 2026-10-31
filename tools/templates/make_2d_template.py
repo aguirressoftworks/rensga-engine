@@ -32,6 +32,8 @@ SCENE_OBJECTS = ("Tilemap", "Player", "Camera", "HudPanelL", "HudPanelC", "HudPa
                  "HudTime", "HudMessage", "Hud") + tuple("Coin%d" % i for i in range(1, 8))
 COMPONENTS = ["SpriteRenderer", "SpriteAnimator", "Tilemap", "TilemapCollider2D", "BoxCollider2D", "Rigidbody2D", "UIText", "UIImage",
               "UIButton", "Camera2D", "PlayerController2D", "Coin", "HudController"]
+PACKAGE_README = 'Package settings for the EBOOT.PBP (rensga build --target psp, or Build and Run in the editor).\n\nPackage.json\n  title    shown in the XMB and in PARAM.SFO; default is the project name\n  discId   four capital letters and five digits (like RNSG00001); default is made from the project name\n  version  <major>.<minor>, like 1.00\n\nArt (all optional): put your own files here and they are used as they are.\n  ICON0.png  144x80   the icon in the XMB\n  PIC1.png   480x272  the background behind it\n  SND0.AT3            the sound played on the icon (the build has no AT3 encoder: bring your own file)\nWithout them, the build draws placeholders from the project name and the Rensga brand colors.\nEvery music*.wav of the game and the license files (LICENSES/) are put next to EBOOT.PBP.\n'
+PACKAGE_JSON = '{\n "format": 1,\n "version": "1.00"\n}\n'
 SHARED_3D = ["Light", "RenderSettings", "SkinnedMeshRenderer", "Animation"]   # F5.12: kept when the profile allows them
 
 
@@ -82,6 +84,13 @@ def generate(profile, out):
         if "Rigidbody2D" not in ct["allowedComponents"]:
             ct["allowedComponents"].insert(ct["allowedComponents"].index("BoxCollider2D") + 1, "Rigidbody2D")
         write_json(os.path.join(out, "ProjectSettings/ConsoleTarget.json"), ct)
+        # F5.05: package settings; the art is made from the project name when the project has none (tools/psp/make_package_art.py).
+        if profile == "psp":
+            os.makedirs(os.path.join(out, "ProjectSettings/Package"), exist_ok=True)
+            with open(os.path.join(out, "ProjectSettings/Package/Package.json"), "w") as f:
+                f.write(PACKAGE_JSON)
+            with open(os.path.join(out, "ProjectSettings/Package/README.txt"), "w") as f:
+                f.write(PACKAGE_README)
         write_json(os.path.join(out, "ProjectSettings/Project.json"),
                    {"format": 1, "name": "Template2D", "target": profile, "scenes": [SCENE_GUID]})
 

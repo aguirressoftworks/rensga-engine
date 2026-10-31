@@ -126,32 +126,35 @@ void iniSet(const fs::path& path, const std::string& section, const std::string&
       lines.push_back(l);
     }
   }
+  // B3 (F5.23): PPSSPP writes its ini with a UTF-8 BOM, so "[General]" on line 1 did not match and every launch appended a second
+  // [General] section; PPSSPP then read the stale first one and the debugger flag was randomly ignored. Strip the BOM, and set the key in
+  // every section of that name.
+  if (!lines.empty() && lines[0].compare(0, 3, "\xEF\xBB\xBF") == 0) lines[0].erase(0, 3);
   const std::string head = "[" + section + "]";
-  size_t secAt = lines.size(), end = lines.size();
+  size_t firstEnd = lines.size();
+  bool sawSection = false, found = false;
   for (size_t i = 0; i < lines.size(); ++i) {
-    if (lines[i] == head) {
-      secAt = i;
-      end = lines.size();
-      for (size_t j = i + 1; j < lines.size(); ++j)
-        if (!lines[j].empty() && lines[j][0] == '[') { end = j; break; }
-      break;
+    if (lines[i] != head) continue;
+    size_t end = lines.size();
+    for (size_t j = i + 1; j < lines.size(); ++j)
+      if (!lines[j].empty() && lines[j][0] == '[') { end = j; break; }
+    if (!sawSection) firstEnd = end;
+    sawSection = true;
+    for (size_t k = i + 1; k < end; ++k) {
+      size_t eq = lines[k].find('=');
+      if (eq == std::string::npos) continue;
+      std::string key2 = lines[k].substr(0, eq);
+      while (!key2.empty() && key2.back() == ' ') key2.pop_back();
+      if (key2 != key) continue;
+      found = true;
+      if (!onlyIfMissing) lines[k] = key + " = " + value;
     }
   }
-  if (secAt == lines.size()) {
+  if (!sawSection) {
     lines.push_back(head);
     lines.push_back(key + " = " + value);
-  } else {
-    bool found = false;
-    for (size_t i = secAt + 1; i < end; ++i) {
-      size_t eq = lines[i].find('=');
-      if (eq == std::string::npos) continue;
-      std::string k = lines[i].substr(0, eq);
-      while (!k.empty() && k.back() == ' ') k.pop_back();
-      if (k != key) continue;
-      found = true;
-      if (!onlyIfMissing) lines[i] = key + " = " + value;
-    }
-    if (!found) lines.insert(lines.begin() + static_cast<long>(end), key + " = " + value);
+  } else if (!found) {
+    lines.insert(lines.begin() + static_cast<long>(firstEnd), key + " = " + value);
   }
   std::ofstream f(path, std::ios::trunc);
   for (const std::string& l : lines) f << l << "\n";

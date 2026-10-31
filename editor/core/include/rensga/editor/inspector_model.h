@@ -15,6 +15,7 @@
 
 #include "rensga/core/reflect.h"
 #include "rensga/editor/scene_document.h"
+#include "rensga/editor/target_module.h"
 
 namespace rensga {
 namespace editor {
@@ -59,6 +60,19 @@ std::string removeBlockReason(const SceneObject& o, int idx);
 // Why a component is greyed ("Not supported by <target>"), or "".
 std::string greyReason(const std::string& type, const std::set<std::string>& allowed, const std::string& targetName);
 bool isMissingScript(const std::string& type);                         // type not registered (script not loaded)
+
+// ---- F5.06 / F5.07 / F5.08: the target's rules as data ---------------------------------------------------------------
+// A TargetModule may override previewRules / importRules / inspectorRules; whatever it leaves at the default is filled from the
+// project's ConsoleTarget (framebuffer depth, limits, texture formats, features), so a target needs no code for rules the file
+// can express. `tm` may be null.
+PreviewRules effectivePreviewRules(const TargetModule* tm, const ConsoleTargetData& ct);
+ImportRules effectiveImportRules(const TargetModule* tm, const ConsoleTargetData& ct);
+// Module rules + one rule per field of a component the target's feature set lacks (hint text as RENSGA_REQUIRES_FEATURE gives)
+// + the "fieldRules" array of ProjectSettings/ConsoleTarget.json ({"component","field","reason"}; field "*" = the whole component).
+InspectorRules effectiveInspectorRules(const TargetModule* tm, const ConsoleTargetData& ct, const std::filesystem::path& projectRoot,
+                                       const std::string& targetName);
+// "" when the field is usable; else the reason. field "" or "*" asks about the whole component.
+std::string fieldGreyReason(const InspectorRules& rules, const std::string& component, const std::string& field);
 
 // ---- document operations: each one is exactly one undo step -----------------------------------------------------
 struct OpResult {

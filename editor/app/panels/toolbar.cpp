@@ -3,6 +3,7 @@
 
 #include "app.h"
 #include "modules.h"
+#include "emulator_manager.h"
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -22,6 +23,8 @@ void doPlayConsole(App& a) {
   if (a.target.empty()) { EditorLog::instance().error("play: the project's target (" + a.project.target + ") has no editor module; console run is not available"); return; }
   // The target's build support module must be installed: otherwise ask (Install now?) and continue after the install.
   if (!gateTargetModule(a, a.target, AfterModule::PlayConsole)) return;
+  // The emulator must be there too: otherwise offer to install it (F5.04) and continue after.
+  if (!gateTargetEmulator(a, a.target, AfterEmulator::PlayConsole)) return;
   if (a.scripts.enabled) {  // changed scripts must be compiled in first; the restart that follows resumes the Play
     ScriptSync sync = scriptsSync(a);
     if (sync == ScriptSync::Building) {

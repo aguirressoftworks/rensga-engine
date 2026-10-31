@@ -9,6 +9,7 @@
 #include "panels/asset_ui.h"
 #include "panels/tile_tools.h"
 #include "rensga/editor/editor_log.h"
+#include "rensga/editor/inspector_model.h"
 
 namespace rensga {
 namespace editor {
@@ -27,8 +28,18 @@ static void loadPending(AssetUi& u) {
 
 static bool isProjectTab(const AssetUi& u, const std::string& tab) { return tab.empty() || tab == u.cookTarget; }
 
-static std::vector<ImportField> fieldsFor(AssetUi& u, const AssetEntry& e, const std::string& tab) {
-  return importFields(e.kind, u.ct, isProjectTab(u, tab));
+// F5.06: the target's import rules (module overrides + ConsoleTarget limits).
+static const ImportRules& rulesFor(App& a, AssetUi& u) {
+  static ImportRules rules;
+  static std::string key;
+  const std::string k = u.root.string() + "|" + u.cookTarget + "|" + std::to_string(u.ct.maxTextureSize) + "|" + std::to_string(u.ct.audioSampleRate) +
+                        "|" + std::to_string(u.ct.textureFormats.size()) + "|" + std::to_string(u.ct.features.size());
+  if (k != key) { key = k; rules = effectiveImportRules(a.targetModule(), u.ct); }
+  return rules;
+}
+
+static std::vector<ImportField> fieldsFor(App& a, AssetUi& u, const AssetEntry& e, const std::string& tab) {
+  return importFields(e.kind, u.ct, isProjectTab(u, tab), &rulesFor(a, u));
 }
 
 void assetInspectSetTab(App& a, const std::string& tab) {
@@ -63,12 +74,11 @@ static void setPending(AssetUi& u, const ImportField& f, const json& v) {
 }
 
 bool assetInspectSetField(App& a, const std::string& key, const std::string& value) {
-  (void)a;
   AssetUi& u = assetUi();
   const AssetEntry* e = selected(u);
   if (!e) return false;
   if (u.pendingGuid != u.selGuid || u.pendingTab != u.tab) loadPending(u);
-  for (const ImportField& f : fieldsFor(u, *e, u.tab))
+  for (const ImportField& f : fieldsFor(a, u, *e, u.tab))
     if (f.key == key) {
       bool ok = false;
       json v = parseValue(f, value, ok);
@@ -133,8 +143,38 @@ static std::string kb(uint64_t b) {
   return t;
 }
 
+static void drawCost(const AssetCost& c, const char* targetName) {
+  ImGui::SeparatorText((std::string("Cost on ") + targetName).c_str());
+  if (!c.valid && c.notes.empty()) { ImGui::TextDisabled("not available"); return; }
+  if (c.valid) {
+    ImGui::TextWrapped("%s", c.detail.c_str());
+    ImGui::Text("VRAM %s (%llu bytes)   RAM %s (%llu bytes)", kb(c.vramBytes).c_str(), static_cast<unsigned long long>(c.vramBytes), kb(c.ramBytes).c_str(),
+                static_cast<unsigned long long>(c.ramBytes));
+  }
+  for (const std::string& n : c.notes) {
+    ImGui::PushStyleColor(ImGuiCol_Text, brandToken("warn"));
+    ImGui::TextWrapped("[!] %s", n.c_str());
+    ImGui::PopStyleColor();
+  }
+}
+
+static void drawModelCost(App& a, AssetUi& u, const AssetEntry& e) {
+  const std::string target = u.tab.empty() ? u.cookTarget : u.tab;
+  const bool projectTab = isProjectTab(u, u.tab);
+  const ImportRules& rules = rulesFor(a, u);
+  const json cur = u.pending.contains("vertexPrecision") ? u.pending["vertexPrecision"] : json();
+  const std::string vp = cur.is_string() ? cur.get<std::string>() : (rules.vertexPrecisions.empty() ? std::string("float") : rules.vertexPrecisions.back());
+  const bool compact = projectTab && rules.vertexPrecisions.size() > 1;
+  static std::string key;
+  static AssetCost cost;
+  const std::string k = e.guid + "|" + vp + "|" + std::to_string(compact) + "|" + std::to_string(u.sync.generation());
+  if (k != key) { key = k; cost = modelCost(e.path, u.ct, vp, compact); }
+  const TargetModule* tm = a.targetModule();
+  drawCost(cost, projectTab && tm ? std::string(tm->displayName()).c_str() : target.c_str());
+}
+
 static void drawPreview(App& a, AssetUi& u, const AssetEntry& e) {
-  (void)a;
+  if (e.kind == AssetKind::Model) { drawModelCost(a, u, e); return; }
   if (e.kind != AssetKind::Texture && e.kind != AssetKind::Audio) return;
   const std::string target = u.tab.empty() ? u.cookTarget : u.tab;
   json meta = e.meta;
@@ -186,9 +226,17 @@ static void drawPreview(App& a, AssetUi& u, const AssetEntry& e) {
         ImGui::Text("VRAM: %s of %s (%.1f%%)", kb(o.cookedBytes).c_str(), kb(u.ct.vramBytes).c_str(), pct);
       }
     }
+    if (isProjectTab(u, u.tab)) {
+      const TargetModule* tm = a.targetModule();
+      drawCost(textureCost(o, rulesFor(a, u)), tm ? std::string(tm->displayName()).c_str() : u.cookTarget.c_str());
+    }
   } else {
     ImGui::Text("%u Hz, %u channel(s), %u frames", o.audioRate, o.audioChannels, o.audioFrames);
     ImGui::Text("Cooked: %s", kb(o.cookedBytes).c_str());
+    if (isProjectTab(u, u.tab)) {
+      const TargetModule* tm = a.targetModule();
+      drawCost(audioCost(o), tm ? std::string(tm->displayName()).c_str() : u.cookTarget.c_str());
+    }
   }
 }
 
@@ -215,7 +263,7 @@ bool drawAssetInspector(App& a) {
     if (ImGui::Button("Open Tile Palette", ImVec2(-FLT_MIN, 0))) openTilePalette(a, e.guid);
   }
 
-  const std::vector<ImportField> base = fieldsFor(u, e, u.tab);
+  const std::vector<ImportField> base = fieldsFor(a, u, e, u.tab);
   if (base.empty()) {
     ImGui::Spacing();
     ImGui::TextDisabled("No import settings for this kind of asset.");
@@ -241,6 +289,28 @@ bool drawAssetInspector(App& a) {
     ImGui::EndTabBar();
   }
   const bool defaultTab = u.tab.empty();
+  if (isProjectTab(u, u.tab)) {  // F5.06: what the target takes (ImportRules)
+    const ImportRules& r = rulesFor(a, u);
+    std::string line = "Target limits:";
+    if (e.kind == AssetKind::Texture) {
+      if (r.maxTextureSize) line += " textures up to " + std::to_string(r.maxTextureSize) + " px (larger ones are downscaled)";
+      if (r.pow2Warn) line += ", stored at power-of-two sizes";
+      if (!r.clutDepths.empty()) {
+        line += ", palettes";
+        for (int d : r.clutDepths) line += " " + std::to_string(d) + "-bit";
+      }
+    } else if (e.kind == AssetKind::Audio) {
+      line += " sample rates";
+      for (int hz : r.audioRates) line += " " + std::to_string(hz);
+      line += " Hz";
+    } else if (e.kind == AssetKind::Model) {
+      line += " vertices";
+      for (const std::string& v : r.vertexPrecisions) line += " " + v;
+      if (u.ct.maxBonesPerDraw) line += ", " + std::to_string(u.ct.maxBonesPerDraw) + " bones per draw";
+      if (u.ct.maxSkinnedJoints) line += ", " + std::to_string(u.ct.maxSkinnedJoints) + " joints per skin";
+    }
+    ImGui::TextDisabled("%s.", line.c_str());
+  }
   if (!defaultTab)
     ImGui::TextWrapped("Override for '%s'. Tick a field to replace the default for this target only.", u.tab.c_str());
   const json defaults = u.sync.db().importSettings(e.guid, "");

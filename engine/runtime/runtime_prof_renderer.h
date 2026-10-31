@@ -17,17 +17,21 @@ class ProfilingRenderer : public IRenderer {
   void setEndHook(EndHook hook, void* user = nullptr) { hook_ = hook; user_ = user; }
 
   bool init(u32 w, u32 h) override { return in_.init(w, h); }
-  void setMeshes(const MeshTable& t) override { in_.setMeshes(t); }
+  void setMeshes(const MeshTable& t) override { table_ = t; in_.setMeshes(t); }
+  // F5.11: the mains upload meshes to the real renderer; this only tells the wrapper the table so it can count triangles per draw.
+  void observeMeshes(const MeshTable& t) { table_ = t; }
   void beginFrame(Color32 clear) override { in_.beginFrame(clear); }
   void setCamera(const Matrix4& v, const Matrix4& p) override { in_.setCamera(v, p); }
-  void drawMesh(u32 mesh, const Matrix4& world, u32 key) override { in_.drawMesh(mesh, world, key); }
+  void drawMesh(u32 mesh, const Matrix4& world, u32 key) override { count(mesh); in_.drawMesh(mesh, world, key); }
   void setFrameLights(const RenderLight* lights, u32 count, Color32 ambient) override { in_.setFrameLights(lights, count, ambient); }
   void setFog(bool on, Color32 color, Scalar start, Scalar end) override { in_.setFog(on, color, start, end); }
-  void drawMeshEx(u32 mesh, const Matrix4& world, u32 key, const DrawParams& p) override { in_.drawMeshEx(mesh, world, key, p); }
+  void drawMeshEx(u32 mesh, const Matrix4& world, u32 key, const DrawParams& p) override { count(mesh); in_.drawMeshEx(mesh, world, key, p); }
   void drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 c) override { in_.drawOverlayQuad(x, y, w, h, c); }
   void endFrame() override {
     if (hook_) hook_(in_, user_);
     prof_.mark(ProfSection::Render);
+    prof_.noteDraws(draws_, tris_);  // F5.11 scene budget counters
+    draws_ = tris_ = 0;
     in_.endFrame();
   }
   u32 width() const override { return in_.width(); }
@@ -41,8 +45,16 @@ class ProfilingRenderer : public IRenderer {
   void setVirtualResolution(u32 w, u32 h) override { in_.setVirtualResolution(w, h); }
 
  private:
+  void count(u32 mesh) {
+    ++draws_;
+    if (mesh >= table_.meshCount) return;
+    const u32 v = table_.lit && !table_.lit[mesh].isBaked() ? table_.lit[mesh].vertexCount : table_.meshes[mesh].vertexCount;
+    tris_ += v / 3;
+  }
   IRenderer& in_;
   FrameProfiler& prof_;
+  MeshTable table_;
+  u32 draws_ = 0, tris_ = 0;
   EndHook hook_ = nullptr;
   void* user_ = nullptr;
 };
