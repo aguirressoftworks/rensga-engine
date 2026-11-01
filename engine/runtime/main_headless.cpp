@@ -1,5 +1,5 @@
 // Linux-host simulation: the real GameLoop with null backends and scripted VirtualGamepad input.
-//   rensga_headless (--pack <game.rpak> | --scene-test) [--frames N] [--input script.json] [--save-dir D] [--hash] [--trace] [--obj-frame N]
+//   rensga_headless (--pack <game.rpak> [--scene <name>] | --scene-test) [--frames N] [--input script.json] [--save-dir D] [--hash] [--trace] [--obj-frame N]
 // --save-dir D  where save:/ points (default: the current folder); 2D packs bind their assets with null texture handles.
 // Prints the acceptance log lines, "rensga: alloc-check frames=<N> allocs=<K>" and, with --hash, "rensga: hash <hex>".
 // --trace logs one hash per frame; --obj-frame N dumps every object's bits after frame N (see Sim.h).
@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "rensga/core/application.h"
 #include "rensga/Sim.h"
 #include "rensga/core/animation.h"
 #include "runtime_boot.h"
@@ -14,13 +15,14 @@
 using namespace rensga;
 
 static void usage() {
-  fprintf(stderr, "usage: rensga_headless (--pack <file> | --scene-test) [--frames N] [--input script.json] [--save-dir D] [--hash] [--trace] [--obj-frame N]\n");
+  fprintf(stderr, "usage: rensga_headless (--pack <file> [--scene <name>] | --scene-test) [--frames N] [--input script.json] [--save-dir D] [--hash] [--trace] [--obj-frame N]\n");
 }
 
 int main(int argc, char** argv) {
   const char* packPath = nullptr;
   const char* inputPath = nullptr;
   const char* saveDir = nullptr;
+  const char* startScene = nullptr;  // --scene: start in this scene of the pack (default: the first)
   bool sceneTest = false, printHash = false;
   u32 frames = 120;
   SimTraceOptions topt;
@@ -28,6 +30,7 @@ int main(int argc, char** argv) {
     if (!strcmp(argv[i], "--pack") && i + 1 < argc) packPath = argv[++i];
     else if (!strcmp(argv[i], "--input") && i + 1 < argc) inputPath = argv[++i];
     else if (!strcmp(argv[i], "--save-dir") && i + 1 < argc) saveDir = argv[++i];
+    else if (!strcmp(argv[i], "--scene") && i + 1 < argc) startScene = argv[++i];
     else if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = static_cast<u32>(atoi(argv[++i]));
     else if (!strcmp(argv[i], "--scene-test")) sceneTest = true;
     else if (!strcmp(argv[i], "--hash")) printHash = true;
@@ -65,6 +68,7 @@ int main(int argc, char** argv) {
     BootDeps deps;          // no renderer: texture handles stay 0, 2D components still find their records
     deps.fs = &fs; deps.arena = &arena; deps.world = &world;
     deps.packPath = packPath;
+    deps.startScene = startScene;
     deps.saves = &saves;
     if (!bootPack(deps, boot)) return 3;
   } else {
@@ -81,6 +85,7 @@ int main(int argc, char** argv) {
     printf("rensga: hash %08x\n", r.hash);
     if (AnimationSystem::stepCount()) printf("rensga: skinhash %08x\n", AnimationSystem::skinHash());
   }
+  Application::runQuitHooks();  // F6 a3: PlayerPrefs writes itself on a clean exit
   world.shutdown();
   return allocs == 0 ? 0 : 4;
 }

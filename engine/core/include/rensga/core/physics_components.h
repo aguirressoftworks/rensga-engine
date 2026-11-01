@@ -35,6 +35,10 @@ struct Rigidbody : Component {
   Vector3 force_;    // accumulated this step (Force / Acceleration)
   Vector3 impulse_;  // accumulated this step (Impulse / VelocityChange), applied as a velocity change
   bool sleeping_ = false;
+  // F6.08 (A2) additive runtime state of the 3D step; not reflected.
+  Vector3 moveTarget_;       // MovePosition target, consumed by the next fixed step
+  bool hasMove_ = false;
+  u8 sleepTicks_ = 0;        // consecutive fixed steps at rest
 
   // ---- Unity API. Defined in engine/api/src/physics_api.cpp (stubs until A2).
   void AddForce(const Vector3& force, ForceMode mode = ForceMode::Force);

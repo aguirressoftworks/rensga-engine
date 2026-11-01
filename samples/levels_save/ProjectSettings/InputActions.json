@@ -1,0 +1,12 @@
+{
+ "format": 1,
+ "stickDeadZone": 0.2,
+ "stickOuterClamp": 0.95,
+ "actions": [
+  {
+   "name": "Confirm",
+   "kind": "button",
+   "source": "south"
+  }
+ ]
+}

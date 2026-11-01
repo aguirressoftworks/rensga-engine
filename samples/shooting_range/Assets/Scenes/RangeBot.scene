@@ -1,0 +1,1018 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000000802",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9001-000000000001",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     4.4,
+     14.5
+    ],
+    "rotation": [
+     -0.121869,
+     -0.0,
+     -0.0,
+     0.992546
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {
+      "fov": 60.0,
+      "nearClip": 0.3,
+      "farClip": 60.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000002",
+   "name": "Sun",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     6,
+     0
+    ],
+    "rotation": [
+     0.422618,
+     0.0,
+     0.0,
+     0.906308
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 0,
+      "color": [
+       255,
+       244,
+       224,
+       255
+      ],
+      "intensity": 0.85,
+      "range": 0.0,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000003",
+   "name": "RenderSettings",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "RenderSettings",
+     "fields": {
+      "ambient": [
+       95,
+       95,
+       110,
+       255
+      ],
+      "fogEnabled": false,
+      "fogColor": [
+       0,
+       0,
+       0,
+       255
+      ],
+      "fogStart": 0.0,
+      "fogEnd": 0.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000004",
+   "name": "Game",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "RangeGame",
+     "fields": {
+      "bot": true,
+      "shotInterval": 24,
+      "maxShots": 14,
+      "knockback": 6.0,
+      "targetCount": 5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000005",
+   "name": "Floor",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     -0.5,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     30,
+     1,
+     40
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000600"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000006",
+   "name": "Backstop",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     3.0,
+     -16.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     28,
+     6,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000601"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000007",
+   "name": "LaneL",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -14.5,
+     0.5,
+     -2.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     36
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000602"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000008",
+   "name": "LaneR",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     14.5,
+     0.5,
+     -2.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     36
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000602"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000009",
+   "name": "Bench",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0.45,
+     9.8
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     4,
+     0.9,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000603"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9001-00000000000a",
+   "name": "Target0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -5.0,
+     0.7,
+     -3.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     0.9,
+     1.4,
+     0.3
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000604"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    },
+    {
+     "type": "Rigidbody",
+     "fields": {
+      "mass": 1.5
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 8
+  },
+  {
+   "guid": "00000000-0000-4000-9001-00000000000b",
+   "name": "Target1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -2.0,
+     0.7,
+     -6.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     0.9,
+     1.4,
+     0.3
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000604"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    },
+    {
+     "type": "Rigidbody",
+     "fields": {
+      "mass": 1.5
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 8
+  },
+  {
+   "guid": "00000000-0000-4000-9001-00000000000c",
+   "name": "Target2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1.5,
+     0.7,
+     -9.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     0.9,
+     1.4,
+     0.3
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000604"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    },
+    {
+     "type": "Rigidbody",
+     "fields": {
+      "mass": 1.5
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 8
+  },
+  {
+   "guid": "00000000-0000-4000-9001-00000000000d",
+   "name": "Target3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     5.0,
+     0.7,
+     -5.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     0.9,
+     1.4,
+     0.3
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000604"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    },
+    {
+     "type": "Rigidbody",
+     "fields": {
+      "mass": 1.5
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 8
+  },
+  {
+   "guid": "00000000-0000-4000-9001-00000000000e",
+   "name": "Target4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -6.0,
+     0.7,
+     -11.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     0.9,
+     1.4,
+     0.3
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000604"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    },
+    {
+     "type": "Rigidbody",
+     "fields": {
+      "mass": 1.5
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 8
+  },
+  {
+   "guid": "00000000-0000-4000-9001-00000000000f",
+   "name": "Decoy0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -1.67,
+     0.8,
+     -3.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.3,
+     1.6,
+     0.3
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000605"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 9
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000010",
+   "name": "Decoy1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     3.57,
+     0.8,
+     -1.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.3,
+     1.6,
+     0.3
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000605"
+     }
+    },
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 9
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000011",
+   "name": "Zone",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     1.0,
+     7.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     3,
+     2,
+     2.4
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1,
+       1,
+       1
+      ],
+      "isTrigger": true
+     }
+    },
+    {
+     "type": "ZoneCounter",
+     "fields": {}
+    }
+   ],
+   "prefab": null,
+   "layer": 10
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000012",
+   "name": "Runner",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -5.0,
+     0.5,
+     7.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c002",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000606"
+     }
+    },
+    {
+     "type": "SphereCollider",
+     "fields": {
+      "radius": 0.5,
+      "isTrigger": false
+     }
+    },
+    {
+     "type": "Rigidbody",
+     "fields": {
+      "mass": 1.0
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 11
+  },
+  {
+   "guid": "00000000-0000-4000-9001-000000000013",
+   "name": "ZonePad",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0.01,
+     7.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     3,
+     0.02,
+     2.4
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000607"
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

@@ -149,8 +149,14 @@ class World {
   // Calls OnTriggerEnter on every behaviour attached to `self`.
   void sendTriggerEnter(GameObject* self, GameObject* other);
   // Calls the matching contact callback (Behaviour::OnTriggerExit, OnTriggerEnter2D, ...) on every behaviour of `self`.
-  enum class Contact : u8 { TriggerEnter, TriggerExit, TriggerEnter2D, TriggerExit2D, CollisionEnter2D, CollisionExit2D };
+  enum class Contact : u8 { TriggerEnter, TriggerExit, TriggerEnter2D, TriggerExit2D, CollisionEnter2D, CollisionExit2D,
+                            TriggerStay, TriggerStay2D };  // F6 (A2): the Stay kinds were appended
   void sendContact(GameObject* self, GameObject* other, Contact kind);
+  // --- F6 a2 ---  3D / 2D collision callbacks with their data (physics3d dispatches these after the step).
+  enum class CollisionKind : u8 { Enter, Stay, Exit };
+  void sendCollision(GameObject* self, const Collision& c, CollisionKind kind);
+  void sendCollision2D(GameObject* self, const Collision2D& c, CollisionKind kind);
+  // --- end F6 a2 ---
   // F5.13: calls OnApplicationPause(paused) on every started behaviour (pumpApplicationEvents calls this).
   void sendApplicationPause(bool paused);
   // Calls OnUIClick on every behaviour attached to `self`.
@@ -167,6 +173,28 @@ class World {
   void dontDestroyOnLoad(GameObject* go);
 
   Arena& arena() { return *arena_; }
+
+  // ---- F6 (A3): additive and incremental scene loading (engine/core/src/scene_load.cpp). Objects carry the SCNE index of the
+  // scene that made them (GameObject::sceneIndex). A load builds the scene's objects INACTIVE and not awake over several
+  // steps (stepSceneLoad), then finishSceneLoad restores their active flags and wakes the roots like loadPack does.
+  struct SceneLoadJob {
+    const PackView* pack = nullptr;
+    u32 scene = 0, first = 0, count = 0;
+    u32 phase = 0;    // 0 objects, 1 parents, 2 components, 3 mesh links, 4 built
+    u32 cursor = 0;
+    u32 done = 0, total = 1;  // work items finished / in all (progress = done / total)
+    bool active = false;
+  };
+  // Does the scene fit next to what is loaded: free object slots, free slots of each component pool, arena bytes for new pools
+  // and the job table. False fills `why` (names the pool or the figure). No allocation.
+  bool sceneFits(const PackView& pack, u32 sceneIndex, char* why, u32 whySize) const;
+  bool beginSceneLoad(const PackView& pack, u32 sceneIndex, SceneLoadJob& job, char* why, u32 whySize);
+  // Builds up to `maxItems` more objects / links / components. True once the whole scene is built.
+  bool stepSceneLoad(SceneLoadJob& job, u32 maxItems);
+  bool finishSceneLoad(SceneLoadJob& job);  // activates and wakes the built scene
+  void abortSceneLoad(SceneLoadJob& job);   // destroys what was built
+  u32 destroyScene(i32 sceneIndex);         // root objects (with children) made by that scene, DontDestroyOnLoad roots excepted
+  u32 sceneObjectCount(i32 sceneIndex) const;
 
   // ---- coroutines, Invoke (F3.05): the loop resumes them at Unity's points; see coroutine.h
   Scheduler& scheduler() { return scheduler_; }
@@ -205,6 +233,7 @@ class World {
   bool editMode_ = false;
   bool started_ = false;      // true after the first startPending(): later components Awake immediately
   u32 cloneDepth_ = 0;        // >0 while Instantiate copies: the clone wakes up once it is complete
+  u32* sceneMap_ = nullptr;   // F6 (A3): scene-local index -> object index while an incremental load runs (one per world)
   DelayedDestroy* delayed_ = nullptr;
   u32 delayedCount_ = 0;
   static inline World* active_ = nullptr;

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "rensga/core/application.h"
 #include "rensga/Rensga.h"
 #include "rensga/core/app_events.h"
 #include "rensga/core/dev_control.h"
@@ -325,6 +326,7 @@ int main(int, char** argv) {
   logMemBudget(ram, arena);
   RLOG_INFO("game", "rensga: quit after %u frames", static_cast<unsigned>(frame));
   log::flushAll();
+  Application::runQuitHooks();  // F6 a3: PlayerPrefs writes itself on a clean exit
   audio.shutdown();
   world.shutdown();
   platform.shutdown();

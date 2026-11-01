@@ -325,6 +325,7 @@ int main(int argc, char** argv) {
   if (stressCount && renderer.droppedSprites()) RLOG_WARN("game", "rensga: dropped %u sprites", renderer.droppedSprites());
   RLOG_INFO("game", "rensga: quit after %u frames", frame);
   log::flushAll();
+  Application::runQuitHooks();  // F6 a3: PlayerPrefs writes itself on a clean exit
   audio.shutdown();
   world.shutdown();
   renderer.shutdown();  // while the GL context exists; the static's destructor runs after it is gone

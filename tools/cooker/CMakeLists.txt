@@ -47,3 +47,19 @@ if(TARGET rensga_cooker_scripts)
   target_link_libraries(rensga-cooker PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,rensga_cooker_scripts>")
 endif()
 rensga_host_target(rensga-cooker)
+
+# --- F6 A1 begin ---
+# Prefab file format + expansion (F6.01): shared by the cooker and the editor, so they live in the cooker core.
+target_sources(rensga_cooker_core PRIVATE src/prefab_expand.cpp src/prefab_cook.cpp ${CMAKE_SOURCE_DIR}/editor/core/src/prefab_format.cpp)
+target_include_directories(rensga_cooker_core PUBLIC ${CMAKE_SOURCE_DIR}/editor/core/include)
+# --- F6 A1 end ---
+
+# --- F6 a2 begin ---
+# PHY3 (3D physics settings, F6.08).
+target_sources(rensga_cooker_core PRIVATE src/physics_cook.cpp)
+# --- F6 a2 end ---
+
+# --- F6 a3 begin ---
+# RSRC (Resources.Load names) and the additive scene flag (F6.11).
+target_sources(rensga_cooker_core PRIVATE src/resources_cook.cpp)
+# --- F6 a3 end ---

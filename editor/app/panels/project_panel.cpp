@@ -5,9 +5,12 @@
 #include <cstring>
 #include <set>
 
+#include <imgui_internal.h>
+
 #include "app.h"
 #include "panel_registry.h"
 #include "panels/asset_ui.h"
+#include "panels/prefab_ui.h"
 #include "panels/tile_tools.h"
 #include "rensga/editor/asset_stubs.h"
 #include "rensga/editor/editor_log.h"
@@ -181,6 +184,7 @@ static bool openAsset(App& a, const Tile& t) {
   AssetUi& u = assetUi();
   if (t.kind == AssetKind::Folder) { u.folder = relOf(a, t.path); u.search[0] = 0; return true; }
   if (t.kind == AssetKind::Scene) return openSceneFile(a, t.path);
+  if (t.kind == AssetKind::Prefab && !t.guid.empty()) return prefabOpen(a, t.guid);   // F6.01: double-click opens prefab mode
   if (t.kind == AssetKind::Texture && !t.guid.empty()) { openSpriteEditor(a, t.guid); return true; }   // F4.08
   if (t.kind == AssetKind::Tilemap && !t.guid.empty()) { openTilePalette(a, t.guid); return true; }
   if (t.kind == AssetKind::Script) {
@@ -399,6 +403,14 @@ void drawProjectPanel(App& a) {
     if (e && ImGui::IsKeyPressed(ImGuiKey_Delete, false)) { u.deleteRel = e->rel; u.openDelete = true; }
   }
   ImGui::EndChild();
+  {  // F6.01: a Hierarchy object dropped on the Project window becomes a prefab in the current folder
+    ImGuiWindow* win = ImGui::GetCurrentWindow();
+    if (ImGui::BeginDragDropTargetCustom(win->Rect(), win->ID)) {
+      if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("RENSGA_OBJECT"))
+        prefabCreateFromObject(a, static_cast<const char*>(p->Data), a.project.root / (u.folder.empty() ? "Assets" : u.folder));
+      ImGui::EndDragDropTarget();
+    }
+  }
   drawAssetDialogs(a);
   ImGui::End();
 }

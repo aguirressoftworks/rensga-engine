@@ -1,4 +1,5 @@
 #include "panels/asset_ui.h"
+#include "panels/prefab_ui.h"
 #include "panel_registry.h"
 
 #include <algorithm>
@@ -84,6 +85,7 @@ bool acceptAssetDrop(App& a, const std::string& guid, const std::string& targetO
   if (!e) { log.warn("drop: " + u.sync.db().describeGuid(guid)); return false; }
   switch (e->kind) {
     case AssetKind::Scene: return openSceneFile(a, e->path);
+    case AssetKind::Prefab: return prefabInstantiateFromAsset(a, guid, targetObject);  // F6.01
     case AssetKind::Script: {
       std::string cls;
       for (const ScriptInfo& sc : a.scripts.list)

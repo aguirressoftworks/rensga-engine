@@ -25,7 +25,32 @@ RuntimePlatform g_platform = compiledPlatform();
 ConsoleProfile g_profile = ConsoleProfile::Unknown;
 }  // namespace
 
-void Application::Quit() { g_quit = true; }
+// --- F6 a3 --- quit hooks
+namespace {
+constexpr u32 kMaxQuitHooks = 4;
+Application::QuitHook g_quitHooks[kMaxQuitHooks] = {};
+bool g_hooksRan = false;
+}  // namespace
+bool Application::addQuitHook(QuitHook hook) {
+  if (!hook) return false;
+  for (u32 i = 0; i < kMaxQuitHooks; ++i)
+    if (g_quitHooks[i] == hook) return true;
+  for (u32 i = 0; i < kMaxQuitHooks; ++i)
+    if (!g_quitHooks[i]) { g_quitHooks[i] = hook; return true; }
+  return false;
+}
+void Application::runQuitHooks() {
+  if (g_hooksRan) return;
+  g_hooksRan = true;
+  for (u32 i = 0; i < kMaxQuitHooks; ++i)
+    if (g_quitHooks[i]) g_quitHooks[i]();
+}
+// --- end F6 a3 ---
+
+void Application::Quit() {
+  g_quit = true;
+  runQuitHooks();
+}
 bool Application::quitRequested() { return g_quit; }
 bool Application::isPlaying() { return g_playing; }
 void Application::setPlaying(bool playing) { g_playing = playing; }
@@ -87,6 +112,7 @@ void Application::reset() {
   g_fps = -1;
   g_platform = compiledPlatform();
   g_profile = ConsoleProfile::Unknown;
+  g_hooksRan = false;
 }
 
 }  // namespace rensga

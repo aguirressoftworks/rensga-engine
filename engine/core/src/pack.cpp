@@ -378,6 +378,39 @@ bool World::loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex) {
   } else {
     for (u32 id = 0; id < kMaxTypes; ++id) perType[id] = perScene[id];
   }
+  // --- F6 a3 --- scenes flagged kSceneAdditive (Project.json "additiveScenes") are loaded together with another scene: size every
+  // pool for the biggest ordinary scene plus all the additive ones. Packs without the flag are sized exactly as before.
+  if (scenes) {
+    bool anyAdditive = false;
+    for (u32 s = 0; s < sceneCount; ++s) anyAdditive = anyAdditive || (scenes[s].reserved & kSceneAdditive);
+    if (anyAdditive) {
+      u32 plain[kMaxTypes] = {}, extra[kMaxTypes] = {};
+      for (u32 s = 0; s < sceneCount; ++s) {
+        u32 c[kMaxTypes] = {};
+        for (u32 i = 0; i < compCount; ++i) {
+          const TypeInfo* t = TypeRegistry::instance().findByHash(comps[i].typeHash);
+          const u32 o = comps[i].objectIndex;
+          if (t && o >= scenes[s].firstObject && o - scenes[s].firstObject < scenes[s].objectCount) ++c[t->id];
+        }
+        for (u32 id = 0; id < kMaxTypes; ++id) {
+          if (scenes[s].reserved & kSceneAdditive) extra[id] += c[id];
+          else if (c[id] > plain[id]) plain[id] = c[id];
+        }
+      }
+      for (u32 id = 0; id < kMaxTypes; ++id)
+        if (plain[id] + extra[id] > perType[id]) perType[id] = plain[id] + extra[id];
+    }
+  }
+  // PCAP: extra slots a project asked for (Project.json "componentReserve"), for Instantiate and object pools
+  {
+    u32 reserveCount = 0;
+    const PackPoolReserve* res = pack.records<PackPoolReserve>(pack_section::PCAP, &reserveCount);
+    for (u32 i = 0; res && i < reserveCount; ++i) {
+      const TypeInfo* t = TypeRegistry::instance().findByHash(res[i].typeHash);
+      if (t) perType[t->id] += res[i].extra;
+    }
+  }
+  // --- end F6 a3 ---
   for (u32 id = 0; id < kMaxTypes; ++id) {
     if (!perType[id]) continue;
     const TypeInfo* t = TypeRegistry::instance().byId(id);
@@ -402,6 +435,7 @@ bool World::loadPack(const PackView& pack, LoadedPack* out, u32 sceneIndex) {
       return false;
     }
     go->guid = objs[i].guid;
+    go->sceneIndex = static_cast<i16>(sceneIndex);  // --- F6 a3 ---
     go->selfActive_ = objs[i].active != 0;
     go->layer = objs[i].layer;
     if (pack.header->version >= 2 && objs[i].tag != 0) {

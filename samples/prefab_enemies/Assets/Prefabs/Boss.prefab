@@ -1,0 +1,29 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-8000-00000000f002",
+ "variant": {
+  "base": "00000000-0000-4000-8000-00000000f001",
+  "overrides": [
+   {
+    "fileId": 1,
+    "path": "MeshRenderer.color",
+    "value": [
+     150,
+     60,
+     200,
+     255
+    ]
+   },
+   {
+    "fileId": 3,
+    "path": "@scale",
+    "value": [
+     0.6,
+     0.6,
+     0.3
+    ]
+   }
+  ]
+ },
+ "nextFileId": 1
+}

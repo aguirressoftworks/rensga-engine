@@ -1,0 +1,298 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000000a01",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000040961",
+   "name": "Backdrop",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 272,
+      "color": [
+       22,
+       26,
+       48,
+       255
+      ],
+      "sortingOrder": -10
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040962",
+   "name": "Band",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 0,
+      "y": 70,
+      "w": 480,
+      "h": 56,
+      "color": [
+       40,
+       48,
+       90,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040963",
+   "name": "MenuTitle",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 20,
+      "y": 86,
+      "color": [
+       250,
+       200,
+       40,
+       255
+      ],
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040964",
+   "name": "MenuLine",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 20,
+      "y": 150,
+      "color": [
+       235,
+       235,
+       235,
+       255
+      ],
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040965",
+   "name": "MenuRuns",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 20,
+      "y": 176,
+      "color": [
+       150,
+       160,
+       190,
+       255
+      ],
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040966",
+   "name": "MenuHint",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 20,
+      "y": 210,
+      "color": [
+       150,
+       160,
+       190,
+       255
+      ],
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040967",
+   "name": "Flow",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "LevelFlow",
+     "fields": {
+      "minLoadFrames": 90,
+      "chunk": 2,
+      "afterSave": 0,
+      "menuFrames": 40
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

@@ -85,6 +85,15 @@ struct SceneManager {
   static void removeSceneUnloaded(SceneUnloadedCallback cb);
   // Called by GameLoop::frame after the frame. Returns true if a scene was loaded.
   static bool processPending(World& world);
+
+  // ---- F6 (A3) additions ----
+  static const PackView* pack();                 // the bound pack (null before bind)
+  static bool isSceneLoaded(i32 buildIndex);
+  // Work items (objects, parent links, components) one async load step does per frame; default 32. A small value stretches a load
+  // over more frames (loading screens, tests). 0 is treated as 1.
+  static void setAsyncChunk(u32 items);
+  static u32 asyncChunk();
+  static u32 loadsCompleted();                   // scenes loaded since bind (any mode), for logs and tests
 };
 
 }  // namespace rensga

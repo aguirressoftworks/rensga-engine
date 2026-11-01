@@ -21,5 +21,9 @@ target_link_libraries(rensga_editor_core PUBLIC ${CMAKE_DL_LIBS})
 rensga_host_target(rensga_editor_core)
 
 # --- F6 E0 begin ---
-target_sources(rensga_editor_core PRIVATE src/project_settings.cpp src/prefab_format.cpp src/asset_stubs.cpp)  # F6 contract: settings schemas, prefab format, asset stubs
+target_sources(rensga_editor_core PRIVATE src/project_settings.cpp  src/asset_stubs.cpp)  # F6 contract: settings schemas, prefab format, asset stubs
 # --- F6 E0 end ---
+
+# --- F6 A1 begin ---
+target_sources(rensga_editor_core PRIVATE src/prefab_library.cpp src/prefab_edit.cpp src/prefab_scene.cpp)  # F6.01 prefabs (the format and expansion live in the cooker core)
+# --- F6 A1 end ---

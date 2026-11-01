@@ -36,6 +36,7 @@ class PspPlatform : public IPlatform {
   u64 usedSystemMemoryBytes() override;
   u64 usedGraphicsMemoryBytes() override;
   i32 saveDialog(const char* slot, void* data, u32 bytes, bool load) override;
+  void setSaveMetadata(const char* title, const char* detail) override;  // F6 (A3): PARAM.SFO title / detail of the next SAVEDATA save
 
   // Utility dialogs (OSK, savedata) draw through the GE, so they are driven by the runtime main:
   //  - updateDialogs() runs once per frame AFTER the frame's display list is finished and the GE is idle (GuRenderer::flush())
@@ -69,6 +70,8 @@ class PspPlatform : public IPlatform {
   u64 memTotal_ = 0;
   void* vramUser_ = nullptr;
   bool saveAuto_ = false;
+  char saveTitle_[32] = {};   // F6 (A3): from SaveSystem::Write, empty = the defaults
+  char saveDetail_[32] = {};
   int osk_ = 0;  // 0 closed, 1 open
   i32 oskResult_ = 3;
   u32 delivSuspends_ = 0, delivResumes_ = 0;

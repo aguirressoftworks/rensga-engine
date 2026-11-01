@@ -165,6 +165,9 @@ bool World::init(const WorldConfig& config, Arena& arena) {
   pendingDestroy_ = false;
   started_ = false;
   cloneDepth_ = 0;
+  // --- F6 a3 ---
+  sceneMap_ = nullptr;
+  // --- end F6 a3 ---
   delayedCount_ = 0;
   delayed_ = config.maxDelayedDestroys ? arena.allocateArray<DelayedDestroy>(config.maxDelayedDestroys) : nullptr;
   if (config.maxDelayedDestroys && !delayed_) return false;
@@ -612,9 +615,45 @@ void World::sendContact(GameObject* self, GameObject* other, Contact kind) {
       case Contact::TriggerExit2D: b->OnTriggerExit2D(other); break;
       case Contact::CollisionEnter2D: b->OnCollisionEnter2D(other); break;
       case Contact::CollisionExit2D: b->OnCollisionExit2D(other); break;
+      case Contact::TriggerStay: b->OnTriggerStay(other); break;   // F6 a2
+      case Contact::TriggerStay2D: b->OnTriggerStay2D(other); break;
     }
   }
 }
+
+// --- F6 a2 ---
+void World::sendCollision(GameObject* self, const Collision& c, CollisionKind kind) {
+  if (!self || self->dying) return;
+  for (u32 i = 0; i < self->componentCount; ++i) {
+    ComponentPool* p = poolFor(self->components[i].typeId);
+    u32 slot = self->components[i].slot;
+    if (!p || !p->type->asBehaviour) continue;
+    if ((p->flags[slot] & (kSlotAlive | kSlotDying | kSlotStarted)) != (kSlotAlive | kSlotStarted)) continue;
+    Behaviour* b = p->type->asBehaviour(p->at(slot));
+    switch (kind) {
+      case CollisionKind::Enter: b->OnCollisionEnter(c); break;
+      case CollisionKind::Stay: b->OnCollisionStay(c); break;
+      case CollisionKind::Exit: b->OnCollisionExit(c); break;
+    }
+  }
+}
+
+void World::sendCollision2D(GameObject* self, const Collision2D& c, CollisionKind kind) {
+  if (!self || self->dying) return;
+  for (u32 i = 0; i < self->componentCount; ++i) {
+    ComponentPool* p = poolFor(self->components[i].typeId);
+    u32 slot = self->components[i].slot;
+    if (!p || !p->type->asBehaviour) continue;
+    if ((p->flags[slot] & (kSlotAlive | kSlotDying | kSlotStarted)) != (kSlotAlive | kSlotStarted)) continue;
+    Behaviour* b = p->type->asBehaviour(p->at(slot));
+    switch (kind) {
+      case CollisionKind::Enter: b->OnCollisionEnter2D(c); break;
+      case CollisionKind::Stay: b->OnCollisionStay2D(c); break;
+      case CollisionKind::Exit: b->OnCollisionExit2D(c); break;
+    }
+  }
+}
+// --- end F6 a2 ---
 
 void World::sendApplicationPause(bool paused) {
   forEachBehaviour([&](ComponentPool& p, u32 slot, Behaviour* b) {
@@ -646,6 +685,7 @@ void World::dontDestroyOnLoad(GameObject* go) {
   if (!go || !go->alive || go->dying) return;
   if (go->transform.parent_) go->transform.SetParent(nullptr, true);
   go->dontDestroyOnLoad = true;
+  go->sceneIndex = -1;  // --- F6 a3 ---: it no longer belongs to the scene that made it
 }
 
 // ---- Instantiate / delayed Destroy -----------------------------------------

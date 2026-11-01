@@ -17,6 +17,7 @@
 #include "panel_registry.h"
 #include "panels/asset_ui.h"
 #include "panels/drawers/drawers.h"
+#include "panels/prefab_ui.h"
 #include "panels/preview_state.h"
 #include "panels/tile_tools.h"
 #include "rensga/core/reflect.h"
@@ -121,6 +122,8 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
   ImGui::PushID(rowIdx);
   if (!grey.empty() || missing) ImGui::PushStyleColor(ImGuiCol_Text, brandToken("muted"));
   std::string title = missing ? cr.type + "  (missing script)" : cr.type;
+  if (const MemberInfo* pm = a.doc.memberInfo(pr.guid))  // F6.01: a component the instance added to its prefab
+    if ((pm->isRoot || !pm->added) && pr.index < static_cast<int>(pm->comps.size()) && !pm->comps[static_cast<size_t>(pr.index)].addedId.empty()) title += "  (added)";
   if (multi) title += "  (" + std::to_string(cr.refs.size()) + ")";
   bool open = ImGui::CollapsingHeader((title + "###hdr").c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_AllowOverlap);
   if (!grey.empty() || missing) ImGui::PopStyleColor();
@@ -159,11 +162,13 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
       if (!why.empty()) a.status = why;
     }
     ImGui::Separator();
-    ImGui::BeginDisabled(playing || pr.index == 0);
+    const MemberInfo* pmi = a.doc.memberInfo(pr.guid);
+    const bool prefabOrder = pmi && (pmi->isRoot || !pmi->added);  // the prefab owns the component order
+    ImGui::BeginDisabled(playing || pr.index == 0 || prefabOrder);
     if (ImGui::MenuItem("Move Up"))
       withUndoStep(a, "Move", [&] { OpResult l; l.ok = true; for (const ComponentRef& r : cr.refs) l = moveComponentBy(a.doc, r.guid, r.index, -1); return l; });
     ImGui::EndDisabled();
-    ImGui::BeginDisabled(playing || pr.index + 1 >= static_cast<int>(po->components.size()));
+    ImGui::BeginDisabled(playing || prefabOrder || pr.index + 1 >= static_cast<int>(po->components.size()));
     if (ImGui::MenuItem("Move Down"))
       withUndoStep(a, "Move", [&] { OpResult l; l.ok = true; for (const ComponentRef& r : cr.refs) l = moveComponentBy(a.doc, r.guid, r.index, 1); return l; });
     ImGui::EndDisabled();
@@ -217,7 +222,24 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
         if (!inTable) break;
         const std::string fieldWhy = fieldGreyReason(rules, cr.type, f.name);
         if (!fieldWhy.empty()) ImGui::PushStyleColor(ImGuiCol_Text, brandToken("muted"));
+        // F6.01: a field the instance overrides gets a bar and the info colour; right-click the name for Apply / Revert
+        const bool ovr = !multi && a.doc.isOverridden(pr.guid, pr.index, f.name);
+        if (ovr) ImGui::PushStyleColor(ImGuiCol_Text, brandToken("info"));
         row(prettyFieldName(f.name).c_str(), fieldWhy.empty() ? f.tooltip : fieldWhy.c_str());
+        if (ovr) {
+          const ImVec2 mn = ImGui::GetItemRectMin(), mx = ImGui::GetItemRectMax();
+          ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(mn.x - 7, mn.y), ImVec2(mn.x - 4, mx.y), ImGui::GetColorU32(brandToken("info")));
+          if (ImGui::IsItemHovered()) {
+            const json pv = a.doc.prefabValue(pr.guid, pr.index, f.name);
+            ImGui::SetTooltip("Overridden on this instance (prefab value: %s)", pv.is_null() ? "default" : pv.dump().c_str());
+          }
+          if (ImGui::BeginPopupContextItem("ovctx")) {
+            if (ImGui::MenuItem("Apply to Prefab")) prefabDefer([g = pr.guid, ci = pr.index, fn = std::string(f.name)](App& app) { app.doc.applyField(g, ci, fn); });
+            if (ImGui::MenuItem("Revert")) prefabDefer([g = pr.guid, ci = pr.index, fn = std::string(f.name)](App& app) { app.doc.revertField(g, ci, fn); });
+            ImGui::EndPopup();
+          }
+          ImGui::PopStyleColor();
+        }
         if (!fieldWhy.empty()) ImGui::PopStyleColor();
         ImGui::BeginDisabled(!fieldWhy.empty());
         ImGui::PushID(f.name);
@@ -474,6 +496,7 @@ void drawInspector(App& a) {
     }
   }
   ImGui::Separator();
+  if (!multi) drawPrefabInspectorHeader(a, guid);  // F6.01: prefab asset, Open, Select, overrides menu
 
   if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen) && beginFields("##xf")) {
     float p[3] = {o->position[0], o->position[1], o->position[2]};

@@ -241,6 +241,7 @@ struct GameObject {
   char tag[kMaxTagLength] = {'U', 'n', 't', 'a', 'g', 'g', 'e', 'd', 0};
   u16 layer = 0;
   bool dontDestroyOnLoad = false;  // runtime: survives SceneManager loads (World::dontDestroyOnLoad)
+  i16 sceneIndex = -1;             // F6 (A3): SCNE index of the scene that created this object; -1 = none (made at run time, or DontDestroyOnLoad)
   bool selfActive_ = true;
   bool alive = false;
   bool dying = false;

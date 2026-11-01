@@ -65,6 +65,9 @@ class IPlatform {
   // `bytes` capacity to fill. Returns -1 = no dialog on this platform (the engine falls back to the save file store),
   // 0 = cancelled or failed, > 0 = bytes saved or loaded. May block (the platform draws its own frames meanwhile).
   virtual i32 saveDialog(const char* /*slot*/, void* /*data*/, u32 /*bytes*/, bool /*load*/) { return -1; }
+  // F6 (A3): the title and detail line SaveSystem::Write gives its slot, for the platform's own save browser (PSP: PARAM.SFO of the
+  // next SAVEDATA save). Called before the write; platforms without per-save titles ignore it.
+  virtual void setSaveMetadata(const char* /*title*/, const char* /*detail*/) {}
 };
 
 // Meshes are cooked vertex bytes (pack VERT section) described by MeshRec entries.

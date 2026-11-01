@@ -1,0 +1,15 @@
+{
+ "format": 1,
+ "gravity": [
+  0,
+  -9.81,
+  0
+ ],
+ "ignore": [
+  [
+   "Ignore",
+   "Target"
+  ]
+ ],
+ "queriesHitTriggers": true
+}

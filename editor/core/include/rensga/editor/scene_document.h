@@ -3,16 +3,21 @@
 // No ImGui, no console names.
 #pragma once
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
 #include <nlohmann/json.hpp>
 
+#include "rensga/cooker/prefab_expand.h"
 #include "rensga/editor/project.h"
 #include "rensga/editor/undo.h"
 
 namespace rensga {
 namespace editor {
+
+class PrefabLibrary;
 
 std::string generateGuid();  // random (v4) GUID, lowercase 8-4-4-4-12
 
@@ -112,6 +117,43 @@ class SceneDocument {
   // World transform helpers (column-major 4x4 of the object's TRS chain).
   void worldMatrix(const std::string& guid, double out[16]) const;
 
+  // ---- Prefabs (F6.01, Editor 6) ----
+  // The document stores prefab instance ROOTS (docs/rensga-engine/prefabs.md); scene() is the expanded view, so every object a
+  // prefab brings is an ordinary SceneObject with a derived GUID. Edits on a member are recorded as overrides on its instance root,
+  // through the same undo steps as every other edit. The library supplies the prefab files; without one instances stay unexpanded.
+  void setPrefabLibrary(PrefabLibrary* lib);
+  PrefabLibrary* prefabLibrary() const { return lib_; }
+  // Rebuilds the view when a prefab file changed since the last build (no undo step, not dirty). True if it did.
+  bool refreshPrefabs();
+  const MemberInfo* memberInfo(const std::string& guid) const;        // nullptr for a plain scene object
+  bool isInstanceRoot(const std::string& guid) const;                  // root of a prefab instance (stored in the scene)
+  bool isPrefabMember(const std::string& guid) const;                  // brought by a prefab (not the root, not added to it)
+  bool isAddedToInstance(const std::string& guid) const;               // object added under an instance (stored in its addedObjects)
+  std::string instanceRootOf(const std::string& guid) const;           // root GUID of the instance holding it ("" = not part of one)
+  std::string prefabOf(const std::string& guid) const;                 // asset GUID of that instance's prefab
+  const std::vector<std::string>& prefabProblems() const { return prefabProblems_; }  // cycles, missing assets (shown in the Hierarchy)
+  // Overrides. comp = component index in the object (-1: object-level property such as "name", "active", "tag", "layer").
+  bool isOverridden(const std::string& guid, int comp, const std::string& field) const;
+  bool hasObjectOverrides(const std::string& guid) const;              // anything recorded for this member (fields, added/removed components)
+  int overrideCount(const std::string& rootGuid) const;                // every recorded modification of the instance
+  nlohmann::json prefabValue(const std::string& guid, int comp, const std::string& field) const;  // the value without the instance's override (null if none)
+  bool revertField(const std::string& guid, int comp, const std::string& field);
+  bool applyField(const std::string& guid, int comp, const std::string& field);   // writes it into the instanced prefab (undo covers file and scene)
+  bool revertObject(const std::string& guid);
+  bool applyObject(const std::string& guid);
+  bool revertInstance(const std::string& rootGuid);
+  bool applyInstance(const std::string& rootGuid);
+  // Makes a prefab asset from the object and its children (a new .prefab in `folder`, named after the object) and turns the object
+  // into an instance of it, keeping its GUID. On an existing instance it makes a variant. Returns the prefab's asset GUID or "".
+  std::string createPrefab(const std::string& guid, const std::filesystem::path& folder, std::string& err);
+  // Adds an instance of the prefab under `parentGuid` ("" = scene root) and selects it. Returns the new root's GUID or "".
+  std::string instantiatePrefab(const std::string& prefabGuid, const std::string& parentGuid, const float* position = nullptr);
+  // Replaces the instance by plain objects (members keep their GUIDs, the link is dropped).
+  bool unpackPrefab(const std::string& rootGuid);
+  // Prefab edit mode: save() calls this instead of writing the scene file (the stage is not a scene on disk).
+  void setSaveHook(std::function<bool(const nlohmann::ordered_json&, std::string&)> hook) { saveHook_ = std::move(hook); }
+  bool hasSaveHook() const { return static_cast<bool>(saveHook_); }
+
  private:
   nlohmann::ordered_json* findJson(const std::string& guid);
   size_t jsonIndex(const std::string& guid) const;
@@ -120,6 +162,29 @@ class SceneDocument {
   friend class SnapshotCommand;
   void applySnapshot(const nlohmann::ordered_json& j);  // undo/redo target
   void changed();  // rebuild the view, mark dirty, fix the selection
+  void rebuildView();  // doc_ -> view_ (expands prefab instances)
+  // prefab helpers (prefab_scene.cpp)
+  nlohmann::ordered_json* findInAdded(const std::string& guid);
+  nlohmann::ordered_json* findInstanceJson(const std::string& rootGuid);
+  bool setMemberField(const MemberInfo& m, const std::string& guid, int component, const std::string& field, const nlohmann::json& value);
+  bool setMemberProp(const MemberInfo& m, const std::string& guid, const std::string& path, const nlohmann::json& value);
+  bool addMemberComponent(const MemberInfo& m, const std::string& type, const nlohmann::json& fields);
+  bool removeMemberComponent(const MemberInfo& m, int component);
+  bool removeInstanceParts(const std::vector<std::string>& guids);   // members -> removedObjects, added objects -> erased
+  std::string createAddedObject(const std::string& name, const MemberInfo& parent, const std::string& parentGuid, const std::vector<SceneComponent>& components);
+  void fixMemberRemap(std::map<std::string, std::string>& remap) const;  // clones: members get GUIDs derived from the NEW root
+  bool inInstance(const std::string& guid) const;  // a member or added object (not an instance root)
+  const std::map<std::string, nlohmann::ordered_json>& baseObjects(const std::string& rootGuid) const;
+  bool applyMods(const std::string& rootGuid, const PrefabModifications& part, const char* undoName);
+  bool modsFor(const std::string& guid, int comp, const std::string& field, bool wholeObject, PrefabModifications& out) const;
+  bool revertMods(const std::string& rootGuid, const PrefabModifications& part);
+  bool usesPrefabs() const { return !members_.empty(); }
+  PrefabLibrary* lib_ = nullptr;
+  std::map<std::string, MemberInfo> members_;
+  std::vector<std::string> prefabProblems_;
+  int libRev_ = -1;
+  mutable std::map<std::string, std::map<std::string, nlohmann::ordered_json>> baseCache_;
+  std::function<bool(const nlohmann::ordered_json&, std::string&)> saveHook_;
 
   nlohmann::ordered_json doc_;
   UndoStack stack_;

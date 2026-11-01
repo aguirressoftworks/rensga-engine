@@ -59,6 +59,7 @@ constexpr u32 ANIC = makeFourCC('A', 'N', 'I', 'C');  // PackAnimController[coun
 constexpr u32 DATA = makeFourCC('D', 'A', 'T', 'A');  // PackDataAsset[count]: data assets (type hash + reflected blob in BLOB)
 constexpr u32 RSRC = makeFourCC('R', 'S', 'R', 'C');  // PackResource[count]: Resources.Load names -> GUID + kind, sorted by nameHash
 constexpr u32 PHY3 = makeFourCC('P', 'H', 'Y', '3');  // PackPhysics3D (one record): gravity, layer matrix
+constexpr u32 PCAP = makeFourCC('P', 'C', 'A', 'P');  // PackPoolReserve[count] (F6, A3): extra component slots per type for run-time Instantiate / pools
 }  // namespace pack_section
 
 struct PackHeader {
@@ -351,6 +352,10 @@ static_assert(sizeof(PackFontRec) == 16 + 4 + 12 + 128, "PackFontRec layout");
 
 // SCNE record: scene `i` owns OBJS[firstObject, firstObject + objectCount). COMP objectIndex and MESH objectIndex
 // stay global (index into OBJS); parentIndex too. Packs without SCNE hold a single scene = all objects.
+// PackSceneRec::reserved bit 0 (F6, A3): the scene is meant to be loaded additively next to another one. World::loadPack sizes the
+// component pools for the biggest ordinary scene plus every flagged one. The cooker sets it for the scenes listed in Project.json
+// "additiveScenes". Packs without the bit are sized as before.
+constexpr u32 kSceneAdditive = 1u << 0;
 struct PackSceneRec {
   Guid guid;
   u32 nameStr;  // byte offset in STRS (file name without extension)
@@ -673,6 +678,27 @@ struct PackPhysics3D {
   u32 reserved[2];
 };
 static_assert(sizeof(PackPhysics3D) == 160, "PackPhysics3D is 160 bytes");
+
+// PCAP: headroom for run-time Instantiate and object pools. Every pool is sized from the scene data plus WorldConfig::spareComponents (8);
+// a game that clones more (a bullet pool) lists the type and the extra slots in ProjectSettings/Project.json under
+// "componentReserve": {"MeshRenderer": 96}. World::loadPack adds `extra` to that type's pool. Absent = pools sized as before.
+struct PackPoolReserve {
+  u32 typeHash;  // fnv1a32 of the component type name
+  u32 extra;
+};
+static_assert(sizeof(PackPoolReserve) == 8, "PackPoolReserve is 8 bytes");
+
+// The RSRC name hash: FNV-1a 32 of the path with '\\' read as '/' and ASCII letters lower-cased (no extension, no leading slash).
+// The cooker and Resources::Load both call it, so they cannot disagree.
+inline u32 packResourceNameHash(const char* path) {
+  u32 h = 2166136261u;
+  for (; path && *path; ++path) {
+    char c = *path == '\\' ? '/' : *path;
+    if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+    h = (h ^ static_cast<u8>(c)) * 16777619u;
+  }
+  return h;
+}
 
 // Typed pointers into the F6 content sections (empty without them). Valid while the pack memory lives.
 struct PackContent {

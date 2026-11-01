@@ -179,7 +179,7 @@ int main() {
     vw = boot.width; vh = boot.height;
     RLOG_INFO("game", "rensga: pack %s objects=%u textures=%u fonts=%u", packPath, world.objectCount(), loaded.assets.textureCount,
               loaded.assets.fontCount);
-    gameMode = loaded.assets.tilemapCount > 0 || loaded.assets.animCount > 0;
+    gameMode = loaded.assets.tilemapCount > 0 || loaded.assets.animCount > 0 || SceneManager::sceneCount() > 1;  // F6 a3: a multi-scene pack (UI-only levels_save) is a game, not the sprite stress demo
     if (gameMode) {
       RLOG_INFO("game", "rensga: game mode scene=%s scenes=%u", SceneManager::activeSceneName(), SceneManager::sceneCount());
     } else if (loaded.assets.textureCount > 0 && packTex[0]) {
@@ -317,6 +317,7 @@ int main() {
 #endif
   RLOG_INFO("game", "rensga: quit after %u frames", frame);
   log::flushAll();
+  Application::runQuitHooks();  // F6 a3: PlayerPrefs writes itself on a clean exit
   audio.shutdown();
   world.shutdown();
   platform.shutdown();

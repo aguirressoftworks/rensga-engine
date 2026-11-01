@@ -7,7 +7,9 @@
 #   --log FILE   keep the captured console log (default build/pcsx2/last.log; give an absolute path)
 #   --sw         use PCSX2's software renderer (Renderer = 13, closest to a real GS); same as env PCSX2_RENDERER=software
 #   --shot FILE  also save a PNG of the emulator window once the success heartbeat is seen (ImageMagick `import`)
-# Env: RENSGA_PCSX2_WORK=<dir>  sandbox + display folder (default build/pcsx2); give each parallel run its own, they cannot share one.
+# Env: RENSGA_PCSX2_CARD=<file>  keep memory card 1 between runs (F6.11 save exercise): the file is copied into the sandbox before the
+#      boot (when it exists) and the card is copied back after PCSX2 stopped. Without it every run starts with a blank card.
+#      RENSGA_PCSX2_WORK=<dir>  sandbox + display folder (default build/pcsx2); give each parallel run its own, they cannot share one.
 # PCSX2 comes from the pcsx2 module (tools/emulators/pcsx2_bin.sh), $RENSGA_PCSX2, or PATH.
 # Exit: 0 heartbeat seen, 1 timeout/no heartbeat, 2 setup error.
 # How it works:
@@ -50,6 +52,7 @@ BIOSDIR="$(dirname "$BIOS")"; BIOSFILE="$(basename "$BIOS")"
 
 W="${RENSGA_PCSX2_WORK:-$REPO/build/pcsx2}"; XDG="$W/xdg"; LOG="${OUTLOG:-$W/last.log}"
 rm -rf "$XDG"; mkdir -p "$XDG/PCSX2/inis" "$W"
+if [ -n "${RENSGA_PCSX2_CARD:-}" ] && [ -f "$RENSGA_PCSX2_CARD" ]; then mkdir -p "$XDG/PCSX2/memcards" && cp "$RENSGA_PCSX2_CARD" "$XDG/PCSX2/memcards/Mcd001.ps2"; fi
 cat > "$XDG/PCSX2/inis/PCSX2.ini" <<INI
 [UI]
 SettingsVersion = 1
@@ -102,6 +105,7 @@ cat "$XDG"/PCSX2/logs/*.txt >>"$LOG" 2>/dev/null
 # Match the full image path (not just its name): another run may be booting a different "rensga.iso" at the same time.
 pkill -f "pcsx2-qt.*${IMG}" 2>/dev/null; sleep 1; pkill -9 -f "pcsx2-qt.*${IMG}" 2>/dev/null
 kill $RUN 2>/dev/null; wait $RUN 2>/dev/null; kill $XVFB 2>/dev/null
+if [ -n "${RENSGA_PCSX2_CARD:-}" ] && [ -f "$XDG/PCSX2/memcards/Mcd001.ps2" ]; then mkdir -p "$(dirname "$RENSGA_PCSX2_CARD")" && cp "$XDG/PCSX2/memcards/Mcd001.ps2" "$RENSGA_PCSX2_CARD"; fi
 if [ $rc = 0 ]; then echo "pcsx2_boot: OK, heartbeat frame $best seen (log: $LOG)"; else
   echo "pcsx2_boot: no heartbeat >= $FRAMES within ${TMO}s (log: $LOG)"; grep -a -i "rensga\|error\|bios" "$LOG" | head -10; fi
 exit $rc

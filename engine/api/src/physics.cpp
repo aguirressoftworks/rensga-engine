@@ -5,6 +5,7 @@
 #include "rensga/Physics.h"
 
 #include "rensga/core/components.h"
+#include "rensga/core/physics3d.h"
 #include "rensga/core/time.h"
 
 namespace rensga {
@@ -35,20 +36,56 @@ bool overlaps(const Aabb& a, const Aabb& b) {
 
 Aabb around(const Vector3& p, const Vector3& half) { return {p - half, p + half}; }
 
-bool anyOverlap(World& world, const GameObject* self, const Aabb& a, const Aabb** hit, Aabb* hitStore) {
-  bool found = false;
+// F6.08: the solid boxes the sweep tests, collected once per Move (rotated boxes and boxes on a Rigidbody are handled by
+// physics3d::resolveBox instead). Same order and same conditions as the pre-F6 per-sweep scan of the BoxCollider pool.
+constexpr u32 kMaxSweepBoxes = 1024;
+struct SweepBox {
+  const GameObject* go;
+  Aabb box;
+};
+SweepBox g_sweepBoxes[kMaxSweepBoxes];
+u32 g_sweepCount = 0;
+
+void collectSweepBoxes(World& world, const GameObject* self) {
+  g_sweepCount = 0;
   world.forEach<BoxCollider>([&](BoxCollider& b) {
-    if (found || b.isTrigger || !b.enabled()) return;
+    if (b.isTrigger || !b.enabled()) return;
     GameObject* go = b.gameObject();
-    if (!go || go == self || !go->activeInHierarchy()) return;
-    Aabb w = boxWorld(b);
-    if (overlaps(a, w)) {
-      found = true;
-      if (hitStore) *hitStore = w;
-    }
+    if (!go || go == self || !go->activeInHierarchy() || g_sweepCount >= kMaxSweepBoxes) return;
+    if (!physics3d::isLegacyAabb(world, b)) return;
+    g_sweepBoxes[g_sweepCount++] = {go, boxWorld(b)};
   });
+}
+
+bool anyOverlap(World&, const GameObject* self, const Aabb& a, const Aabb** hit, Aabb* hitStore) {
+  bool found = false;
+  for (u32 i = 0; i < g_sweepCount && !found; ++i) {
+    if (g_sweepBoxes[i].go == self) continue;
+    if (overlaps(a, g_sweepBoxes[i].box)) {
+      found = true;
+      if (hitStore) *hitStore = g_sweepBoxes[i].box;
+    }
+  }
   if (hit) *hit = found ? hitStore : nullptr;
   return found;
+}
+
+// After an oriented collider pushed the controller, it may sit inside an axis-aligned box: push it out along the axis of least overlap.
+bool depenetrateLegacy(Vector3& pos, const Vector3& half) {
+  bool moved = false;
+  for (u32 i = 0; i < g_sweepCount; ++i) {
+    const Aabb me = around(pos, half), &b = g_sweepBoxes[i].box;
+    if (!overlaps(me, b)) continue;
+    const Scalar ox = Mathf::Min(me.max.x, b.max.x) - Mathf::Max(me.min.x, b.min.x);
+    const Scalar oy = Mathf::Min(me.max.y, b.max.y) - Mathf::Max(me.min.y, b.min.y);
+    const Scalar oz = Mathf::Min(me.max.z, b.max.z) - Mathf::Max(me.min.z, b.min.z);
+    const Vector3 mc = (me.min + me.max) * 0.5f, bc = (b.min + b.max) * 0.5f;
+    if (oy <= ox && oy <= oz) pos.y += mc.y >= bc.y ? oy : -oy;
+    else if (ox <= oz) pos.x += mc.x >= bc.x ? ox : -ox;
+    else pos.z += mc.z >= bc.z ? oz : -oz;
+    moved = true;
+  }
+  return moved;
 }
 
 // Moves `pos` along one axis (0=x,1=y,2=z) by `d`, stopping at the first static box.
@@ -86,6 +123,7 @@ void CharacterController::Move(const Vector3& motion) {
   Transform* t = transform();
   const Scalar dt = Time::fixedDeltaTime();
   const Vector3 half(radius, height * 0.5f, radius);
+  collectSweepBoxes(world, self);
 
   velocity.y += gravity * dt;
   if (velocity.y < -kMaxFallSpeed) velocity.y = -kMaxFallSpeed;
@@ -112,6 +150,23 @@ void CharacterController::Move(const Vector3& motion) {
     if (delta.y < 0) grounded = true;
     velocity.y = 0;
   }
+  // F6.08: oriented boxes, spheres, capsules and Rigidbody colliders block the controller too; ramps ground it up to slopeLimit.
+  {
+    const Scalar minNy = Mathf::Cos(slopeLimit * Mathf::Deg2Rad);
+    bool g = false;
+    Vector3 nrm;
+    for (int pass = 0; pass < 3; ++pass) {
+      const Vector3 fixedPos = physics3d::resolveBox(world, self, pos, half, minNy, &g, &nrm);
+      const bool moved = fixedPos != pos;
+      pos = fixedPos;
+      if (!moved || !depenetrateLegacy(pos, half)) break;  // pushed into an axis-aligned box: resolve that, then look again
+    }
+    if (g) {
+      grounded = true;
+      groundNormal = nrm;
+      if (velocity.y < 0) velocity.y = 0;
+    }
+  }
   t->setPosition(pos);
 }
 
@@ -121,7 +176,8 @@ void resetTriggerMemory() {
   for (TriggerMemory& m : g_memory) m = TriggerMemory();
 }
 
-void fixedStep(World& world, Scalar, void*) {
+void fixedStep(World& world, Scalar fixedDelta, void*) {
+  physics3d::step(world, fixedDelta);  // F6.08: Rigidbody bodies, 3D collision and trigger callbacks (does nothing without bodies)
   // Collect controllers (bounded: bit mask of 32).
   struct Ctl { GameObject* go; Vector3 pos; Vector3 half; };
   Ctl ctls[32];

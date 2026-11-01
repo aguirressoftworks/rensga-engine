@@ -13,7 +13,7 @@
 namespace rensga {
 namespace SaveSystem {
 constexpr u32 kMaxSlots = 8;
-constexpr u32 kMaxPayload = 16 * 1024;  // FileSystemSaveStore::kMaxSave minus the slot header
+constexpr u32 kMaxPayload = 16 * 1024 - 128;  // FileSystemSaveStore::kMaxSave minus the 96-byte slot header (and room to grow)
 
 struct Metadata {
   char title[32] = {};   // shown in the platform's save browser

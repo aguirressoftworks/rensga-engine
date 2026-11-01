@@ -1,5 +1,7 @@
 #include "rensga/editor/scene_document.h"
 
+#include "rensga/editor/prefab_library.h"  // F6.01
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -166,6 +168,12 @@ bool SceneDocument::restore(const fs::path& file, ordered_json j, bool dirty) {
 
 bool SceneDocument::save(std::string& err) {
   if (!loaded_) { err = "no scene loaded"; return false; }
+  if (saveHook_) {  // F6.01 prefab edit mode: the stage is written as a prefab, not as a scene file
+    if (!saveHook_(doc_, err)) return false;
+    forcedDirty_ = false;
+    stack_.markClean();
+    return true;
+  }
   std::ofstream f(path_, std::ios::binary | std::ios::trunc);
   if (!f) { err = "cannot write " + path_.string(); return false; }
   f << doc_.dump(1, ' ', false) << "\n";
@@ -292,7 +300,8 @@ size_t SceneDocument::jsonIndex(const std::string& guid) const {
 
 ordered_json* SceneDocument::findJson(const std::string& guid) {
   size_t i = jsonIndex(guid);
-  return i == static_cast<size_t>(-1) ? nullptr : &doc_["objects"][i];
+  if (i != static_cast<size_t>(-1)) return &doc_["objects"][i];
+  return findInAdded(guid);  // F6.01: objects added to a prefab instance live inside the instance root
 }
 
 void SceneDocument::collectSubtree(const std::string& guid, std::vector<std::string>& out) const {
@@ -335,8 +344,7 @@ void SceneDocument::pushUndo(const std::string& mergeKey) {
 }
 
 void SceneDocument::changed() {
-  view_ = parseScene(json::parse(doc_.dump()));
-  view_.path = path_.string();
+  rebuildView();
   if (!selected_.empty() && indexOf(selected_) < 0) selected_.clear();
   extraSel_.erase(std::remove_if(extraSel_.begin(), extraSel_.end(), [&](const std::string& g) { return indexOf(g) < 0; }), extraSel_.end());
   if (selected_.empty() && !extraSel_.empty()) { selected_ = extraSel_.front(); extraSel_.erase(extraSel_.begin()); }
@@ -349,11 +357,32 @@ void SceneDocument::changed() {
 void SceneDocument::beginGesture() { if (!mirror_) stack_.beginGroup("Edit scene"); }
 void SceneDocument::endGesture() { if (!mirror_) stack_.endGroup(); }
 
-bool SceneDocument::undo() { return !mirror_ && stack_.undo(); }
-bool SceneDocument::redo() { return !mirror_ && stack_.redo(); }
+bool SceneDocument::undo() {
+  if (mirror_ || !stack_.undo()) return false;
+  refreshPrefabs();  // an undo step may have restored a prefab file
+  return true;
+}
+bool SceneDocument::redo() {
+  if (mirror_ || !stack_.redo()) return false;
+  refreshPrefabs();
+  return true;
+}
 
 bool SceneDocument::setTransform(const std::string& guid, const float pos[3], const float rot[4], const float scale[3]) {
   if (mirror_) return sink_ && sink_->transform(guid, pos, rot, scale);  // F3.04: play mode edits the running World
+  if (const MemberInfo* m = memberInfo(guid); m && !m->isRoot && !m->added) {  // F6.01: a prefab member's placement is an override
+    const SceneObject* so = find(guid);
+    if (!so) return false;
+    const ordered_json np = arrN(pos, 3), nr = arrN(rot, 4), ns = arrN(scale, 3);
+    if (arrN(so->position, 3) == np && arrN(so->rotation, 4) == nr && arrN(so->scale, 3) == ns) return true;
+    beginGesture();
+    const MemberInfo mi = *m;
+    bool ok = setMemberProp(mi, guid, "@position", json::parse(np.dump()));
+    ok = setMemberProp(mi, guid, "@rotation", json::parse(nr.dump())) && ok;
+    ok = setMemberProp(mi, guid, "@scale", json::parse(ns.dump())) && ok;
+    endGesture();
+    return ok;
+  }
   ordered_json* o = findJson(guid);
   if (!o) return false;
   ordered_json np = arrN(pos, 3);
@@ -394,6 +423,7 @@ bool SceneDocument::setWorldMatrix(const std::string& guid, const double world[1
 
 bool SceneDocument::setActive(const std::string& guid, bool active) {
   if (mirror_) return sink_ && sink_->active(guid, active);
+  if (const MemberInfo* m = memberInfo(guid); m && !m->isRoot && !m->added) return setMemberProp(*m, guid, "@active", json(active));
   ordered_json* o = findJson(guid);
   if (!o) return false;
   if (o->value("active", true) == active) return true;
@@ -405,6 +435,7 @@ bool SceneDocument::setActive(const std::string& guid, bool active) {
 
 bool SceneDocument::setTag(const std::string& guid, const std::string& tag) {
   if (mirror_) return false;  // F3.04: the document is frozen while playing
+  if (const MemberInfo* m = memberInfo(guid); m && (m->isRoot || !m->added)) return setMemberProp(*m, guid, "@tag", json(tag));
   ordered_json* o = findJson(guid);
   if (!o) return false;
   if (o->value("tag", "") == tag) return true;
@@ -416,6 +447,7 @@ bool SceneDocument::setTag(const std::string& guid, const std::string& tag) {
 
 bool SceneDocument::setLayer(const std::string& guid, int layer) {
   if (mirror_) return false;  // F3.04: the document is frozen while playing
+  if (const MemberInfo* m = memberInfo(guid); m && (m->isRoot || !m->added)) return setMemberProp(*m, guid, "@layer", json(layer));
   ordered_json* o = findJson(guid);
   if (!o) return false;
   if (o->value("layer", 0) == layer) return true;
@@ -427,6 +459,7 @@ bool SceneDocument::setLayer(const std::string& guid, int layer) {
 
 bool SceneDocument::setField(const std::string& guid, int component, const std::string& field, const json& value) {
   if (mirror_) return sink_ && sink_->field(guid, component, field, value);
+  if (const MemberInfo* m = memberInfo(guid); m && (m->isRoot || !m->added)) return setMemberField(*m, guid, component, field, value);
   ordered_json* o = findJson(guid);
   if (!o || !o->contains("components") || component < 0 || component >= static_cast<int>((*o)["components"].size()))
     return false;
@@ -442,6 +475,7 @@ bool SceneDocument::setField(const std::string& guid, int component, const std::
 
 bool SceneDocument::addComponent(const std::string& guid, const std::string& type, const json& fields) {
   if (mirror_) return false;  // F3.04: the document is frozen while playing
+  if (const MemberInfo* m = memberInfo(guid); m && (m->isRoot || !m->added)) return !type.empty() && addMemberComponent(*m, type, fields);
   ordered_json* o = findJson(guid);
   if (!o || type.empty()) return false;
   pushUndo();
@@ -456,6 +490,7 @@ bool SceneDocument::addComponent(const std::string& guid, const std::string& typ
 
 bool SceneDocument::removeComponent(const std::string& guid, int component) {
   if (mirror_) return false;  // F3.04: the document is frozen while playing
+  if (const MemberInfo* m = memberInfo(guid); m && (m->isRoot || !m->added)) return removeMemberComponent(*m, component);
   ordered_json* o = findJson(guid);
   if (!o || !o->contains("components") || component < 0 || component >= static_cast<int>((*o)["components"].size()))
     return false;
@@ -467,6 +502,7 @@ bool SceneDocument::removeComponent(const std::string& guid, int component) {
 
 bool SceneDocument::moveComponent(const std::string& guid, int from, int to) {
   if (mirror_) return false;  // F3.04: the document is frozen while playing
+  if (const MemberInfo* m = memberInfo(guid); m && (m->isRoot || !m->added)) return false;  // F6.01: the prefab owns the component order
   ordered_json* o = findJson(guid);
   if (!o || !o->contains("components")) return false;
   const int n = static_cast<int>((*o)["components"].size());
@@ -483,6 +519,16 @@ bool SceneDocument::moveComponent(const std::string& guid, int from, int to) {
 
 bool SceneDocument::setComponentFields(const std::string& guid, int component, const json& fields) {
   if (mirror_) return false;  // F3.04: the document is frozen while playing
+  if (const MemberInfo* m = memberInfo(guid); m && (m->isRoot || !m->added)) {  // F6.01: one override per changed field
+    const SceneObject* so = find(guid);
+    if (!so || component < 0 || component >= static_cast<int>(so->components.size()) || !fields.is_object()) return false;
+    const MemberInfo mi = *m;
+    beginGesture();
+    bool ok = true;
+    for (auto it = fields.begin(); it != fields.end(); ++it) ok = setMemberField(mi, guid, component, it.key(), it.value()) && ok;
+    endGesture();
+    return ok;
+  }
   ordered_json* o = findJson(guid);
   if (!o || !o->contains("components") || component < 0 || component >= static_cast<int>((*o)["components"].size()))
     return false;
@@ -500,6 +546,8 @@ std::string SceneDocument::createObject(const std::string& name, const std::stri
   if (mirror_) return std::string();  // F3.04: the document is frozen while playing
   if (!loaded_) return "";
   if (!parentGuid.empty() && indexOf(parentGuid) < 0) return "";
+  if (const MemberInfo* m = memberInfo(parentGuid); m && (m->isRoot ? false : true))  // F6.01: new children of a member are added to its instance
+    return createAddedObject(name, *m, parentGuid, components);
   pushUndo();
   std::string guid = generateGuid();
   ordered_json o = ordered_json::object();
@@ -530,11 +578,12 @@ std::string SceneDocument::createObject(const std::string& name, const std::stri
 
 std::string SceneDocument::duplicate(const std::string& guid) {
   if (mirror_) return std::string();  // F3.04: the document is frozen while playing
-  if (indexOf(guid) < 0) return "";
+  if (indexOf(guid) < 0 || inInstance(guid)) return "";  // F6.01: members of a prefab instance are not duplicated on their own
   std::vector<std::string> sub;
   collectSubtree(guid, sub);
   std::map<std::string, std::string> remap;
   for (const std::string& g : sub) remap[g] = generateGuid();
+  fixMemberRemap(remap);
   pushUndo();
   std::vector<ordered_json> clones;
   for (const ordered_json& oj : doc_["objects"]) {  // keep file order
@@ -548,7 +597,8 @@ std::string SceneDocument::duplicate(const std::string& guid) {
       auto it = remap.find(c["parent"].get<std::string>());
       if (it != remap.end()) c["parent"] = it->second;
     }
-    if (c.contains("components")) remapStrings(c["components"], remap);
+    if (c.contains("prefab") && !c["prefab"].is_null()) { const std::string nm = c.value("name", ""); remapStrings(c, remap); c["name"] = nm; }
+    else if (c.contains("components")) remapStrings(c["components"], remap);
     clones.push_back(std::move(c));
   }
   for (ordered_json& c : clones) doc_["objects"].push_back(std::move(c));
@@ -560,19 +610,12 @@ std::string SceneDocument::duplicate(const std::string& guid) {
 bool SceneDocument::remove(const std::string& guid) {
   if (mirror_) return false;  // F3.04: the document is frozen while playing
   if (indexOf(guid) < 0) return false;
-  std::vector<std::string> sub;
-  collectSubtree(guid, sub);
-  pushUndo();
-  ordered_json kept = ordered_json::array();
-  for (ordered_json& oj : doc_["objects"])
-    if (std::find(sub.begin(), sub.end(), oj.value("guid", "")) == sub.end()) kept.push_back(std::move(oj));
-  doc_["objects"] = std::move(kept);
-  changed();
-  return true;
+  return removeMany({guid});
 }
 
 bool SceneDocument::rename(const std::string& guid, const std::string& name) {
   if (mirror_) return false;  // F3.04: the document is frozen while playing
+  if (const MemberInfo* m = memberInfo(guid); m && !m->isRoot && !m->added) return setMemberProp(*m, guid, "@name", json(name));
   ordered_json* o = findJson(guid);
   if (!o) return false;
   if (o->value("name", "") == name) return true;
@@ -603,6 +646,7 @@ bool SceneDocument::reparent(const std::string& guid, const std::string& newPare
   if (!o) return false;
   if (!newParent.empty() && (indexOf(newParent) < 0 || newParent == guid || isDescendant(newParent, guid))) return false;
   if (o->parentGuid == newParent) return true;
+  if (inInstance(guid) || inInstance(newParent) || jsonIndex(guid) == static_cast<size_t>(-1)) return false;  // F6.01: prefab members stay where the prefab put them
   Mat world{}, parentWorld = identity();
   worldMatrix(guid, world.m);
   if (!newParent.empty()) worldMatrix(newParent, parentWorld.m);
@@ -626,6 +670,8 @@ bool SceneDocument::reparentMany(const std::vector<std::string>& guids, const st
   std::vector<std::string> top = topLevel(guids);
   if (top.empty()) return false;
   if (!newParent.empty() && indexOf(newParent) < 0) return false;
+  if (inInstance(newParent) || inInstance(before)) return false;  // F6.01
+  for (const std::string& g : top) if (inInstance(g) || jsonIndex(g) == static_cast<size_t>(-1)) return false;
   for (const std::string& g : top)
     if (g == newParent || (!newParent.empty() && isDescendant(newParent, g))) return false;
   if (!before.empty()) {
@@ -678,6 +724,7 @@ bool SceneDocument::reparentMany(const std::vector<std::string>& guids, const st
 
 std::vector<std::string> SceneDocument::duplicateMany(const std::vector<std::string>& guids) {
   std::vector<std::string> roots = topLevel(guids), result;
+  roots.erase(std::remove_if(roots.begin(), roots.end(), [&](const std::string& g) { return inInstance(g); }), roots.end());  // F6.01
   if (roots.empty() || mirror_) return result;
   pushUndo();
   for (const std::string& root : roots) {
@@ -685,6 +732,7 @@ std::vector<std::string> SceneDocument::duplicateMany(const std::vector<std::str
     collectSubtree(root, sub);
     std::map<std::string, std::string> remap;
     for (const std::string& g : sub) remap[g] = generateGuid();
+    fixMemberRemap(remap);
     std::vector<ordered_json> clones;
     for (const ordered_json& oj : doc_["objects"]) {
       std::string g = oj.value("guid", "");
@@ -696,7 +744,8 @@ std::vector<std::string> SceneDocument::duplicateMany(const std::vector<std::str
         auto it = remap.find(c["parent"].get<std::string>());
         if (it != remap.end()) c["parent"] = it->second;
       }
-      if (c.contains("components")) remapStrings(c["components"], remap);
+      if (c.contains("prefab") && !c["prefab"].is_null()) { const std::string nm = c.value("name", ""); remapStrings(c, remap); c["name"] = nm; }
+      else if (c.contains("components")) remapStrings(c["components"], remap);
       clones.push_back(std::move(c));
     }
     ordered_json& objs = doc_["objects"];
@@ -712,9 +761,13 @@ std::vector<std::string> SceneDocument::duplicateMany(const std::vector<std::str
 bool SceneDocument::removeMany(const std::vector<std::string>& guids) {
   std::vector<std::string> roots = topLevel(guids);
   if (roots.empty() || mirror_) return false;
-  std::vector<std::string> sub;
-  for (const std::string& r : roots) collectSubtree(r, sub);
+  std::vector<std::string> sub, parts;  // F6.01: members and added objects of an instance are removed through its modification lists
+  for (const std::string& r : roots) {
+    if (inInstance(r)) parts.push_back(r);
+    else collectSubtree(r, sub);
+  }
   pushUndo();
+  if (!parts.empty() && !removeInstanceParts(parts)) { hasBefore_ = false; return false; }
   ordered_json kept = ordered_json::array();
   for (ordered_json& oj : doc_["objects"])
     if (std::find(sub.begin(), sub.end(), oj.value("guid", "")) == sub.end()) kept.push_back(std::move(oj));
@@ -730,10 +783,17 @@ std::string SceneDocument::copyObjects(const std::vector<std::string>& guids) co
   out["rensga_clipboard"] = 1;
   out["roots"] = roots;
   ordered_json arr = ordered_json::array();
+  std::vector<std::string> rawGuids;
   if (doc_.contains("objects"))
     for (const ordered_json& oj : doc_["objects"])
-      if (std::find(sub.begin(), sub.end(), oj.value("guid", "")) != sub.end()) arr.push_back(oj);
+      if (std::find(sub.begin(), sub.end(), oj.value("guid", "")) != sub.end()) { arr.push_back(oj); rawGuids.push_back(oj.value("guid", "")); }
   out["objects"] = std::move(arr);
+  ordered_json mem = ordered_json::array();  // F6.01: the GUIDs that live inside instance roots, so a paste can renew them
+  for (const std::string& g : sub) {
+    if (std::find(rawGuids.begin(), rawGuids.end(), g) != rawGuids.end()) continue;
+    if (const MemberInfo* m = memberInfo(g)) mem.push_back(ordered_json::array({g, m->rootGuid, m->added ? std::string() : m->fileId}));
+  }
+  if (!mem.empty()) out["members"] = std::move(mem);
   return out.dump();
 }
 
@@ -746,6 +806,15 @@ std::vector<std::string> SceneDocument::pasteObjects(const std::string& text, co
     return result;
   std::map<std::string, std::string> remap;
   for (const ordered_json& oj : clip["objects"]) remap[oj.value("guid", "")] = generateGuid();
+  if (clip.contains("members") && clip["members"].is_array()) {
+    for (const ordered_json& t : clip["members"])
+      if (t.is_array() && t.size() == 3 && t[0].is_string() && t[2].is_string() && t[2].get<std::string>().empty()) remap[t[0].get<std::string>()] = generateGuid();
+    for (const ordered_json& t : clip["members"])
+      if (t.is_array() && t.size() == 3 && t[0].is_string() && t[1].is_string() && t[2].is_string() && !t[2].get<std::string>().empty()) {
+        auto rit = remap.find(t[1].get<std::string>());
+        if (rit != remap.end()) remap[t[0].get<std::string>()] = instanceObjectGuid(rit->second, t[2].get<std::string>());
+      }
+  }
   std::vector<std::string> rootsOld = clip["roots"].get<std::vector<std::string>>();
   // roots keep their world transform only when pasted to the same parent; under another parent they keep the local one
   pushUndo();
@@ -761,7 +830,8 @@ std::vector<std::string> SceneDocument::pasteObjects(const std::string& text, co
       auto it = remap.find(c["parent"].get<std::string>());
       if (it != remap.end()) c["parent"] = it->second;
     }
-    if (c.contains("components")) remapStrings(c["components"], remap);
+    if (c.contains("prefab") && !c["prefab"].is_null()) { const std::string nm = c.value("name", ""); const ordered_json par = c.contains("parent") ? c["parent"] : ordered_json(nullptr); remapStrings(c, remap); c["name"] = nm; c["parent"] = par; }
+    else if (c.contains("components")) remapStrings(c["components"], remap);
     doc_["objects"].push_back(std::move(c));
   }
   changed();

@@ -3,7 +3,10 @@ unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland des
 # F2.G2: Linux rensga_headless vs the PSP simulation ELF (rensga_sim) in PPSSPPHeadless: same cooked pack, same input script
 # (tests/determinism/walk.json), same frame count; the "rensga: hash <hex>" lines must match. Also checks the PSP alloc-check.
 # Env: DET_FRAMES (default 400; 2700 in 2d mode), DET_TIMEOUT (PPSSPP seconds; 100, 300 in 2d mode), DET_TRACE=1 (per-frame hashes; also on a mismatch the script reruns with objects), DET_OBJ_FRAME=N.
-#   tools/ci/determinism.sh [3d|2d|3dlit]   (default 3d)
+#   tools/ci/determinism.sh [3d|2d|3dlit|phys]   (default 3d)
+# phys mode (F6.08): a generated 3D physics project (tests/determinism/make_phys_project.py: falling Rigidbody crates, spheres and a capsule on an
+# oriented ramp, a kinematic platform, a CharacterController, layer-matrix ghosts, raycast / spherecast / overlap probes) run on both sides; the state hash
+# and the per-frame trace must match.
 # 3dlit mode (F5.14): a shared-3D pack (lit mesh, skinned bar with a looping clip, Light; written by tests/determinism/pack3d_write, or DET_3DLIT_PACK=<game.rpak>,
 # e.g. a cooked samples/psp3d_room) run on both sides. Besides the state hash, "rensga: skinhash" and the per-fixed-step "rensga: skin f=<n> h=<hex>" lines must be equal.
 # 2d mode (F4.07): the 2D slice samples/platformer2d_psp, a copy of it whose first scene is TitleBot (the bot plays the whole game, no input
@@ -12,10 +15,11 @@ unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland des
 set -eu
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$REPO"
-MODE="${1:-3d}"; [ "$MODE" = 3d ] || [ "$MODE" = 2d ] || [ "$MODE" = 3dlit ] || { echo "usage: determinism.sh [3d|2d|3dlit]" >&2; exit 2; }
+MODE="${1:-3d}"; [ "$MODE" = 3d ] || [ "$MODE" = 2d ] || [ "$MODE" = 3dlit ] || [ "$MODE" = phys ] || { echo "usage: determinism.sh [3d|2d|3dlit|phys]" >&2; exit 2; }
 OBJF="${DET_OBJ_FRAME:--1}"
 # 2d: a bot run ends on the static Results scene, so the final hash alone proves little: the per-frame trace is always compared.
 if [ "$MODE" = 2d ]; then FRAMES="${DET_FRAMES:-2700}"; TMO="${DET_TIMEOUT:-300}"; TRACE="${DET_TRACE:-1}"
+elif [ "$MODE" = phys ]; then FRAMES="${DET_FRAMES:-600}"; TMO="${DET_TIMEOUT:-300}"; TRACE="${DET_TRACE:-1}"
 elif [ "$MODE" = 3dlit ]; then FRAMES="${DET_FRAMES:-240}"; TMO="${DET_TIMEOUT:-100}"; TRACE="${DET_TRACE:-1}"
 else FRAMES="${DET_FRAMES:-400}"; TMO="${DET_TIMEOUT:-100}"; TRACE="${DET_TRACE:-0}"; fi
 HOST_PATH="$PATH"   # the module's cmake (3.28) cannot configure the host tree: host cmake runs with the PATH from before the module env
@@ -34,15 +38,24 @@ if [ "$MODE" = 3d ] || [ "$MODE" = 3dlit ]; then
     INPUT=""
   fi
 else
-  SRCPROJ="${DET_2D_PROJECT:-$REPO/samples/platformer2d_psp}"; HB="$CI_OUT/linux-host-2d"; HEAD="$HB/engine/runtime/rensga_headless"
-  B="$CI_OUT/psp-sim-2d"; ROOT="$CI_OUT/psp-sim-2d-root"; INPUT=""
-  step "host build (RENSGA_PROJECT_DIR=samples/platformer2d_psp)"
+  if [ "$MODE" = phys ]; then
+    SRCPROJ="$CI_OUT/determinism-phys/src"; HB="$CI_OUT/linux-host-phys"; B="$CI_OUT/psp-sim-phys"; ROOT="$CI_OUT/psp-sim-phys-root"
+    python3 -I tests/determinism/make_phys_project.py "$SRCPROJ"
+  else
+    SRCPROJ="${DET_2D_PROJECT:-$REPO/samples/platformer2d_psp}"; HB="$CI_OUT/linux-host-2d"
+    B="$CI_OUT/psp-sim-2d"; ROOT="$CI_OUT/psp-sim-2d-root"
+  fi
+  HEAD="$HB/engine/runtime/rensga_headless"; INPUT=""
+  step "host build (RENSGA_PROJECT_DIR=$(basename "$SRCPROJ"))"
   env PATH="$HOST_PATH" cmake --preset linux-host -B "$HB" -DRENSGA_PROJECT_DIR="$SRCPROJ" >/dev/null
   env PATH="$HOST_PATH" cmake --build "$HB" -j"$JOBS" --target rensga-cooker rensga_headless
-  # A copy whose first scene is TitleBot: both sides boot the first scene of the pack, so no --scene option is needed.
-  PROJ="$CI_OUT/determinism-2d/project"; rm -rf "$PROJ"; mkdir -p "$PROJ"
-  cp -r "$SRCPROJ/Assets" "$SRCPROJ/ProjectSettings" "$SRCPROJ/Streaming" "$PROJ/"
-  python3 -I - "$PROJ/ProjectSettings/Project.json" "$PROJ/Assets/Scenes/TitleBot.scene.meta" <<'PY'
+  if [ "$MODE" = phys ]; then
+    PROJ="$SRCPROJ"  # the generated project already starts with its only scene
+  else
+    # A copy whose first scene is TitleBot: both sides boot the first scene of the pack, so no --scene option is needed.
+    PROJ="$CI_OUT/determinism-2d/project"; rm -rf "$PROJ"; mkdir -p "$PROJ"
+    cp -r "$SRCPROJ/Assets" "$SRCPROJ/ProjectSettings" "$SRCPROJ/Streaming" "$PROJ/"
+    python3 -I - "$PROJ/ProjectSettings/Project.json" "$PROJ/Assets/Scenes/TitleBot.scene.meta" <<'PY'
 import json, sys
 proj, meta = sys.argv[1], sys.argv[2]
 g = json.load(open(meta))["guid"]
@@ -50,6 +63,7 @@ d = json.load(open(proj))
 d["scenes"] = [g] + [s for s in d["scenes"] if s != g]
 json.dump(d, open(proj, "w"), indent=1)
 PY
+  fi
   step "cook for psp"
   "$HB/tools/cooker/rensga-cooker" cook --project "$PROJ" --target psp --gen-header "$PROJ/Library/Generated/psp/console_target.gen.h" | tail -2
   PACK="$PROJ/Library/Cooked/psp/game.rpak"; SIMDEFS=(); GENDIR="$PROJ/Library/Generated/psp"
@@ -76,7 +90,7 @@ run_lin "$TRACE" "$OBJF" "$LA"; run_psp "$TRACE" "$OBJF" "$PA"
 grep -E "alloc-check|rensga: hash|rensga: skinhash" "$LA" | sed 's/^/linux: /'
 grep -E "alloc-check|rensga: hash|rensga: skinhash" "$PA" | sed 's/^/psp:   /'
 grep -qE "alloc-check frames=[1-9][0-9]* allocs=0" "$PA" || { echo "psp: no alloc-check allocs=0 line (see $PA)" >&2; exit 1; }
-hint() { [ "$MODE" = 2d ] && echo "hint: scripts of equal EXECUTION_ORDER update in type-registration order (static init order, which differs per build): give the sample scripts distinct EXECUTION_ORDER, or break ties in World::ensurePool by type hash" >&2; return 0; }
+hint() { { [ "$MODE" = 2d ] || [ "$MODE" = phys ]; } && echo "hint: scripts of equal EXECUTION_ORDER update in type-registration order (static init order, which differs per build): give the sample scripts distinct EXECUTION_ORDER, or break ties in World::ensurePool by type hash" >&2; return 0; }
 trace() { grep -oE 'rensga: trace f=[0-9]+ h=[0-9a-f]{8}' "$1"; }
 skin() { grep -oE 'rensga: skin(hash |  *f=[0-9]+ h=)[0-9a-f]*' "$1"; }
 if tests/determinism/compare_hash.sh "$LA" "$PA"; then

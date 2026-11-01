@@ -1,0 +1,86 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-8000-00000000f001",
+ "rootFileId": 1,
+ "nextFileId": 5,
+ "objects": [
+  {
+   "fileId": 1,
+   "name": "Enemy",
+   "parent": null,
+   "transform": {
+    "position": [
+     0,
+     0.5,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "fileId": 2,
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       90,
+       190,
+       90,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-0000000000e1"
+     }
+    }
+   ]
+  },
+  {
+   "fileId": 3,
+   "name": "Eye",
+   "parent": 1,
+   "transform": {
+    "position": [
+     0,
+     0.35,
+     0.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     0.35,
+     0.35,
+     0.2
+    ]
+   },
+   "components": [
+    {
+     "fileId": 4,
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       250,
+       250,
+       250,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-0000000000e1"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -10,6 +10,7 @@
 #include "app.h"
 #include "panel_registry.h"
 #include "panels/asset_ui.h"
+#include "panels/prefab_ui.h"
 
 namespace rensga {
 namespace editor {
@@ -80,9 +81,15 @@ void drawObject(App& a, const std::string& guid, bool flat) {
   if (a.doc.isSelected(guid)) fl |= ImGuiTreeNodeFlags_Selected;
   ImGui::PushID(guid.c_str());
   const bool renaming = a.renameGuid == guid;
-  if (!o->active) ImGui::PushStyleColor(ImGuiCol_Text, brandToken("muted"));
+  // F6.01: objects that come from a prefab are blue (an inactive one is muted); the root of an instance has an "open prefab" button
+  const MemberInfo* mi = a.doc.memberInfo(guid);
+  const bool fromPrefab = mi && (mi->isRoot || !mi->added);
+  const bool prefabRoot = mi && mi->isRoot;
+  const bool tinted = !o->active || fromPrefab;
+  if (prefabRoot) ImGui::SetNextItemAllowOverlap();
+  if (tinted) ImGui::PushStyleColor(ImGuiCol_Text, brandToken(!o->active ? "muted" : "info"));
   bool open = ImGui::TreeNodeEx(renaming ? "##node" : (o->name.empty() ? "(unnamed)" : o->name.c_str()), fl);
-  if (!o->active) ImGui::PopStyleColor();
+  if (tinted) ImGui::PopStyleColor();
   const ImVec2 rmin = ImGui::GetItemRectMin(), rmax = ImGui::GetItemRectMax();
   if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !ImGui::IsItemToggledOpen()) select(a, guid);
   if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && !a.doc.isSelected(guid)) { a.doc.select(guid); g_anchor = guid; }
@@ -134,6 +141,7 @@ void drawObject(App& a, const std::string& guid, bool flat) {
     ImGui::EndDragDropTarget();
   }
   bool dup = false, del = false, copy = false, paste = false;
+  std::string prefabAction;  // deferred: createprefab | createvariant | open | selectasset | applyall | revertall | unpack
   if (ImGui::BeginPopupContextItem("ctx")) {
     drawCreateMenuItems(a, guid);
     ImGui::Separator();
@@ -142,13 +150,47 @@ void drawObject(App& a, const std::string& guid, bool flat) {
     if (ImGui::MenuItem("Paste", "Ctrl+V")) paste = true;
     if (ImGui::MenuItem("Duplicate", "Ctrl+D")) dup = true;
     if (ImGui::MenuItem("Delete", "Del")) del = true;
+    ImGui::Separator();  // F6.01 prefab entries
+    if (!mi) {
+      if (ImGui::MenuItem("Create Prefab")) prefabAction = "createprefab";
+    } else if (a.doc.instanceRootOf(guid).empty() == false) {
+      const bool hasOv = a.doc.overrideCount(a.doc.instanceRootOf(guid)) > 0;
+      if (ImGui::MenuItem("Open Prefab")) prefabAction = "open";
+      if (ImGui::MenuItem("Select Prefab Asset")) prefabAction = "selectasset";
+      ImGui::BeginDisabled(!hasOv);
+      if (ImGui::MenuItem("Apply All Overrides")) prefabAction = "applyall";
+      if (ImGui::MenuItem("Revert All Overrides")) prefabAction = "revertall";
+      ImGui::EndDisabled();
+      if (mi->isRoot) {
+        if (ImGui::MenuItem("Create Variant")) prefabAction = "createvariant";
+        if (ImGui::MenuItem("Unpack Prefab")) prefabAction = "unpack";
+      }
+    }
     ImGui::EndPopup();
+  }
+  if (prefabRoot && !renaming) {
+    ImGui::SameLine(ImGui::GetWindowContentRegionMax().x - 24);
+    if (ImGui::SmallButton(">##openprefab")) prefabAction = "open";
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Open the prefab");
   }
   if (open) {
     for (const std::string& k : kids) drawObject(a, k, false);
     ImGui::TreePop();
   }
   ImGui::PopID();
+  if (!prefabAction.empty()) {  // run next frame: these rebuild the scene view the rest of this frame still walks
+    const std::string root = a.doc.instanceRootOf(guid), asset = a.doc.prefabOf(guid), act = prefabAction;
+    prefabDefer([guid, root, asset, act](App& app) {
+      if (act == "createprefab" || act == "createvariant") {
+        const std::string folder = assetUi().folder.empty() ? "Assets" : assetUi().folder;
+        prefabCreateFromObject(app, guid, app.project.root / folder);
+      } else if (act == "open") prefabOpen(app, asset);
+      else if (act == "selectasset") selectAsset(app, asset);
+      else if (act == "applyall") app.doc.applyInstance(root);
+      else if (act == "revertall") app.doc.revertInstance(root);
+      else if (act == "unpack") app.doc.unpackPrefab(root);
+    });
+  }
   if (copy) copySelected(a);
   if (paste) pasteSelected(a);
   if (dup) duplicateSelected(a);
@@ -164,7 +206,14 @@ void drawHierarchy(App& a) {
     ImGui::End();
     return;
   }
-  ImGui::TextDisabled("%s%s", a.doc.path().filename().string().c_str(), a.doc.dirty() ? " *" : "");
+  prefabEnsure(a);
+  if (prefabInStage(a)) drawPrefabBreadcrumbs(a);
+  else ImGui::TextDisabled("%s%s", a.doc.path().filename().string().c_str(), a.doc.dirty() ? " *" : "");
+  for (const std::string& pr : a.doc.prefabProblems()) {  // cycles, missing prefab assets: said in words, not only in colour
+    ImGui::PushStyleColor(ImGuiCol_Text, brandToken("danger"));
+    ImGui::TextWrapped("[x] %s", pr.c_str());
+    ImGui::PopStyleColor();
+  }
   ImGui::SameLine(ImGui::GetContentRegionAvail().x - 4);
   if (ImGui::SmallButton("+")) ImGui::OpenPopup("hier_add");
   if (ImGui::BeginPopup("hier_add")) {
@@ -201,6 +250,7 @@ void drawHierarchy(App& a) {
     if (ImGui::BeginDragDropTarget()) {
       if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload("RENSGA_OBJECT"))
         a.doc.reparentMany(dragSet(a, static_cast<const char*>(p->Data)), "", "");
+      if (const ImGuiPayload* p = ImGui::AcceptDragDropPayload(kAssetGuidPayload)) acceptAssetDrop(a, static_cast<const char*>(p->Data), "");  // F6.01: a prefab dropped here is added to the scene
       ImGui::EndDragDropTarget();
     }
   }

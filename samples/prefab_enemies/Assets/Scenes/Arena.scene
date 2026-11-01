@@ -1,0 +1,336 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-00000000a001",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000000001",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     3.2,
+     7.5
+    ],
+    "rotation": [
+     -0.2164,
+     0,
+     0,
+     0.9763
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {
+      "fov": 60.0,
+      "nearClip": 0.3,
+      "farClip": 60.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000002",
+   "name": "Sun",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     6,
+     0
+    ],
+    "rotation": [
+     0.7071,
+     0,
+     0,
+     0.7071
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 0,
+      "color": [
+       255,
+       244,
+       224,
+       255
+      ],
+      "intensity": 1.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000003",
+   "name": "Floor",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.6,
+     1,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c002",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-0000000000e2"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000010",
+   "name": "Enemy1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -4,
+     0,
+     1
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [],
+   "prefab": {
+    "asset": "00000000-0000-4000-8000-00000000f001",
+    "fileId": 1
+   }
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000011",
+   "name": "Enemy2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -2,
+     0,
+     1
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [],
+   "prefab": {
+    "asset": "00000000-0000-4000-8000-00000000f001",
+    "fileId": 1
+   }
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000012",
+   "name": "Enemy3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     1
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [],
+   "prefab": {
+    "asset": "00000000-0000-4000-8000-00000000f001",
+    "fileId": 1
+   },
+   "overrides": [
+    {
+     "fileId": 1,
+     "path": "MeshRenderer.color",
+     "value": [
+      220,
+      70,
+      60,
+      255
+     ]
+    }
+   ]
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000013",
+   "name": "Enemy4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     2,
+     0,
+     1
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [],
+   "prefab": {
+    "asset": "00000000-0000-4000-8000-00000000f001",
+    "fileId": 1
+   }
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000014",
+   "name": "Enemy5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     4,
+     0,
+     1
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [],
+   "prefab": {
+    "asset": "00000000-0000-4000-8000-00000000f001",
+    "fileId": 1
+   }
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000001e",
+   "name": "Boss",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     -2.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.8,
+     1.8,
+     1.8
+    ]
+   },
+   "components": [],
+   "prefab": {
+    "asset": "00000000-0000-4000-8000-00000000f002",
+    "fileId": 1
+   }
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000001f",
+   "name": "Squad",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -4.5,
+     0,
+     -2.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [],
+   "prefab": {
+    "asset": "00000000-0000-4000-8000-00000000f003",
+    "fileId": 1
+   }
+  }
+ ]
+}

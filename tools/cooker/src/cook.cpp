@@ -18,6 +18,10 @@
 #include "rensga/cooker/cooker.h"
 #include "rensga/cooker/model3d.h"
 #include "rensga/cooker/resample.h"  // F5.17 (A6)
+#include "prefab_cook.h"  // F6 A1
+#include "physics_cook.h"
+#include "resources_cook.h"  // F6 a3
+#include "rensga/cooker/prefab_expand.h"
 #include "rensga/core/components.h"
 #include "rensga/core/pack_format.h"
 #include "rensga/core/reflect_json.h"
@@ -313,6 +317,21 @@ CookResult cookProject(const CookOptions& optIn, const CookSink& sink) {
       cx.error(std::string("scene parse error: ") + e.what(), sa.rel, sa.guid);
       return R;
     }
+    // --- F6 A1 --- prefab instances become plain objects (the pack has no prefab concept); prefab Guid fields get templates
+    {
+      std::map<std::string, std::string> prefabFiles;
+      for (const auto& kv : assets)
+        if (fs::path(kv.second.rel).extension() == ".prefab") prefabFiles[kv.first] = kv.second.path.string();
+      std::vector<std::string> perr, pnotes;
+      if (!prefabFiles.empty() || rensga::editor::hasPrefabInstances(one.value("objects", json::array()))) {
+        if (!cookExpandPrefabs(one, sa.guid, prefabFiles, perr, pnotes)) {
+          for (const std::string& e : perr) cx.error(e, sa.rel, sa.guid);
+          return R;
+        }
+        for (const std::string& n : pnotes) cx.info(n);
+      }
+    }
+    // --- end F6 A1 ---
     SceneBlock blk;
     blk.guid = sceneGuids[si];
     blk.name = fs::path(sa.rel).stem().string();
@@ -1077,6 +1096,23 @@ lightDone:
     sr.objectCount = b.count;
     pscenes.push_back(sr);
   }
+  // --- F6 a3 --- RSRC (Resources.Load names) and the Project.json "additiveScenes" flag; the call is in resources_cook.cpp
+  std::vector<PackResource> resourceRecs;
+  std::vector<PackPoolReserve> poolReserve;
+  {
+    std::vector<cooker::ResourceAsset> ra;
+    for (const auto& kv : assets) ra.push_back({kv.second.rel, kv.second.guid});
+    std::string rerr;
+    if (!cooker::buildResourceTable(ra, addStr, resourceRecs, rerr)) cx.error(rerr, "ProjectSettings/Project.json");
+    std::vector<std::string> blockGuids;
+    for (const SceneBlock& b : sceneBlocks) blockGuids.push_back(b.guid);
+    const std::string badScene = cooker::markAdditiveScenes(projectJson, blockGuids, pscenes);
+    if (!badScene.empty()) cx.error("Project.json additiveScenes lists " + badScene + ", which is not a scene of the build", "ProjectSettings/Project.json", badScene);
+    std::string perr;
+    if (!cooker::buildPoolReserve(projectJson, poolReserve, perr)) cx.error(perr, "ProjectSettings/Project.json");
+    if (!R.errors.empty()) return R;
+  }
+  // --- end F6 a3 ---
   secs.push_back({pack_section::STRS, strs, strCount});
   secs.push_back({pack_section::OBJS, bytesOf(pobjs.data(), pobjs.size() * sizeof(PackObject)), static_cast<u32>(pobjs.size())});
   secs.push_back({pack_section::XFRM, bytesOf(pxf.data(), pxf.size() * sizeof(PackTransform)), static_cast<u32>(pxf.size())});
@@ -1110,6 +1146,16 @@ lightDone:
       if (!cookPhysics2D(phText, ph, phErr)) cx.error("ProjectSettings/Physics2D.json: " + phErr, "ProjectSettings/Physics2D.json");
       else secs.push_back({pack_section::PH2D, bytesOf(&ph, sizeof ph), 1});
     }
+    // --- F6 a2 --- PHY3 (3D gravity and layer matrix) from ProjectSettings/Physics.json; no section without the file (physics_cook.cpp)
+    std::string ph3Text;
+    if (readText(settings / "Physics.json", ph3Text)) {
+      std::string tagText, ph3Err;
+      readText(settings / "TagManager.json", tagText);
+      PackPhysics3D ph3 = {};
+      if (!cooker::cookPhysics3D(ph3Text, tagText, ph3, ph3Err)) cx.error("ProjectSettings/Physics.json: " + ph3Err, "ProjectSettings/Physics.json");
+      else secs.push_back({pack_section::PHY3, bytesOf(&ph3, sizeof ph3), 1});
+    }
+    // --- end F6 a2 ---
   }
 
   if (anyLit) {  // F5: optional sections, written only when the project has a lit or skinned mesh
@@ -1121,6 +1167,11 @@ lightDone:
   if (!pmats.empty()) secs.push_back({pack_section::MATL, bytesOf(pmats.data(), pmats.size() * sizeof(PackMaterial)), static_cast<u32>(pmats.size())});
   if (!pskins.empty()) secs.push_back({pack_section::SKIN, bytesOf(pskins.data(), pskins.size() * sizeof(PackSkin)), static_cast<u32>(pskins.size())});
   if (!pclips.empty()) secs.push_back({pack_section::CLP3, bytesOf(pclips.data(), pclips.size() * sizeof(PackClip3)), static_cast<u32>(pclips.size())});
+
+  // --- F6 a3 ---
+  if (!poolReserve.empty()) secs.push_back({pack_section::PCAP, bytesOf(poolReserve.data(), poolReserve.size() * sizeof(PackPoolReserve)), static_cast<u32>(poolReserve.size())});
+  if (!resourceRecs.empty()) secs.push_back({pack_section::RSRC, bytesOf(resourceRecs.data(), resourceRecs.size() * sizeof(PackResource)), static_cast<u32>(resourceRecs.size())});
+  // --- end F6 a3 ---
 
   const size_t packAlign = target.sectorAligned ? kPackSectorAlignment : kPackAlignment;
   auto align16 = [packAlign](size_t v) { return (v + packAlign - 1) & ~(packAlign - 1); };

@@ -47,6 +47,11 @@ struct Application {
   static ConsoleProfile profile();
   static void setProfile(ConsoleProfile p);
   static const char* profileName(ConsoleProfile p);
+  // F6 (A3): functions run once when the game quits (Application::Quit, or a runtime main calling runQuitHooks on a clean exit).
+  // PlayerPrefs registers one to write itself. Up to 4, plain function pointers.
+  using QuitHook = void (*)();
+  static bool addQuitHook(QuitHook hook);
+  static void runQuitHooks();
   // Back to defaults (tests, editor play-mode restarts).
   static void reset();
 };

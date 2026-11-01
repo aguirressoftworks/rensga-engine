@@ -1,0 +1,159 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000000b01",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000045057",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     -12
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {
+      "fov": 60.0,
+      "nearClip": 0.3,
+      "farClip": 60.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000045058",
+   "name": "Sun",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     10,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "DirectionalLight",
+     "fields": {
+      "direction": [
+       -0.4,
+       -1,
+       -0.3
+      ],
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000045059",
+   "name": "ShotTemplate",
+   "parent": null,
+   "active": false,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     0.4,
+     0.4,
+     0.4
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       250,
+       200,
+       40,
+       255
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000045060",
+   "name": "Spawner",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ProjectileSpawner",
+     "fields": {
+      "pooled": false,
+      "perFrame": 2,
+      "lifeFrames": 30,
+      "runFrames": 310
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

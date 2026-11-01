@@ -3,6 +3,7 @@
 
 #include <string.h>
 
+#include "rensga/core/physics3d.h"
 #include "rensga/core/rigidbody2d.h"
 #include "rensga/core/input.h"
 #include "rensga/core/time.h"
@@ -35,6 +36,7 @@ void GfxAssets::bind(const PackView* pack, const PackAssets* assets, const u32* 
   g_bound = assets != nullptr;
   g_focusSlot = kInvalidIndex;
   Physics2D::loadFromPack(pack);
+  physics3d::loadFromPack(pack);  // F6 a2: PHY3 (3D gravity and layer matrix)
 }
 void GfxAssets::unbind() { bind(nullptr, nullptr, nullptr, 0); }
 bool GfxAssets::bound() { return g_bound; }
@@ -679,27 +681,64 @@ bool hasPair(const Pair2D* list, u32 n, const Pair2D& p) {
   return false;
 }
 
-void sendPair(World& world, const Pair2D& p, bool enter) {
+// F6 (A2): the Collision2D a solid pair reports to `self`: contact point = middle of the overlap, normal = the axis of least
+// penetration pointing from the other box toward `self`, relativeVelocity = self's Rigidbody2D velocity minus the other's.
+Collision2D makeCollision2D(GameObject* self, GameObject* other) {
+  Collision2D c;
+  c.gameObject = other;
+  BoxCollider2D* bs = self->GetComponent<BoxCollider2D>();
+  BoxCollider2D* bo = other->GetComponent<BoxCollider2D>();
+  if (bs && bo) {
+    const Rect a = bs->bounds(), b = bo->bounds();
+    const Scalar ox = Mathf::Min(a.x + a.width, b.x + b.width) - Mathf::Max(a.x, b.x);
+    const Scalar oy = Mathf::Min(a.y + a.height, b.y + b.height) - Mathf::Max(a.y, b.y);
+    const Scalar acx = a.x + a.width * 0.5f, acy = a.y + a.height * 0.5f, bcx = b.x + b.width * 0.5f, bcy = b.y + b.height * 0.5f;
+    c.point = Vector2(Mathf::Max(a.x, b.x) + ox * 0.5f, Mathf::Max(a.y, b.y) + oy * 0.5f);
+    if (ox < oy) c.normal = Vector2(acx >= bcx ? 1.0f : -1.0f, 0);
+    else c.normal = Vector2(0, acy >= bcy ? 1.0f : -1.0f);
+  }
+  Rigidbody2D* rs = self->GetComponent<Rigidbody2D>();
+  Rigidbody2D* ro = other->GetComponent<Rigidbody2D>();
+  Vector2 vs(rs ? rs->velocityX : 0.0f, rs ? rs->velocityY : 0.0f), vo(ro ? ro->velocityX : 0.0f, ro ? ro->velocityY : 0.0f);
+  c.relativeVelocity = vs - vo;
+  return c;
+}
+
+// kind: 0 enter, 1 stay, 2 exit. Stay is new in F6: triggers send OnTriggerStay + OnTriggerStay2D, solid pairs the Collision2D Stay.
+// Solid pairs send both forms of Enter / Exit: the old OnCollisionEnter2D(GameObject*) and the Collision2D overload.
+void sendPair(World& world, const Pair2D& p, int kind) {
   GameObject* a = world.objectAt(p.aIdx);
   GameObject* b = world.objectAt(p.bIdx);
   if (!a || !b || a->generation != p.aGen || b->generation != p.bGen) return;  // one side is gone: no callback
   Ref<GameObject> ra = a->ref(), rb = b->ref();
   using C = World::Contact;
-  const C plain = enter ? C::TriggerEnter : C::TriggerExit, twoD = enter ? C::TriggerEnter2D : C::TriggerExit2D;
-  const C coll = enter ? C::CollisionEnter2D : C::CollisionExit2D;
   if (p.trigger) {
+    const C plain = kind == 0 ? C::TriggerEnter : (kind == 1 ? C::TriggerStay : C::TriggerExit);
+    const C twoD = kind == 0 ? C::TriggerEnter2D : (kind == 1 ? C::TriggerStay2D : C::TriggerExit2D);
     if (ra) { world.sendContact(ra.get(), b, plain); }
     if (ra) { world.sendContact(ra.get(), b, twoD); }
     if (ra && rb) { world.sendContact(rb.get(), ra.get(), plain); }
     if (ra && rb) { world.sendContact(rb.get(), ra.get(), twoD); }
-  } else {
+    return;
+  }
+  const World::CollisionKind ck = kind == 0 ? World::CollisionKind::Enter : (kind == 1 ? World::CollisionKind::Stay : World::CollisionKind::Exit);
+  if (kind != 1) {
+    const C coll = kind == 0 ? C::CollisionEnter2D : C::CollisionExit2D;
     if (ra) world.sendContact(ra.get(), b, coll);
     if (ra && rb) world.sendContact(rb.get(), ra.get(), coll);
+  }
+  if (ra && rb) {
+    const Collision2D ca = makeCollision2D(ra.get(), rb.get());
+    world.sendCollision2D(ra.get(), ca, ck);
+    if (ra && rb) world.sendCollision2D(rb.get(), makeCollision2D(rb.get(), ra.get()), ck);
   }
 }
 }  // namespace
 
-void Gameplay2D::resetTriggerMemory() { g_prevCount = 0; }
+void Gameplay2D::resetTriggerMemory() {
+  g_prevCount = 0;
+  physics3d::resetState();  // F6 a2: the 3D contact pairs and kinematic history go with the 2D trigger memory
+}
 
 void Gameplay2D::fixedStep(World& world) {
   Rigidbody2DSim::fixedStep(world);  // F4: bodies move first, so this step's trigger pairs see the new positions
@@ -739,9 +778,9 @@ void Gameplay2D::fixedStep(World& world) {
   for (u32 i = 0; i < curN; ++i) g_prevPairs[i] = cur[i];
   g_prevCount = curN;
   for (u32 i = 0; i < curN; ++i)
-    if (!hasPair(prev, prevN, cur[i])) sendPair(world, cur[i], true);
+    sendPair(world, cur[i], hasPair(prev, prevN, cur[i]) ? 1 : 0);
   for (u32 i = 0; i < prevN; ++i)
-    if (!hasPair(cur, curN, prev[i])) sendPair(world, prev[i], false);
+    if (!hasPair(cur, curN, prev[i])) sendPair(world, prev[i], 2);
 }
 
 // ---- drawing ----------------------------------------------------------------------------------------------------

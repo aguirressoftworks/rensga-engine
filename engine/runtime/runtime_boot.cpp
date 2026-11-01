@@ -3,6 +3,8 @@
 #include "rensga/core/input.h"
 #include "rensga/core/log.h"
 #include "rensga/core/save.h"
+#include "rensga/core/application.h"
+#include "rensga/core/runtime_stats.h"
 #include "rensga/core/scene_manager.h"
 
 namespace rensga {
@@ -86,9 +88,18 @@ bool bootPack(const BootDeps& deps, BootState& st) {
   GfxAssets::bind(&st.view, &st.loaded.assets, handles, st.textureCount);  // 2D components resolve textures here
   SceneManager::bind(&st.view, st.sceneIndex);
   if (deps.saves) Save::use(deps.saves);
+  // --- F6 a3 --- the profile the game was cooked for (Application::profile) and the mixer the Budget queries read
+  if (st.target) {
+    const u32 p = st.target->profile;
+    if (p == makeFourCC('P', 'S', 'P', ' ')) Application::setProfile(ConsoleProfile::Psp);
+    else if (p == makeFourCC('P', 'S', '2', ' ')) Application::setProfile(ConsoleProfile::Ps2);
+    else if (p == makeFourCC('P', 'S', 'X', ' ')) Application::setProfile(ConsoleProfile::Psx);
+  }
+  // --- end F6 a3 ---
   if (deps.audio) {
     deps.audio->init(deps.fs, st.target, deps.audioClock);
     deps.audio->registerPackClips(as);
+    runtime_stats::bindMixer(&deps.audio->mixer());  // F6 a3: Budget::voicesUsed
   }
   return true;
 }

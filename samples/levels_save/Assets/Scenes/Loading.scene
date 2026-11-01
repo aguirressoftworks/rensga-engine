@@ -1,0 +1,222 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000000a02",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000040968",
+   "name": "LoadShade",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 272,
+      "color": [
+       8,
+       10,
+       24,
+       255
+      ],
+      "sortingOrder": 50
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040969",
+   "name": "LoadTitle",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": -50,
+      "color": [
+       250,
+       200,
+       40,
+       255
+      ],
+      "sortingOrder": 60
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040970",
+   "name": "BarBack",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 86,
+      "y": 125,
+      "w": 308,
+      "h": 22,
+      "color": [
+       60,
+       66,
+       100,
+       255
+      ],
+      "sortingOrder": 55
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040971",
+   "name": "BarFill",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "x": 90,
+      "y": 129,
+      "w": 4,
+      "h": 14,
+      "color": [
+       250,
+       200,
+       40,
+       255
+      ],
+      "sortingOrder": 56
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000040972",
+   "name": "BarPct",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "x": 0,
+      "y": 40,
+      "color": [
+       235,
+       235,
+       235,
+       255
+      ],
+      "sortingOrder": 60
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

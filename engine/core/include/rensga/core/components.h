@@ -53,8 +53,13 @@ struct CharacterController : Component {
   SERIALIZE_FIELD(Scalar, radius, 0.5f)
   SERIALIZE_FIELD(Scalar, gravity, -20.0f)
   SERIALIZE_FIELD(Scalar, stepOffset, 0.3f)
+  // F6.08 (appended): steepest slope (degrees) the controller counts as ground on a rotated box, capsule or Rigidbody.
+  APPENDED_FIELDS()
+  RANGE(0, 90)
+  SERIALIZE_FIELD(Scalar, slopeLimit, 45.0f)
   // Runtime state (not reflected).
   Vector3 velocity;
+  Vector3 groundNormal = Vector3(0, 1, 0);  // F6.08: normal of the last oriented-collider contact that grounded the controller
   bool grounded = false;
   // Moves by `motion` (world space) with gravity and AABB collision. Implemented in engine/api.
   void Move(const Vector3& motion);

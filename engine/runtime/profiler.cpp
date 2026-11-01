@@ -3,6 +3,8 @@
 #include <cstdio>
 
 #include "rensga/core/log.h"
+#include "rensga/core/runtime_stats.h"
+#include "rensga/core/script_samples.h"
 
 namespace rensga {
 
@@ -19,12 +21,14 @@ void FrameProfiler::setScene(const char* name) {
 
 void FrameProfiler::noteDraws(u32 draws, u32 triangles) {
   haveCounts_ = true;
+  runtime_stats::setTriangles(triangles);  // F6: Budget::trianglesLastFrame
   if (draws > peak_.draws) peak_.draws = draws;
   if (triangles > peak_.triangles) peak_.triangles = triangles;
 }
 
 void FrameProfiler::noteResources(u32 textures, u32 vramBytes) {
   haveCounts_ = true;
+  runtime_stats::setVram(vramBytes);  // F6: Budget::vramUsed
   if (textures > peak_.textures) peak_.textures = textures;
   if (vramBytes > peak_.vramBytes) peak_.vramBytes = vramBytes;
 }
@@ -42,6 +46,7 @@ void FrameProfiler::init(ClockUsFn clock, u32 logEvery) {
   *this = FrameProfiler();
   clock_ = clock;
   logEvery_ = logEvery ? logEvery : 60;
+  script_samples::setClock(clock);  // F6: Profiler::BeginSample uses the same microsecond clock
 }
 
 void FrameProfiler::frameBegin() {
@@ -59,6 +64,7 @@ void FrameProfiler::mark(ProfSection s) {
 
 void FrameProfiler::frameEnd() {
   if (!clock_) return;
+  script_samples::endFrame();  // F6: roll the script samples of this frame into the window
   const u64 total = clock_() - start_;
   for (u32 i = 0; i < kN; ++i) {
     sum_[i] += cur_[i];
@@ -72,6 +78,14 @@ void FrameProfiler::frameEnd() {
   auto mx = [&](u32 i) { return static_cast<unsigned>(max_[i]); };
   RLOG_INFO("game", "rensga: prof frames=%u total_us=%u/%u update_us=%u/%u render_us=%u/%u present_us=%u/%u audio_us=%u/%u",
             static_cast<unsigned>(n), avg(kN), mx(kN), avg(0), mx(0), avg(1), mx(1), avg(2), mx(2), avg(3), mx(3));
+  // F6: script samples (Profiler::BeginSample): one line per name, in first-use order.
+  for (u32 i = 0; i < script_samples::windowCount(); ++i) {
+    script_samples::WindowEntry e;
+    if (!script_samples::windowEntry(i, &e) || e.calls == 0) continue;
+    RLOG_INFO("game", "rensga: prof sample name=%s frames=%u calls=%u avg_us=%u max_us=%u", e.name, static_cast<unsigned>(n), e.calls,
+              static_cast<unsigned>(e.totalUs / n), e.maxFrameUs);  // avg = per frame over the whole window
+  }
+  script_samples::resetWindow();
   if (haveCounts_) {
     char lim[4][16];
     const u32 l[4] = {budget_.draws, budget_.triangles, budget_.textures, budget_.vramBytes};

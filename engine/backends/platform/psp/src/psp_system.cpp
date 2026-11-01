@@ -204,6 +204,11 @@ char g_saveNames[2][20];
 PspUtilitySavedataListSaveNewData g_saveNew;
 }  // namespace
 
+void PspPlatform::setSaveMetadata(const char* title, const char* detail) {
+  strncpy(saveTitle_, title ? title : "", sizeof(saveTitle_) - 1);
+  strncpy(saveDetail_, detail ? detail : "", sizeof(saveDetail_) - 1);
+}
+
 i32 PspPlatform::saveDialog(const char* slot, void* data, u32 bytes, bool load) {
   if (!data || bytes == 0 || bytes > kMaxSave - 16) return 0;
   // Slot -> save name: A-Z 0-9 _ - only (the system refuses other characters), at most 19 characters.
@@ -233,8 +238,8 @@ i32 PspPlatform::saveDialog(const char* slot, void* data, u32 bytes, bool load) 
   g_save.dataBufSize = (bytes + 15u) & ~15u;
   g_save.dataSize = load ? 0 : bytes;
   strncpy(g_save.sfoParam.title, "Rensga game", sizeof(g_save.sfoParam.title) - 1);
-  strncpy(g_save.sfoParam.savedataTitle, "Rensga save", sizeof(g_save.sfoParam.savedataTitle) - 1);
-  strncpy(g_save.sfoParam.detail, name, sizeof(g_save.sfoParam.detail) - 1);
+  strncpy(g_save.sfoParam.savedataTitle, saveTitle_[0] ? saveTitle_ : "Rensga save", sizeof(g_save.sfoParam.savedataTitle) - 1);
+  strncpy(g_save.sfoParam.detail, saveDetail_[0] ? saveDetail_ : name, sizeof(g_save.sfoParam.detail) - 1);
   g_save.sfoParam.parentalLevel = 1;
   g_save.focus = PSP_UTILITY_SAVEDATA_FOCUS_LATEST;
   memset(&g_saveNew, 0, sizeof(g_saveNew));

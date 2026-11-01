@@ -268,3 +268,25 @@ if(TARGET rensga-editor)
   set_tests_properties(editor_f6_contract_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 240 LABELS "slow;gl")
 endif()
 # --- F6 E0 end (ui) ---
+
+# --- F6 A1 begin ---
+# F6.01 prefabs: expansion, instances and overrides in a SceneDocument, apply/revert with undo, prefab edit mode data, cook equality.
+if(TARGET rensga_editor_core AND TARGET rensga_target_psp)
+  add_executable(rensga_prefab_tests ../test_main.cpp test_prefab.cpp test_prefab_matrix.cpp)
+  target_link_libraries(rensga_prefab_tests PRIVATE rensga_editor_core rensga_cooker_lib)
+  target_include_directories(rensga_prefab_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_prefab_tests PRIVATE
+    RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"
+    RENSGA_ROOM_DIR="${CMAKE_SOURCE_DIR}/samples/psp3d_room"
+    RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_prefab")
+  rensga_link_whole_archive(rensga_prefab_tests PRIVATE rensga_target_psp)
+  rensga_host_target(rensga_prefab_tests)
+  add_test(NAME rensga_prefab_tests COMMAND rensga_prefab_tests)
+  set_tests_properties(rensga_prefab_tests PROPERTIES TIMEOUT 900)
+endif()
+if(TARGET rensga-editor)  # the Enemy exercise: five instances, one override, a prefab edit (xvfb; 77 = skipped)
+  add_test(NAME exercise_prefab_enemies COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/exercise_prefab_enemies.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/prefab_enemies ${CMAKE_CURRENT_BINARY_DIR}/exercise_prefab_enemies)
+  set_tests_properties(exercise_prefab_enemies PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300 LABELS "slow;gl;f6_exercises")
+endif()
+# --- F6 A1 end ---

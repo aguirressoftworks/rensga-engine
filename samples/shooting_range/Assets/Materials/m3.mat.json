@@ -1,0 +1,12 @@
+{
+ "format": 1,
+ "texture": null,
+ "color": [
+  110,
+  80,
+  60,
+  255
+ ],
+ "unlit": false,
+ "alphaTest": false
+}

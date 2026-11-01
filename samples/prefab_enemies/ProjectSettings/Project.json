@@ -1,0 +1,8 @@
+{
+ "format": 1,
+ "name": "PrefabEnemies",
+ "target": "psp",
+ "scenes": [
+  "00000000-0000-4000-a000-00000000a001"
+ ]
+}
