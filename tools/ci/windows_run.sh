@@ -12,10 +12,10 @@ cd "$REPO"  # native llvm-mingw build is static; only SDL2.dll is needed next to
 D="$CI_OUT/windows/engine/runtime"
 command -v wine >/dev/null && command -v xvfb-run >/dev/null || { echo "windows_run: wine/xvfb-run missing, skipped"; exit 77; }
 [ -f "$D/rensga_desktop.exe" ] && [ -f "$D/game.rpak" ] || { echo "windows_run: build windows first (tools/ci/windows.sh builds the exe and cooks the slice), skipped"; exit 77; }
-trap 'wineserver -k >/dev/null 2>&1' EXIT
-export WINEPREFIX="${WINE_PREFIX:-$REPO/build/wine-prefix}" WINEDEBUG=-all WINEARCH=win64 WINEDLLOVERRIDES="mscoree,mshtml="
+wine_env  # WINEDLLOVERRIDES=mscoree,mshtml= (no mono / gecko prompts), WINEPREFIX, WINEDEBUG
+trap 'wine_stop' EXIT
 SHOT="$CI_OUT/windows/windows_slice.png"; rm -f "$SHOT"
-out="$(cd "$D" && env -u WAYLAND_DISPLAY GALLIUM_DRIVER=softpipe LIBGL_ALWAYS_SOFTWARE=1 timeout -s KILL "${WINE_TIMEOUT:-420}" xvfb-run -a -s "-screen 0 1280x720x24" \
+out="$(cd "$D" && nolockfd env -u WAYLAND_DISPLAY GALLIUM_DRIVER=softpipe LIBGL_ALWAYS_SOFTWARE=1 timeout -s KILL "${WINE_TIMEOUT:-420}" xvfb-run -a -s "-screen 0 1280x720x24" \
   wine rensga_desktop.exe --pack game.rpak --scene TitleBot --frames "${WINE_FRAMES:-1500}" --screenshot "Z:${SHOT}" 2>&1)"
 echo "$out" | grep -a -E "game complete|bot finished|alloc-check|quit after|screenshot|ERROR" | tail -8
 rc=0

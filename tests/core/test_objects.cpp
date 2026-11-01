@@ -288,3 +288,37 @@ TEST(objects_application) {
   Application::reset();
   CHECK(!Application::quitRequested());
 }
+
+// Stage 4 playtest fixes: Instantiate(Guid), go->transform() next to go->transform, Debug::LogFormat.
+TEST(objects_instantiate_prefab_guid_and_transform_call) {
+  ObjFixture f;
+  GameObject* templ = f.world.createObject("coinTemplate");
+  Guid g;
+  CHECK(Guid::parse("00000000-0000-4000-8000-00000000c0de", g));
+  templ->guid = g;
+  templ->SetActive(false);
+  f.frames(1);
+  const u32 before = f.world.objectCount();
+  GameObject* a = Instantiate(g, Vector3(1, 2, 3), Quaternion());
+  CHECK(a != nullptr && a != templ && a->activeSelf());
+  CHECK(near(a->transform.position(), Vector3(1, 2, 3)));
+  GameObject* b = Instantiate(g);
+  CHECK(b != nullptr && b->activeSelf());
+  CHECK_EQ(f.world.objectCount(), before + 2);
+  CHECK(Instantiate(Guid(), Vector3(), Quaternion()) == nullptr);  // null Guid
+  Guid unknown;
+  CHECK(Guid::parse("00000000-0000-4000-8000-00000000dead", unknown));
+  CHECK(Instantiate(unknown) == nullptr);
+  // Both spellings reach the same Transform.
+  CHECK(a->transform() == &a->transform);
+  CHECK(near(a->transform()->position(), a->transform.position()));
+  const GameObject* ca = a;
+  CHECK(ca->transform() == &ca->transform);
+  // Debug::LogFormat prints Scalars without printf float conversion.
+  struct Cap { bool saw = false; } cap;
+  CallbackSink sink([](const LogRecord& r, void* u) { if (strstr(r.message, "speed 2.50 hp 007")) static_cast<Cap*>(u)->saw = true; }, &cap);
+  log::addSink(&sink);
+  Debug::LogFormat("speed {0} hp {1:03}", static_cast<Scalar>(2.5f), 7);
+  log::removeSink(&sink);
+  CHECK(cap.saw);
+}

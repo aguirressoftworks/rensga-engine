@@ -289,6 +289,22 @@ if(TARGET rensga-editor)  # the Enemy exercise: five instances, one override, a 
            ${CMAKE_SOURCE_DIR}/samples/prefab_enemies ${CMAKE_CURRENT_BINARY_DIR}/exercise_prefab_enemies)
   set_tests_properties(exercise_prefab_enemies PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300 LABELS "slow;gl;f6_exercises")
 endif()
+# F6 gate G1 (Stage 4): one run, all six columns required (cook, inspector, prefab hooks all installed).
+if(TARGET rensga_editor_core AND TARGET rensga_target_psp)
+  add_executable(rensga_component_matrix_g1 ../test_main.cpp test_component_matrix_g1.cpp test_prefab_matrix.cpp
+                 ../cooker/component_matrix_cook.cpp)
+  target_link_libraries(rensga_component_matrix_g1 PRIVATE rensga_editor_core rensga_cooker_lib rensga_api rensga_reflect_json)
+  target_include_directories(rensga_component_matrix_g1 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_component_matrix_g1 PRIVATE
+    RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"
+    RENSGA_ROOM_DIR="${CMAKE_SOURCE_DIR}/samples/psp3d_room"
+    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp-3d"
+    RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_g1")
+  rensga_link_whole_archive(rensga_component_matrix_g1 PRIVATE rensga_target_psp)
+  rensga_host_target(rensga_component_matrix_g1)
+  add_test(NAME component_matrix_g1 COMMAND rensga_component_matrix_g1 component_matrix_g1)
+  set_tests_properties(component_matrix_g1 PROPERTIES TIMEOUT 900)
+endif()
 # --- F6 A1 end ---
 
 # --- F6 B3 begin ---

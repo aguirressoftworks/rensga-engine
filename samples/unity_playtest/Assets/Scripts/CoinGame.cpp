@@ -33,12 +33,10 @@ struct CoinGame : Behaviour {
     t = DataAssets::Get<GameTuning>(tuning);
     if (!t) { Debug::Log("rensga: coingame no tuning asset"); return; }
     timeLeft = t->timeLimit;
-    GameObject* templ = gameObject()->world->findByGuid(coinPrefab);
-    if (!templ) { Debug::Log("rensga: coingame no coin prefab"); return; }
+    if (coinPrefab.isNull()) { Debug::Log("rensga: coingame no coin prefab"); return; }
     for (i32 i = 0; i < t->coinCount; ++i) {
       const Vector3 p((Rand01() * 2 - 1) * t->arenaHalf, 0.6f, (Rand01() * 2 - 1) * t->arenaHalf);
-      GameObject* coin = Instantiate(templ, p, Quaternion());
-      if (coin) { coin->SetActive(true); ++CoinScore::spawned; }
+      if (Instantiate(coinPrefab, p, Quaternion())) ++CoinScore::spawned;
     }
     GameObject* go = GameObject::Find("ScoreText");
     label = go ? go->GetComponent<UIText>() : nullptr;

@@ -122,8 +122,14 @@ void GuRenderer::drawPassQuads(u32 pass) {
   if (first >= last) return;
   sceKernelDcacheWritebackRange(g_quadBytes[frame_ & 1], quadBytes_);  // the GE reads the buffer when the list runs
   enterBakedState();  // no lighting, no culling, no texture; the quads set what they need
+  // Alpha-blended effect state, set explicitly: nothing from the mesh or 2D passes may leak in (blend func, texture function,
+  // dither, vertex color source). sceGuDepthMask takes a 16-bit mask: 0xFFFF = no depth writes (GU_TRUE would only mask bit 0).
   sceGuEnable(GU_BLEND);
-  sceGuDepthMask(GU_TRUE);  // blended effects do not write depth
+  sceGuBlendFunc(GU_ADD, GU_SRC_ALPHA, GU_ONE_MINUS_SRC_ALPHA, 0, 0);
+  sceGuDisable(GU_DITHER);
+  sceGuDisable(GU_FOG);
+  sceGuDepthMask(0xFFFF);
+  curTex_ = ~0u;  // force the texture state (function, scale) to be sent for the first run
   sceGumMatrixMode(GU_MODEL);
   sceGumLoadIdentity();
   sceGumUpdateMatrix();
@@ -138,6 +144,9 @@ void GuRenderer::drawPassQuads(u32 pass) {
   }
   sceGuDepthMask(GU_FALSE);
   sceGuDisable(GU_BLEND);
+  sceGuEnable(GU_DITHER);
+  if (fogOn_) sceGuEnable(GU_FOG);
+  curTex_ = ~0u;  // the next 3D draw rebinds (or disables) its texture
 }
 
 }  // namespace rensga

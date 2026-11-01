@@ -35,6 +35,24 @@ T* Instantiate(const T* original, const Vector3& position, const Quaternion& rot
   return go ? go->template GetComponent<T>() : nullptr;
 }
 
+// Prefab forms: `prefab` is the Guid field a script exposes (the cooker stores each prefab as an inactive template object).
+// Looks the template up in the active World, clones it and activates the clone, like Unity's Instantiate(prefab, pos, rot).
+// Returns null for a null/unknown Guid or when a pool is full.
+inline GameObject* Instantiate(const Guid& prefab, const Vector3& position, const Quaternion& rotation, Transform* parent = nullptr) {
+  World* w = World::active();
+  const GameObject* templ = w && !prefab.isNull() ? w->findByGuid(prefab) : nullptr;
+  GameObject* go = templ ? Instantiate(templ, position, rotation, parent) : nullptr;
+  if (go) go->SetActive(true);
+  return go;
+}
+inline GameObject* Instantiate(const Guid& prefab) {
+  World* w = World::active();
+  const GameObject* templ = w && !prefab.isNull() ? w->findByGuid(prefab) : nullptr;
+  GameObject* go = templ ? Instantiate(templ) : nullptr;
+  if (go) go->SetActive(true);
+  return go;
+}
+
 // The object (moved to the scene root first) and its children survive SceneManager::LoadScene.
 inline void DontDestroyOnLoad(GameObject* go) {
   if (go && go->world) go->world->dontDestroyOnLoad(go);

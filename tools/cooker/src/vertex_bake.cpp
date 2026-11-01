@@ -1,5 +1,7 @@
 #include "vertex_bake.h"
 
+#include "rensga/core/lighting.h"
+
 #include <algorithm>
 #include <cmath>
 #include <atomic>
@@ -217,9 +219,10 @@ void VertexBaker::bake(const Vector3* pos, const Vector3* normals, size_t n, con
       } else {
         const V3 d = V3{L.pos.x, L.pos.y, L.pos.z} - V3{wp.x, wp.y, wp.z};
         const float dist = std::sqrt(dot(d, d));
-        if (L.range <= 0 || dist >= L.range) continue;
-        const float a = 1.0f - dist / L.range;
-        atten = a * a;
+        // The same curve as the runtime renderers (lighting.h): 1 / (1 + K (d / range)^2), still 6 % at `range`. The runtime drops a
+        // light beyond range + the object's radius; the bake has no object radius, so it stops at twice the range (1.6 %).
+        if (L.range <= 0 || dist >= 2.0f * L.range) continue;
+        atten = static_cast<float>(pointLightFalloff(dist, L.range));
         toL = dist > 1e-6f ? d * (1.0f / dist) : V3{0, 1, 0};
         maxT = dist - set_.bias;
       }

@@ -35,3 +35,14 @@ SLICE_PACK() { echo "$SLICE_PROJ/Library/Cooked/${1:-ps2}/game.rpak"; }
 slice_pack_check() {
   python3 -I "$REPO/tools/ci/pack_check.py" "$@"
 }
+
+# Wine hygiene (F6 Stage 4). wine starts services (services.exe, winedevice.exe, ...) that outlive the run and inherit every open fd; one
+# that inherited the flock fd of /tmp/rensga-heavy.lock blocked all builds. wine_env sets the prefix and skips the mono / gecko install
+# prompts; nolockfd <cmd...> closes every fd >= 3 that points at a /tmp/rensga-*.lock file, then execs; wine_stop kills the prefix's wineserver.
+wine_env() {
+  export WINEPREFIX="${WINE_PREFIX:-$REPO/build/wine-prefix}" WINEDEBUG=-all WINEARCH=win64 WINEDLLOVERRIDES="mscoree,mshtml="
+}
+nolockfd() {
+  bash -c 'for f in /proc/self/fd/*; do n="${f##*/}"; [ "$n" -ge 3 ] 2>/dev/null || continue; t="$(readlink "$f" 2>/dev/null)"; case "$t" in /tmp/rensga-*.lock*) eval "exec $n>&-" ;; esac; done; exec "$@"' nolockfd "$@"
+}
+wine_stop() { command -v wineserver >/dev/null && wineserver -k >/dev/null 2>&1 || true; }

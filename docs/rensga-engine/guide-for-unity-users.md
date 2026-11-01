@@ -21,7 +21,7 @@ Everything you can do in the editor is also on the command line: `rensga cook <p
 | `GameObject` | `GameObject` | Same name. Owned by the engine. Scripts never `new` or `delete` it. |
 | `Component` | `Component` | Fixed-capacity pools per type, sized from your scene data. |
 | `MonoBehaviour` | `Behaviour` | `struct Coin : Behaviour { REFLECT(Coin) ... }` |
-| `Transform` | `Transform` | In a script: `transform()->position()`, `setPosition(v)` (a getter and a `setX` setter instead of a property). On another object it is a member, not a call: `other->transform.position()`. |
+| `Transform` | `Transform` | In a script: `transform()->position()`, `setPosition(v)` (a getter and a `setX` setter instead of a property). On another object both spellings work: `other->transform()->position()` (the same as inside a Behaviour) and `other->transform.position()`. |
 | `ScriptableObject` | `DataAsset` | A reflected struct, `*.asset.json`. See section 7. |
 | Prefab | Prefab (`.prefab`) | Instances, overrides, nesting, variants; expanded at cook time. |
 | Scene | Scene (`.scene`) | JSON, diff-friendly. `SceneManager::LoadScene`, additive and async loads. |
@@ -34,7 +34,7 @@ Everything you can do in the editor is also on the command line: `rensga cook <p
 | `Resources.Load<T>` | `Resources::Load<T>("path")` | Returns a `Handle<T>`; call `Resources::Unload`. |
 | `PlayerPrefs` | `PlayerPrefs::SetInt / GetInt / SetFloat / SetString / HasKey / DeleteKey / Save` | 64 keys. Saved on quit; call `Save()` to be sure. |
 | `JsonUtility` / save files | `SaveSystem::Write / Read / Exists / Delete` | Versioned slots on a memory card, `SAVEDATA` or a file. |
-| `Debug.Log` | `Debug::Log("fmt %d", x)` | printf style; no `%f` for `Scalar` in scripts (see section 8). |
+| `Debug.Log` | `Debug::Log("fmt %d", x)`, `Debug::LogFormat("speed {0}", speed)` | `Log` is printf style with no `%f` for `Scalar`; `LogFormat` takes a `Format` string where `Scalar`s print with 2 decimals (see section 8). |
 | Unity Editor scripting | `<project>/Editor/*.cpp` | Section 6 and [editor-extensions.md](editor-extensions.md). |
 | Inspector, Hierarchy, Project, Scene, Game, Console | the same windows | Plus Animation, Animator, Profiler, Lighting, Material Editor, Input Actions, Project Settings. |
 
@@ -90,11 +90,12 @@ Rules of thumb:
 ```cpp
 SERIALIZE_FIELD(Guid, coinPrefab, Guid())     // drag Coin.prefab onto it in the Inspector
 void Start() override {
-  GameObject* templ = gameObject()->world->findByGuid(coinPrefab);       // the template (inactive)
-  GameObject* coin = Instantiate(templ, Vector3(2, 0.5f, 1), Quaternion());
-  if (coin) coin->SetActive(true);                                       // clones of an inactive template start inactive
+  GameObject* coin = Instantiate(coinPrefab, Vector3(2, 0.5f, 1), Quaternion());   // like Unity: finds the template, clones it, activates the clone
+  if (!coin) Debug::Log("rensga: no coin prefab or the pool is full");
 }
 ```
+
+`Instantiate(guid)` also exists without a position. It looks the template up with `World::findByGuid` (the active World) and returns null for a null or unknown Guid.
 
 Instances placed in the scene are plain objects after the cook. Many spawns at run time: reserve pool slots with `"componentReserve": {"MeshRenderer": 32}` in `Project.json`, or use `GameObjectPool<N>` ([scenes-assets-saves.md](scenes-assets-saves.md)). `Instantiate` returns null when a pool is full (and logs which one).
 
@@ -135,7 +136,7 @@ Invoke(&Coin::Respawn, 2.0f);     // a member function pointer; Invoke("Respawn"
 | Features | A component or call the console cannot do is greyed out in the Inspector with a reason, rejected by the cooker, and a compile error with a hint if you call it from a script (`RENSGA_REQUIRES_FEATURE`). | One API, honest limits. |
 | One console per project | The project targets one console (PSX, PSP or PS2) and is always also built for Windows, Linux and Android. | The data is cooked for that console. |
 | Strings | `String32` fields (31 characters), `const char*` parameters, `Format(buf, size, "HP {0}/{1}", a, b)`. | No heap. |
-| Printing | `Debug::Log("x=%d", static_cast<int>(x * 100))`. Log fixed-point as an integer. | `Scalar` has no portable `printf` format. |
+| Printing | `Debug::LogFormat("x={0} y={1:.3}", x, y)` (also `LogWarningFormat`, `LogErrorFormat`). | `Scalar` has no portable `printf` format; `LogFormat` uses `Format` (no heap). |
 | Assets | Textures are power-of-two friendly and paletted on consoles, audio is mono 16-bit, meshes are small. The Project window shows the cost of each asset for the target. | VRAM and RAM. |
 | Reflection | The Inspector, scene files, prefab overrides, undo, hot reload and the cooker read one description (the macros). | No second hand-written description of a type. |
 | No Mono, no C# | Non-goals: C#/.NET, shader graphs, per-pixel lighting, URP/HDRP, DOTS, store integration. | Scope. |

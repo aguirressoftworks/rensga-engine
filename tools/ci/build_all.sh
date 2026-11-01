@@ -9,22 +9,28 @@ unset WAYLAND_DISPLAY
 #     psp      Builds/psp/EBOOT.PBP (release) booted in PPSSPPSDL: 'rensga: frame' heartbeat
 #     ps2      Builds/ps2/rensga.iso booted in PCSX2 (LOCAL ONLY: needs your BIOS in ~/.config/rensga/emulators.json; skipped without)
 # The PC / phone platforms and PSP use templates/psp-2d; the PS2 ISO uses templates/ps2-2d (one project = one profile).
-# Env: RENSGA_EDITOR (default build/host/editor/app/rensga-editor), RENSGA_CI_OUT, RENSGA_BS_QUIT_AFTER, BS_WAIT.
+# Env: RENSGA_EDITOR (default $RENSGA_CI_OUT/linux-host/editor/app/rensga-editor when it exists, else build/host/editor/app/rensga-editor), RENSGA_CI_OUT, RENSGA_BS_QUIT_AFTER, BS_WAIT.
 # Output: $RENSGA_CI_OUT/build-all/<platform>/ (editor.log, screenshots) and summary.txt. Exit 0 = all ran ok or skipped (77 per platform is a skip).
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$REPO"
-EDITOR_BIN="${RENSGA_EDITOR:-$REPO/build/host/editor/app/rensga-editor}"
+# Default: the editor of the CI host tree when it exists ($RENSGA_CI_OUT/linux-host), else the dev tree.
+if [ -n "${RENSGA_EDITOR:-}" ]; then EDITOR_BIN="$RENSGA_EDITOR"
+elif [ -x "$CI_OUT/linux-host/editor/app/rensga-editor" ]; then EDITOR_BIN="$CI_OUT/linux-host/editor/app/rensga-editor"
+else EDITOR_BIN="$REPO/build/host/editor/app/rensga-editor"; fi
 OUT="$CI_OUT/build-all"; rm -rf "$OUT"; mkdir -p "$OUT"; SUMMARY="$OUT/summary.txt"; : > "$SUMMARY"
 PLATFORMS="${*:-linux windows android psp ps2}"
 export RENSGA_JOBS="${RENSGA_JOBS:-2}" RENSGA_TOOLCHAIN="${RENSGA_TOOLCHAIN:-native}" RENSGA_BS_QUIT_AFTER="${RENSGA_BS_QUIT_AFTER:-4}"
+# The editor runs the Windows build under wine: no mono / gecko prompts, no lock fd in wine's services, wineserver stopped at the end.
+wine_env
+trap 'wine_stop' EXIT
 bad=0
 for p in $PLATFORMS; do
   proj="$REPO/templates/psp-2d"; mode=dev
   [ "$p" = ps2 ] && proj="$REPO/templates/ps2-2d"
   [ "$p" = psp ] && mode=release   # the console image a player gets: release EBOOT.PBP
   step "$p ($mode) from $(basename "$proj")"
-  "$REPO/tests/editor/build_settings_ui.sh" "$EDITOR_BIN" "$proj" "$OUT/$p" "$p" "$mode" > "$OUT/$p.txt" 2>&1
+  nolockfd "$REPO/tests/editor/build_settings_ui.sh" "$EDITOR_BIN" "$proj" "$OUT/$p" "$p" "$mode" > "$OUT/$p.txt" 2>&1
   rc=$?
   if [ $rc = 0 ]; then echo "$p: ok     $(grep -a '^build-settings-ui:' "$OUT/$p.txt" | sed 's/ buildsettings:.*//')" | tee -a "$SUMMARY"
   elif [ $rc = 77 ]; then echo "$p: SKIPPED $(tail -1 "$OUT/$p.txt")" | tee -a "$SUMMARY"

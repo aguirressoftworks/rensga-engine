@@ -29,10 +29,10 @@ if "$CLI" modules path windows-build >/dev/null 2>&1 && command -v wine >/dev/nu
   fresh "$REPO/templates/psp-2d" "$OUT/win-proj"
   "$CLI" build --platform windows --development "$OUT/win-proj" > "$OUT/windows-build.log" 2>&1 || { tail -20 "$OUT/windows-build.log"; exit 1; }
   W="$OUT/win-proj/Builds/windows"; EXE="$(ls "$W"/*.exe | head -1)"
-  export WINEPREFIX="${WINE_PREFIX:-$REPO/build/wine-prefix}" WINEDEBUG=-all WINEARCH=win64 WINEDLLOVERRIDES="mscoree,mshtml="
-  ( cd "$W" && env -u WAYLAND_DISPLAY GALLIUM_DRIVER=softpipe LIBGL_ALWAYS_SOFTWARE=1 timeout -s KILL 300 xvfb-run -a -s "-screen 0 1280x720x24" \
+  wine_env
+  ( cd "$W" && nolockfd env -u WAYLAND_DISPLAY GALLIUM_DRIVER=softpipe LIBGL_ALWAYS_SOFTWARE=1 timeout -s KILL 300 xvfb-run -a -s "-screen 0 1280x720x24" \
       wine "$(basename "$EXE")" --frames 120 --screenshot "Z:$OUT/windows.png" > "$OUT/windows.log" 2>&1 ) || true
-  wineserver -k >/dev/null 2>&1 || true
+  wine_stop
   [ -s "$OUT/windows.png" ] && PARTS+=("windows:$OUT/windows.png") || echo "side_by_side: no Windows screenshot" >&2
 fi
 # ---- PS2: the ISO of the ps2 sibling project in PCSX2 (needs a BIOS)

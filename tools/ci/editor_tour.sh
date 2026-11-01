@@ -6,13 +6,14 @@ unset WAYLAND_DISPLAY  # xvfb-run must never let SDL/Qt reach a real Wayland des
 set -eu
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 cd "$REPO"
+HOST_PATH="$PATH"  # the host tree must use the system cmake, not the module one (toolchain_env prepends it)
 . "$REPO/tools/modules/toolchain_env.sh" psp-build psp || { echo "editor_tour: PSP Build Support module not installed, skipped"; exit 77; }
 command -v xvfb-run >/dev/null 2>&1 || { echo "editor_tour: no xvfb-run, skipped"; exit 77; }
 # The CLI registers the script types of the project it was built for (MVP limitation, see TASKLIST), so it gets its own tree.
 PROJ="$REPO/samples/editor_tour"; H="$CI_OUT/editor_tour-host"; CLI="$H/tools/cli/rensga"
 step "host CLI for editor_tour"
-cmake --preset linux-host -B "$H" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_BUILD_TESTS=OFF -DRENSGA_BUILD_EDITOR=OFF >/dev/null
-cmake --build "$H" -j"$JOBS" --target rensga
+env PATH="$HOST_PATH" cmake --preset linux-host -B "$H" -DRENSGA_PROJECT_DIR="$PROJ" -DRENSGA_BUILD_TESTS=OFF -DRENSGA_BUILD_EDITOR=OFF >/dev/null
+env PATH="$HOST_PATH" cmake --build "$H" -j"$JOBS" --target rensga
 W="$CI_OUT/editor_tour"; rm -rf "$W"; mkdir -p "$W"
 step "cook"; "$CLI" cook "$PROJ"
 step "play (PPSSPP)"

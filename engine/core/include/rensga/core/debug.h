@@ -2,6 +2,7 @@
 #pragma once
 #include "rensga/core/log.h"
 #include "rensga/core/math.h"
+#include "rensga/core/text_format.h"
 
 namespace rensga {
 
@@ -21,6 +22,26 @@ struct Debug {
   static void Log(const char* fmt, ...) RENSGA_PRINTF_LIKE(1, 2);
   static void LogWarning(const char* fmt, ...) RENSGA_PRINTF_LIKE(1, 2);
   static void LogError(const char* fmt, ...) RENSGA_PRINTF_LIKE(1, 2);
+  // Format-string forms (text_format.h): {0} {1} name the arguments, Scalars print with 2 decimals (Fixed(v, n) picks n). No heap, no
+  // printf float conversion: Debug::LogFormat("speed {0} hp {1:03}", speed, hp). Lines are cut at 255 characters.
+  template <class... Args>
+  static void LogFormat(const char* fmt, const Args&... args) {
+    char buf[256];
+    Format(buf, sizeof buf, fmt, args...);
+    Log("%s", buf);
+  }
+  template <class... Args>
+  static void LogWarningFormat(const char* fmt, const Args&... args) {
+    char buf[256];
+    Format(buf, sizeof buf, fmt, args...);
+    LogWarning("%s", buf);
+  }
+  template <class... Args>
+  static void LogErrorFormat(const char* fmt, const Args&... args) {
+    char buf[256];
+    Format(buf, sizeof buf, fmt, args...);
+    LogError("%s", buf);
+  }
   // Logs "Assertion failed: <msg>" as an error when `condition` is false. Never aborts. Returns `condition`.
   static bool Assert(bool condition, const char* message = "");
 

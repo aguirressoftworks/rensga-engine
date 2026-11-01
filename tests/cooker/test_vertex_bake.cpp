@@ -78,12 +78,13 @@ TEST(vertex_bake_point_light_falls_off_with_range) {
   p.range = 4;
   p.rgb[0] = p.rgb[1] = p.rgb[2] = 1;
   b.addLight(p);
-  const Vector3 pos[3] = {Vector3(0, 0, 0), Vector3(1.5f, 0, 0), Vector3(5, 0, 0)};
+  const Vector3 pos[3] = {Vector3(0, 0, 0), Vector3(1.5f, 0, 0), Vector3(10, 0, 0)};
   const Vector3 nrm[3] = {Vector3(0, 1, 0), Vector3(0, 1, 0), Vector3(0, 1, 0)};
   uint8_t out[12];
   b.bake(pos, nrm, 3, Matrix4::identity(), false, out);
-  // below the lamp: (1 - 2/4)^2 = 0.25; farther: dimmer; beyond the range: black
-  CHECK(out[0] > 55 && out[0] < 72);
+  // below the lamp: pointLightFalloff(2, 4) = 1 / (1 + 15 * 0.25) = 0.21 (about 54 of 255); farther: dimmer; beyond the bake cut-off
+  // (2 x range = 8; the point at x=10 is 10.2 away): black
+  CHECK(out[0] > 45 && out[0] < 63);
   CHECK(out[4] < out[0] && out[4] > 0);
   CHECK(out[8] == 0);
 }

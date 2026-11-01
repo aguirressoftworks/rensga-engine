@@ -34,6 +34,10 @@ struct Transform {
   Transform* firstChild_ = nullptr;
   Transform* nextSibling_ = nullptr;
 
+  // `go->transform()` reads like `transform()` inside a Behaviour (a Transform pointer) and `go->transform.position()` keeps working.
+  Transform* operator()() { return this; }
+  const Transform* operator()() const { return this; }
+
   // ---- local values
   Vector3 localPosition() const { return lpos_; }
   void setLocalPosition(const Vector3& p) { lpos_ = p; }
