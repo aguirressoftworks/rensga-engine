@@ -41,6 +41,7 @@ bool AudioMixer::init(u32 sampleRate, IFileSystem* fs) {
   limit_ = kMaxVoices;
   stats_ = MixStats();
   master_ = kUnity;
+  for (Scalar& g : groupVolume_) g = 1.0f;
   return true;
 }
 
@@ -62,11 +63,12 @@ const AudioMixer::Voice* AudioMixer::lookup(u32 id) const { return const_cast<Au
 void AudioMixer::computeGains(Voice& v) {
   // Constant-power pan; the trig runs once per change, never per sample.
   const Scalar angle = (clampPan(v.pan) + 1.0f) * (Mathf::PI * 0.25f);
-  v.gainL = toQ15(v.volume * Mathf::Cos(angle), 2.0f);
-  v.gainR = toQ15(v.volume * Mathf::Sin(angle), 2.0f);
+  const Scalar g = v.group == static_cast<u8>(AudioGroup::Music) ? groupVolume_[1] : (v.group == static_cast<u8>(AudioGroup::SFX) ? groupVolume_[2] : 1.0f);
+  v.gainL = toQ15(v.volume * g * Mathf::Cos(angle), 2.0f);
+  v.gainR = toQ15(v.volume * g * Mathf::Sin(angle), 2.0f);
 }
 
-u32 AudioMixer::play(const AudioClip* clip, Scalar volume, Scalar pan, bool loop, Scalar pitch, u8 priority) {
+u32 AudioMixer::play(const AudioClip* clip, Scalar volume, Scalar pan, bool loop, Scalar pitch, u8 priority, AudioGroup group) {
   if (!clip || !clip->samples || clip->frames == 0 || rate_ == 0 || (clip->channels != 1 && clip->channels != 2)) return 0;
   u32 slot = kMaxVoices;
   for (u32 i = 0; i < limit_; ++i)
@@ -96,6 +98,7 @@ u32 AudioMixer::play(const AudioClip* clip, Scalar volume, Scalar pan, bool loop
   v.active = true;
   v.loop = loop;
   v.priority = priority;
+  v.group = static_cast<u8>(group);
   v.serial = ++serial_;
   v.volume = volume;
   v.pan = pan;
@@ -138,7 +141,29 @@ void AudioMixer::setVoiceLimit(u32 voices) {
   for (u32 i = voices; i < kMaxVoices; ++i) voices_[i].active = false;
   limit_ = voices;
 }
-void AudioMixer::setMasterVolume(Scalar volume) { master_ = toQ15(volume, 2.0f); }
+void AudioMixer::setMasterVolume(Scalar volume) {
+  master_ = toQ15(volume, 2.0f);
+  groupVolume_[0] = volume < 0 ? 0 : (volume > 2 ? 2 : volume);
+}
+void AudioMixer::setGroupVolume(AudioGroup group, Scalar volume) {
+  if (!(volume >= 0)) volume = 0;
+  if (volume > 2) volume = 2;
+  switch (group) {
+    case AudioGroup::Master: setMasterVolume(volume); break;
+    case AudioGroup::Music:
+      groupVolume_[1] = volume;
+      computeMusicGain();
+      for (u32 i = 0; i < kMaxVoices; ++i)
+        if (voices_[i].active && voices_[i].group == 1) computeGains(voices_[i]);
+      break;
+    case AudioGroup::SFX:
+      groupVolume_[2] = volume;
+      for (u32 i = 0; i < kMaxVoices; ++i)
+        if (voices_[i].active && voices_[i].group == 2) computeGains(voices_[i]);
+      break;
+  }
+}
+Scalar AudioMixer::groupVolume(AudioGroup group) const { return static_cast<u32>(group) < kAudioGroupCount ? groupVolume_[static_cast<u32>(group)] : 0; }
 
 // ---- music ---------------------------------------------------------------------------------------
 
@@ -150,8 +175,9 @@ void AudioMixer::stopMusic() {
 
 void AudioMixer::setMusicVolume(Scalar volume) {
   music_.volume = volume;
-  music_.gainL = music_.gainR = toQ15(volume, 2.0f);
+  computeMusicGain();
 }
+void AudioMixer::computeMusicGain() { music_.gainL = music_.gainR = toQ15(music_.volume * groupVolume_[1], 2.0f); }
 
 bool AudioMixer::refillMusic(u32 which) {
   Music& m = music_;

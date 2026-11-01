@@ -46,8 +46,14 @@ std::string stubText(AssetKind k, const std::string& displayName, const std::str
     case AssetKind::Material:  // pack-format.md "Material asset"
       j = json::parse(R"({"format":1,"texture":"","color":[255,255,255,255],"unlit":false,"alphaTest":false})");
       break;
-    case AssetKind::AnimatorController: j = json{{"format", 1}, {"kind", "AnimatorController"}}; break;
-    case AssetKind::PropertyClip: j = json{{"format", 1}, {"kind", "PropertyClip"}}; break;
+    case AssetKind::AnimatorController:  // docs/rensga-engine/animation.md: one Idle state, no parameters
+      j = json::parse(R"({"format":1,"kind":"AnimatorController","parameters":[],"defaultState":"Idle","states":[{"name":"Idle","motion":"","loop":true,"speed":1,"pos":[80,80]}],"transitions":[]})");
+      j["name"] = displayName;
+      break;
+    case AssetKind::PropertyClip:  // an empty clip: 30 fps, one second
+      j = json::parse(R"({"format":1,"kind":"PropertyClip","fps":30,"length":30,"loop":false,"curves":[],"events":[]})");
+      j["name"] = displayName;
+      break;
     case AssetKind::DataAsset: j = json{{"format", 1}, {"kind", "DataAsset"}}; break;
     default: break;
   }

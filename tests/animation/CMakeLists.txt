@@ -1,0 +1,31 @@
+# F6.03 / F6.10 (B1): property clips, Animator runtime, AudioMixer groups (core-style, null backends) and the clip / controller cooker.
+rensga_reflect_scan(tests_anim RENSGA_ANIM_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/test_prop_clip.cpp ${CMAKE_CURRENT_SOURCE_DIR}/test_animator.cpp
+                    ${CMAKE_CURRENT_SOURCE_DIR}/test_mixer_groups.cpp)
+add_executable(rensga_animation_tests ../test_main.cpp ${RENSGA_ANIM_TESTS})
+target_link_libraries(rensga_animation_tests PRIVATE rensga_api rensga_core rensga_reflect_json)
+target_include_directories(rensga_animation_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_CURRENT_SOURCE_DIR})
+rensga_runtime_target(rensga_animation_tests)   # test behaviours derive from core classes (-fno-rtti)
+add_test(NAME rensga_animation_tests COMMAND rensga_animation_tests)
+
+if(TARGET rensga_cooker_lib)
+  rensga_reflect_scan(tests_anim_cook RENSGA_ANIM_COOK_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/test_anim_cook.cpp)
+  add_executable(rensga_animation_cook_tests ../test_main.cpp ${RENSGA_ANIM_COOK_TESTS})
+  target_link_libraries(rensga_animation_cook_tests PRIVATE rensga_cooker_lib rensga_api)
+  target_compile_definitions(rensga_animation_cook_tests PRIVATE RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures")
+  target_include_directories(rensga_animation_cook_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_CURRENT_SOURCE_DIR})
+  rensga_runtime_target(rensga_animation_cook_tests)
+  add_test(NAME rensga_animation_cook_tests COMMAND rensga_animation_cook_tests)
+endif()
+
+# The clip / controller documents and the preview model of the Animation window and the Animator graph (editor/core, no UI).
+if(TARGET rensga_editor_core AND TARGET rensga_target_psp)
+  rensga_reflect_scan(tests_anim_editor RENSGA_ANIM_EDITOR_TESTS ${CMAKE_CURRENT_SOURCE_DIR}/test_anim_editor.cpp)
+  add_executable(rensga_animation_editor_tests ../test_main.cpp ${RENSGA_ANIM_EDITOR_TESTS})
+  target_link_libraries(rensga_animation_editor_tests PRIVATE rensga_editor_core rensga_cooker_lib rensga_api)
+  target_include_directories(rensga_animation_editor_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  rensga_link_whole_archive(rensga_animation_editor_tests PRIVATE rensga_target_dummy)
+  rensga_link_whole_archive(rensga_animation_editor_tests PRIVATE rensga_core)
+  rensga_link_whole_archive(rensga_animation_editor_tests PRIVATE rensga_api)
+  rensga_host_target(rensga_animation_editor_tests)
+  add_test(NAME rensga_animation_editor_tests COMMAND rensga_animation_editor_tests)
+endif()

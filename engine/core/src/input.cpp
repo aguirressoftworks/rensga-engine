@@ -293,6 +293,13 @@ void Input::update(const VirtualGamepad& pad, Scalar dt) {
   }
 }
 
+// F6.09: the pointer is the pad's pointerX / pointerY / pointerDown; the previous frame's pad gives the edges.
+bool Input::mousePresent() { return st().pad.pointerActive; }
+Vector2 Input::mousePosition() { return st().pad.pointerActive ? Vector2(st().pad.pointerX, st().pad.pointerY) : Vector2(); }
+bool Input::GetMouseButton(i32 button) { return button == 0 && st().pad.pointerActive && st().pad.pointerDown; }
+bool Input::GetMouseButtonDown(i32 button) { return button == 0 && st().pad.pointerActive && st().pad.pointerDown && !(st().prev.pointerActive && st().prev.pointerDown); }
+bool Input::GetMouseButtonUp(i32 button) { return button == 0 && st().prev.pointerActive && st().prev.pointerDown && !(st().pad.pointerActive && st().pad.pointerDown); }
+
 Vector2 Input::GetAxis2(const char* name) {
   const InputAction* a = findAction(name);
   return a ? a->value_ : Vector2();

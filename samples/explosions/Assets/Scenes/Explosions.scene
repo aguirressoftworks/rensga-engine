@@ -1,0 +1,2085 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000000901",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000000001",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     9.5,
+     15.5
+    ],
+    "rotation": [
+     -0.258819,
+     -0.0,
+     -0.0,
+     0.965926
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {
+      "fov": 60.0,
+      "nearClip": 0.3,
+      "farClip": 80.0,
+      "depth": 0.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000002",
+   "name": "MiniMap",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     30,
+     0
+    ],
+    "rotation": [
+     -0.707107,
+     -0.0,
+     -0.0,
+     0.707107
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {
+      "fov": 60.0,
+      "nearClip": 0.3,
+      "farClip": 80.0,
+      "depth": 1.0,
+      "orthographic": true,
+      "orthographicSize": 11.0,
+      "viewportX": 0.74,
+      "viewportY": 0.6,
+      "viewportW": 0.25,
+      "viewportH": 0.38,
+      "clearFlags": 1,
+      "backgroundColor": [
+       16,
+       20,
+       26,
+       255
+      ],
+      "cullingMask": -257
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000003",
+   "name": "Sun",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     6,
+     0
+    ],
+    "rotation": [
+     0.887011,
+     0.0,
+     0.0,
+     0.461749
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 0,
+      "color": [
+       255,
+       240,
+       220,
+       255
+      ],
+      "intensity": 0.55,
+      "range": 0.0,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000004",
+   "name": "BoomLight",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     1.5,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       255,
+       170,
+       80,
+       255
+      ],
+      "intensity": 0.0,
+      "range": 9.0,
+      "renderMode": 1
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000005",
+   "name": "RenderSettings",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "RenderSettings",
+     "fields": {
+      "ambient": [
+       70,
+       74,
+       92,
+       255
+      ],
+      "fogEnabled": false,
+      "fogColor": [
+       0,
+       0,
+       0,
+       255
+      ],
+      "fogStart": 0.0,
+      "fogEnd": 0.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000006",
+   "name": "Ground",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     -0.5,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     44,
+     1,
+     44
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000600"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000007",
+   "name": "Backdrop",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     2.5,
+     -13
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     36,
+     5,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000601"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000008",
+   "name": "Pillar0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -7,
+     1.5,
+     -5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.2,
+     3,
+     1.2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000602"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000009",
+   "name": "Pillar1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     7,
+     1.5,
+     -5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.2,
+     3,
+     1.2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000602"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000000a",
+   "name": "Pillar2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -9,
+     1.5,
+     1
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.2,
+     3,
+     1.2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000602"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000000b",
+   "name": "Pillar3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     9,
+     1.5,
+     1
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1.2,
+     3,
+     1.2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000602"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000000c",
+   "name": "Crate0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -3.5,
+     0.5,
+     3.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000603"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000000d",
+   "name": "Crate1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     3.5,
+     0.5,
+     2.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000603"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000000e",
+   "name": "Crate2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.5,
+     -3.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000603"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000000f",
+   "name": "Crate3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -5.5,
+     0.5,
+     -1.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000603"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000010",
+   "name": "Crate4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     5.5,
+     0.5,
+     -2.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000603"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000011",
+   "name": "Tower",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     11.5,
+     3,
+     -6
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     2.2,
+     6,
+     2.2
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000604"
+     }
+    }
+   ],
+   "prefab": null,
+   "layer": 8
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000012",
+   "name": "Fire0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -7.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 0.55,
+      "startSpeed": 4.6,
+      "startSize": 2.8,
+      "startColor": [
+       255,
+       190,
+       80,
+       255
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 40,
+      "seed": 11,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 1,
+      "shapeRadius": 0.35,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       240,
+       190,
+       255
+      ],
+      "colorEnd": [
+       210,
+       40,
+       10,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.7,
+      "sizeEnd": 1.5,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000013",
+   "name": "Smoke0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -7.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.5,
+      "startSpeed": 1.9,
+      "startSize": 3.4,
+      "startColor": [
+       110,
+       108,
+       104,
+       210
+      ],
+      "gravityModifier": -0.08,
+      "maxParticles": 36,
+      "seed": 31,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 2,
+      "shapeRadius": 0.5,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       255,
+       255,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.5,
+      "sizeEnd": 1.6,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000014",
+   "name": "Sparks0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -7.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.0,
+      "startSpeed": 8.5,
+      "startSize": 0.45,
+      "startColor": [
+       255,
+       236,
+       140,
+       255
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 48,
+      "seed": 51,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 38.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       110,
+       20,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 1.0,
+      "sizeEnd": 0.4,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000015",
+   "name": "Fire1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -4.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 0.55,
+      "startSpeed": 4.6,
+      "startSize": 2.8,
+      "startColor": [
+       255,
+       190,
+       80,
+       255
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 40,
+      "seed": 12,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 1,
+      "shapeRadius": 0.35,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       240,
+       190,
+       255
+      ],
+      "colorEnd": [
+       210,
+       40,
+       10,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.7,
+      "sizeEnd": 1.5,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000016",
+   "name": "Smoke1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -4.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.5,
+      "startSpeed": 1.9,
+      "startSize": 3.4,
+      "startColor": [
+       110,
+       108,
+       104,
+       210
+      ],
+      "gravityModifier": -0.08,
+      "maxParticles": 36,
+      "seed": 32,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 2,
+      "shapeRadius": 0.5,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       255,
+       255,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.5,
+      "sizeEnd": 1.6,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000017",
+   "name": "Sparks1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -4.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.0,
+      "startSpeed": 8.5,
+      "startSize": 0.45,
+      "startColor": [
+       255,
+       236,
+       140,
+       255
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 48,
+      "seed": 52,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 38.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       110,
+       20,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 1.0,
+      "sizeEnd": 0.4,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000018",
+   "name": "Fire2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -1.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 0.55,
+      "startSpeed": 4.6,
+      "startSize": 2.8,
+      "startColor": [
+       255,
+       190,
+       80,
+       255
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 40,
+      "seed": 13,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 1,
+      "shapeRadius": 0.35,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       240,
+       190,
+       255
+      ],
+      "colorEnd": [
+       210,
+       40,
+       10,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.7,
+      "sizeEnd": 1.5,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000019",
+   "name": "Smoke2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -1.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.5,
+      "startSpeed": 1.9,
+      "startSize": 3.4,
+      "startColor": [
+       110,
+       108,
+       104,
+       210
+      ],
+      "gravityModifier": -0.08,
+      "maxParticles": 36,
+      "seed": 33,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 2,
+      "shapeRadius": 0.5,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       255,
+       255,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.5,
+      "sizeEnd": 1.6,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000001a",
+   "name": "Sparks2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -1.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.0,
+      "startSpeed": 8.5,
+      "startSize": 0.45,
+      "startColor": [
+       255,
+       236,
+       140,
+       255
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 48,
+      "seed": 53,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 38.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       110,
+       20,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 1.0,
+      "sizeEnd": 0.4,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000001b",
+   "name": "Fire3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 0.55,
+      "startSpeed": 4.6,
+      "startSize": 2.8,
+      "startColor": [
+       255,
+       190,
+       80,
+       255
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 40,
+      "seed": 14,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 1,
+      "shapeRadius": 0.35,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       240,
+       190,
+       255
+      ],
+      "colorEnd": [
+       210,
+       40,
+       10,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.7,
+      "sizeEnd": 1.5,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000001c",
+   "name": "Smoke3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.5,
+      "startSpeed": 1.9,
+      "startSize": 3.4,
+      "startColor": [
+       110,
+       108,
+       104,
+       210
+      ],
+      "gravityModifier": -0.08,
+      "maxParticles": 36,
+      "seed": 34,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 2,
+      "shapeRadius": 0.5,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       255,
+       255,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.5,
+      "sizeEnd": 1.6,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000001d",
+   "name": "Sparks3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     1.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.0,
+      "startSpeed": 8.5,
+      "startSize": 0.45,
+      "startColor": [
+       255,
+       236,
+       140,
+       255
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 48,
+      "seed": 54,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 38.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       110,
+       20,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 1.0,
+      "sizeEnd": 0.4,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000001e",
+   "name": "Fire4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     4.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 0.55,
+      "startSpeed": 4.6,
+      "startSize": 2.8,
+      "startColor": [
+       255,
+       190,
+       80,
+       255
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 40,
+      "seed": 15,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 1,
+      "shapeRadius": 0.35,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       240,
+       190,
+       255
+      ],
+      "colorEnd": [
+       210,
+       40,
+       10,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.7,
+      "sizeEnd": 1.5,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000001f",
+   "name": "Smoke4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     4.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.5,
+      "startSpeed": 1.9,
+      "startSize": 3.4,
+      "startColor": [
+       110,
+       108,
+       104,
+       210
+      ],
+      "gravityModifier": -0.08,
+      "maxParticles": 36,
+      "seed": 35,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 2,
+      "shapeRadius": 0.5,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       255,
+       255,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.5,
+      "sizeEnd": 1.6,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000020",
+   "name": "Sparks4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     4.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.0,
+      "startSpeed": 8.5,
+      "startSize": 0.45,
+      "startColor": [
+       255,
+       236,
+       140,
+       255
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 48,
+      "seed": 55,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 38.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       110,
+       20,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 1.0,
+      "sizeEnd": 0.4,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000021",
+   "name": "Fire5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     7.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 0.55,
+      "startSpeed": 4.6,
+      "startSize": 2.8,
+      "startColor": [
+       255,
+       190,
+       80,
+       255
+      ],
+      "gravityModifier": 0.0,
+      "maxParticles": 40,
+      "seed": 16,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 1,
+      "shapeRadius": 0.35,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       240,
+       190,
+       255
+      ],
+      "colorEnd": [
+       210,
+       40,
+       10,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.7,
+      "sizeEnd": 1.5,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000022",
+   "name": "Smoke5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     7.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.5,
+      "startSpeed": 1.9,
+      "startSize": 3.4,
+      "startColor": [
+       110,
+       108,
+       104,
+       210
+      ],
+      "gravityModifier": -0.08,
+      "maxParticles": 36,
+      "seed": 36,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 2,
+      "shapeRadius": 0.5,
+      "shapeAngle": 25.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       255,
+       255,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 0.5,
+      "sizeEnd": 1.6,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000023",
+   "name": "Sparks5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     7.5,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ParticleSystem",
+     "fields": {
+      "duration": 1.0,
+      "loop": false,
+      "playOnAwake": false,
+      "startLifetime": 1.0,
+      "startSpeed": 8.5,
+      "startSize": 0.45,
+      "startColor": [
+       255,
+       236,
+       140,
+       255
+      ],
+      "gravityModifier": 1.0,
+      "maxParticles": 48,
+      "seed": 56,
+      "emissionRate": 0.0,
+      "burstTimes": [],
+      "burstCounts": [],
+      "shape": 0,
+      "shapeRadius": 0.1,
+      "shapeAngle": 38.0,
+      "colorOverLifetime": true,
+      "colorStart": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "colorEnd": [
+       255,
+       110,
+       20,
+       0
+      ],
+      "sizeOverLifetime": true,
+      "sizeStart": 1.0,
+      "sizeEnd": 0.4,
+      "texture": "00000000-0000-4000-8000-00000000e001"
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000024",
+   "name": "Marker",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     -20,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "LineRenderer",
+     "fields": {
+      "positions": [
+       [
+        1.4,
+        0.05,
+        0.0
+       ],
+       [
+        0.9899,
+        0.05,
+        0.9899
+       ],
+       [
+        0.0,
+        0.05,
+        1.4
+       ],
+       [
+        -0.9899,
+        0.05,
+        0.9899
+       ],
+       [
+        -1.4,
+        0.05,
+        0.0
+       ],
+       [
+        -0.9899,
+        0.05,
+        -0.9899
+       ],
+       [
+        -0.0,
+        0.05,
+        -1.4
+       ],
+       [
+        0.9899,
+        0.05,
+        -0.9899
+       ]
+      ],
+      "width": 0.12,
+      "color": [
+       255,
+       232,
+       120,
+       255
+      ],
+      "useWorldSpace": false,
+      "loop": true
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000025",
+   "name": "Game",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "ExplosionGame",
+     "fields": {
+      "bot": false,
+      "interval": 36,
+      "maxBooms": 8,
+      "shake": 0.5,
+      "booms": 6,
+      "crates": 5
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

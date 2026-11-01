@@ -2,6 +2,8 @@
 #include <cctype>
 #include <cmath>
 
+#include <algorithm>
+
 #include "app.h"
 #include "rensga/editor/editor_log.h"
 
@@ -55,12 +57,57 @@ std::string createCameraObject(App& a, const std::string& parent, const float* a
   return createComponentObject(a, "Camera", "Camera", parent, at);
 }
 
+// F6.02: GameObject > Light creates the F5 Light (Directional or Point). A project whose ConsoleTarget does not allow `Light` keeps the
+// old DirectionalLight component, which every project can draw.
+static bool typeAllowed(App& a, const char* type) {
+  const ConsoleTargetData& ct = consoleTargetFor(a.project.root);
+  return ct.allowedComponents.empty() || std::find(ct.allowedComponents.begin(), ct.allowedComponents.end(), type) != ct.allowedComponents.end();
+}
+
+// The object's world rotation: `deg` about x (a directional light shines along +z, so +50 tilts it down); position as placed.
+static void tiltAboutX(App& a, const std::string& guid, float deg) {
+  double w[16];
+  a.doc.worldMatrix(guid, w);
+  const double r = deg * 3.14159265358979 / 180.0, c = std::cos(r), s = std::sin(r);
+  w[0] = 1; w[1] = 0; w[2] = 0;
+  w[4] = 0; w[5] = c; w[6] = s;
+  w[8] = 0; w[9] = -s; w[10] = c;
+  a.doc.setWorldMatrix(guid, w);
+}
+
 std::string createLightObject(App& a, const std::string& parent, const float* at) {
-  return createComponentObject(a, "Light", "DirectionalLight", parent, at);
+  if (!typeAllowed(a, "Light")) return createComponentObject(a, "Light", "DirectionalLight", parent, at);
+  if (!a.doc.loaded()) return "";
+  a.doc.beginGesture();
+  std::string g = createComponentObject(a, "Directional Light", "Light", parent, at);
+  if (!g.empty()) tiltAboutX(a, g, 50.0f);
+  a.doc.endGesture();
+  return g;
+}
+
+std::string createPointLightObject(App& a, const std::string& parent, const float* at) {
+  if (!typeAllowed(a, "Light")) {
+    EditorLog::instance().warn("Light is not an allowed component of this project's ConsoleTarget");
+    return "";
+  }
+  a.doc.beginGesture();
+  std::string g = createComponentObject(a, "Point Light", "Light", parent, at);
+  if (!g.empty()) a.doc.setField(g, 0, "type", 1);
+  a.doc.endGesture();
+  return g;
+}
+
+std::string createAudioSourceObject(App& a, const std::string& parent, const float* at) {
+  return createComponentObject(a, "Audio Source", "AudioSource", parent, at);
 }
 
 std::string createPrimitiveObject(App& a, const std::string& shape, const std::string& parent, const float* at) {
   if (!a.doc.loaded()) return "";
+  // F6.02: the non-mesh 3D objects share this entry point (the --ui-event verb create:<shape> and the menus)
+  if (shape == "camera") return createCameraObject(a, parent, at);
+  if (shape == "light") return createLightObject(a, parent, at);
+  if (shape == "pointlight") return createPointLightObject(a, parent, at);
+  if (shape == "audio" || shape == "audiosource") return createAudioSourceObject(a, parent, at);
   std::string mesh = a.meshes.guidForShape(shape);
   if (mesh.empty()) {
     EditorLog::instance().warn("no '" + shape + "' primitive asset in this project (Assets/**/*.prim.json)");
@@ -73,7 +120,10 @@ std::string createPrimitiveObject(App& a, const std::string& shape, const std::s
   mr.fields = json::object({{"mesh", mesh}, {"color", json::array({200, 200, 200, 255})}});
   comps.push_back(mr);
   SceneComponent col;
-  if (shape == "sphere" || shape == "capsule") {
+  if (shape == "capsule" && typeAllowed(a, "CapsuleCollider") && TypeRegistry::instance().find("CapsuleCollider")) {
+    col.type = "CapsuleCollider";
+    col.fields = json::object({{"center", json::array({0, 0, 0})}, {"radius", 0.5}, {"height", 2.0}, {"direction", 1}, {"isTrigger", false}});
+  } else if (shape == "sphere" || shape == "capsule") {
     col.type = "SphereCollider";
     col.fields = json::object({{"radius", 0.5}, {"isTrigger", false}});
   } else {
@@ -138,10 +188,17 @@ void drawCreateMenuItems(App& a, const std::string& parent, const float* at) {
     static const char* const kShapes[][2] = {{"Cube", "cube"}, {"Sphere", "sphere"}, {"Capsule", "capsule"}, {"Plane", "plane"}, {"Ramp", "ramp"}};
     for (const auto& s : kShapes)
       if (ImGui::MenuItem(s[0], nullptr, false, !a.meshes.guidForShape(s[1]).empty())) createPrimitiveObject(a, s[1], parent, at);
+    ImGui::Separator();
+    if (ImGui::MenuItem("Camera", nullptr, false, ok)) createCameraObject(a, parent, at);
+    if (ImGui::MenuItem("Audio Source", nullptr, false, ok)) createAudioSourceObject(a, parent, at);
     ImGui::EndMenu();
   }
   if (ImGui::MenuItem("Camera", nullptr, false, ok)) createCameraObject(a, parent, at);
-  if (ImGui::MenuItem("Light", nullptr, false, ok)) createLightObject(a, parent, at);
+  if (ImGui::BeginMenu("Light", ok)) {
+    if (ImGui::MenuItem("Directional Light", nullptr, false, ok)) createLightObject(a, parent, at);
+    if (ImGui::MenuItem("Point Light", nullptr, false, ok && typeAllowed(a, "Light"))) createPointLightObject(a, parent, at);
+    ImGui::EndMenu();
+  }
 }
 
 }  // namespace editor

@@ -107,6 +107,8 @@ void drawMenuBar(App& a) {
       if (e && e->kind == AssetKind::Texture) openSpriteEditor(a, sel);
       else { spriteUiHook(a, "spritewindow", ""); }
     }
+    if (ImGui::MenuItem("Animation", nullptr, false, a.loaded)) panelHook(a, "animwindow", "");  // F6.03 (panels/animation_window.cpp)
+    if (ImGui::MenuItem("Animator", nullptr, false, a.loaded)) panelHook(a, "animatorgraph", "");  // F6.03 (panels/animator_graph.cpp)
     if (ImGui::MenuItem("Build Support Modules...")) openModulesFromHub(a);
     if (ImGui::MenuItem("Emulators...", nullptr, false, a.loaded)) openEmulatorManager(a);   // F5.04
     ImGui::EndMenu();

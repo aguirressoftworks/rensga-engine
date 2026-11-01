@@ -91,6 +91,7 @@ void GuRenderer::setMeshes(const MeshTable& table) {
   const u32 compact = compact_ ? table.meshCount : 0;
   RLOG_INFO("gu", "meshes compact=%u float=%u", static_cast<unsigned>(compact),
             static_cast<unsigned>(table.meshCount - compact));
+  computeBakedBounds();  // F6.09: bounding spheres, so big scaled baked meshes can be clipped near the camera
   // The pack was written by the CPU; make it visible to the GE.
   sceKernelDcacheWritebackAll();
 }
@@ -101,11 +102,10 @@ void GuRenderer::beginFrame(Color32 clear) {
   queue_.clear();
   view_ = Matrix4::identity();
   proj_ = Matrix4::identity();
-}
-
-void GuRenderer::setCamera(const Matrix4& view, const Matrix4& proj) {
-  view_ = view;
-  proj_ = proj;
+  passCount_ = 1;  // F6.09: one pass until a second camera starts another
+  passes_[0] = Pass();
+  qrunCount_ = quadBytes_ = quadsDrawn_ = 0;
+  clipUsed_ = 0;
 }
 
 void GuRenderer::drawMesh(u32 meshIndex, const Matrix4& world, u32 sortKey) {
@@ -157,11 +157,6 @@ void GuRenderer::setState3D() {
 }
 
 void GuRenderer::drawMeshes() {
-  setState3D();
-  sceGumMatrixMode(GU_PROJECTION);
-  sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(proj_.m));
-  sceGumMatrixMode(GU_VIEW);
-  sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(view_.m));
   // Compact meshes: the GE reads signed 16-bit positions as q / 32768; the pack says position = offset + q * scale.
   Matrix4 unpack = Matrix4::identity();
   if (compact_) {
@@ -172,33 +167,63 @@ void GuRenderer::drawMeshes() {
   const PackVertexCompact* compactVerts = reinterpret_cast<const PackVertexCompact*>(table_.vertices);
   triangles_ = 0;
   litDraws_ = batchesDrawn_ = clipped_ = litSlots_ = 0;
-  for (u32 oi = 0; oi < drawCount_; ++oi) {
-    const Draw& d = draws_[order_[oi]];
-    if (static_cast<u32>(sceGuCheckList()) + kGuListMargin > kGuListBytes) { ++listOverflows_; break; }
-    if (d.ex) {
-      drawLit(d, table_.lit[d.mesh]);
-      continue;
+  bool viewportSet = false;
+  bool overflow = false;
+  for (u32 pi = 0; pi < passCount_ && !overflow; ++pi) {  // F6.09: one pass per camera (a single default camera is one pass)
+    const Pass& ps = passes_[pi];
+    view_ = ps.view;
+    proj_ = ps.proj;
+    const bool custom = ps.x != 0 || ps.y != 0 || ps.w != kScreenWi || ps.h != kScreenHi;
+    if (custom) {
+      applyViewport(ps);
+      viewportSet = true;
+    } else if (viewportSet) {
+      resetViewport();
+      viewportSet = false;
     }
-    const PackMeshRec& m = table_.meshes[d.mesh];
-    if (m.vertexOffset + m.vertexCount > table_.vertexCount) continue;
-    enterBakedState();
-    sceGumMatrixMode(GU_MODEL);
-    if (compact_) {
-      const Matrix4 model = d.world * unpack;
-      sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(model.m));
-    } else {
-      sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(d.world.m));
+    if (ps.clearFlags && pi > 0) {  // the first pass was cleared with the frame
+      sceGuDisable(GU_DITHER);
+      sceGuClearColor(ps.clearColor.packedABGR());
+      sceGuClearDepth(0);
+      sceGuClear(((ps.clearFlags & kClearColor) ? GU_COLOR_BUFFER_BIT : 0) | ((ps.clearFlags & kClearDepth) ? GU_DEPTH_BUFFER_BIT : 0));
     }
-    sceGumUpdateMatrix();
-    if (compact_) {
-      sceGumDrawArray(GU_TRIANGLES, GU_COLOR_8888 | GU_VERTEX_16BIT | GU_TRANSFORM_3D, m.vertexCount, nullptr,
-                      compactVerts + m.vertexOffset);
-    } else {
-      sceGumDrawArray(GU_TRIANGLES, GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D, m.vertexCount, nullptr,
-                      table_.vertices + m.vertexOffset);
+    setState3D();
+    sceGumMatrixMode(GU_PROJECTION);
+    sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(proj_.m));
+    sceGumMatrixMode(GU_VIEW);
+    sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(view_.m));
+    const u32 endDraw = pi + 1 < passCount_ ? passes_[pi + 1].firstDraw : drawCount_;
+    for (u32 oi = ps.firstDraw; oi < endDraw; ++oi) {
+      const Draw& d = draws_[order_[oi]];
+      if (static_cast<u32>(sceGuCheckList()) + kGuListMargin > kGuListBytes) { ++listOverflows_; overflow = true; break; }
+      if (d.ex) {
+        drawLit(d, table_.lit[d.mesh]);
+        continue;
+      }
+      const PackMeshRec& m = table_.meshes[d.mesh];
+      if (m.vertexOffset + m.vertexCount > table_.vertexCount) continue;
+      if (drawBakedClipped(d, m)) continue;  // F6.09: crossing the near plane / far outside the guard band: clipped or skipped
+      enterBakedState();
+      sceGumMatrixMode(GU_MODEL);
+      if (compact_) {
+        const Matrix4 model = d.world * unpack;
+        sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(model.m));
+      } else {
+        sceGumLoadMatrix(reinterpret_cast<const ScePspFMatrix4*>(d.world.m));
+      }
+      sceGumUpdateMatrix();
+      if (compact_) {
+        sceGumDrawArray(GU_TRIANGLES, GU_COLOR_8888 | GU_VERTEX_16BIT | GU_TRANSFORM_3D, m.vertexCount, nullptr,
+                        compactVerts + m.vertexOffset);
+      } else {
+        sceGumDrawArray(GU_TRIANGLES, GU_COLOR_8888 | GU_VERTEX_32BITF | GU_TRANSFORM_3D, m.vertexCount, nullptr,
+                        table_.vertices + m.vertexOffset);
+      }
+      triangles_ += m.vertexCount / 3;
     }
-    triangles_ += m.vertexCount / 3;
+    if (!overflow) drawPassQuads(pi);
   }
+  if (viewportSet) resetViewport();
   leave3DState();
 }
 
@@ -238,14 +263,18 @@ void GuRenderer::endFrame() {
 #ifdef RENSGA_GU_SELFTEST
   guSelfTest(*this, frame_);  // dev only: queues a 2D test panel on top of the scene (see gu_selftest.cpp)
 #endif
-  // Insertion sort of indices by key, front to back, stable (small N, no heap; the draws themselves stay put).
-  for (u32 i = 0; i < drawCount_; ++i) order_[i] = static_cast<u16>(i);
-  for (u32 i = 1; i < drawCount_; ++i) {
-    const u16 t = order_[i];
-    const u32 k = draws_[t].key;
-    u32 j = i;
-    while (j > 0 && draws_[order_[j - 1]].key > k) { order_[j] = order_[j - 1]; --j; }
-    order_[j] = t;
+  // Insertion sort of indices by key, front to back, stable (small N, no heap; the draws themselves stay put). Each camera pass
+  // sorts its own range of the draws.
+  for (u32 pi = 0; pi < passCount_; ++pi) {
+    const u32 lo = passes_[pi].firstDraw, hi = pi + 1 < passCount_ ? passes_[pi + 1].firstDraw : drawCount_;
+    for (u32 i = lo; i < hi; ++i) order_[i] = static_cast<u16>(i);
+    for (u32 i = lo + 1; i < hi; ++i) {
+      const u16 t = order_[i];
+      const u32 k = draws_[t].key;
+      u32 j = i;
+      while (j > lo && draws_[order_[j - 1]].key > k) { order_[j] = order_[j - 1]; --j; }
+      order_[j] = t;
+    }
   }
 
   // Frame order: sync (the previous frame's list is done), vblank, swap, start(list N&1), build, finish.
@@ -265,8 +294,8 @@ void GuRenderer::endFrame() {
   sceGuDisable(GU_DITHER);  // a flat clear color must stay flat; the 3D pass turns dither on
   sceGuClearColor(clear_.packedABGR());
   sceGuClearDepth(0);
-  sceGuClear(drawCount_ ? (GU_COLOR_BUFFER_BIT | GU_DEPTH_BUFFER_BIT) : GU_COLOR_BUFFER_BIT);
-  if (drawCount_) drawMeshes();
+  sceGuClear((drawCount_ || qrunCount_) ? (GU_COLOR_BUFFER_BIT | GU_DEPTH_BUFFER_BIT) : GU_COLOR_BUFFER_BIT);
+  if (drawCount_ || qrunCount_) drawMeshes();
   drawSprites();
   lastListBytes_ = static_cast<u32>(sceGuCheckList());
   sceGuFinish();

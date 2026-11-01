@@ -3,6 +3,7 @@
 #include "rensga/core/animation.h"
 #include "rensga/core/cull.h"
 #include "rensga/core/lighting.h"
+#include "rensga/core/render_view.h"
 #include "rensga/core/app_events.h"
 #include "rensga/core/dev_control.h"
 #include "rensga/core/system.h"
@@ -41,6 +42,7 @@ bool GameLoop::frame(Scalar realDt, const VirtualGamepad& pad) {
     if (hook_) hook_(*world_, config_.fixedDelta, hookUser_);
     Gameplay2D::fixedStep(*world_);
     AnimationSystem::fixedStep(*world_);  // F5: skeletal clips advance on the fixed step (integer ticks)
+    Particles::fixedStep(*world_, config_.fixedDelta);  // F6.09 (B2): visual only, nothing in the simulation reads it
     world_->scheduler().runFixed();  // WaitForFixedUpdate resumes after the fixed step
     accumulator_ -= config_.fixedDelta;
     ++steps;
@@ -129,21 +131,24 @@ Scalar maxScale(const Matrix4& w) {
 }
 }  // namespace
 
+// F6.09 (B2): cameras. Every enabled, active Camera draws in increasing depth (ties: creation order) into its viewport rectangle,
+// clears as its clearFlags say and draws the objects whose layer is in its cullingMask. A scene with one default Camera makes the same
+// renderer calls as before F6: beginFrame, setCamera, lights, draws.
 void renderWorld(World& world, IRenderer& renderer, Color32 clear) {
-  renderer.beginFrame(clear);
-  Camera* cam = nullptr;
+  const u32 screenW = renderer.width(), screenH = renderer.height();
+  RenderScreen::set(screenW, screenH);
+  constexpr u32 kMaxCameras = 8;
+  Camera* cams[kMaxCameras];
+  u32 camCount = 0;
   world.forEach<Camera>([&](Camera& c) {
-    if (!cam && c.gameObject() && c.gameObject()->activeInHierarchy()) cam = &c;
+    if (!c.gameObject() || !c.enabled() || !c.gameObject()->activeInHierarchy() || camCount >= kMaxCameras) return;
+    u32 j = camCount++;
+    while (j > 0 && cams[j - 1]->depth > c.depth) { cams[j] = cams[j - 1]; --j; }
+    cams[j] = &c;
   });
-  Matrix4 view;
-  Frustum frustum;  // invalid = never cull
-  if (cam) {
-    Scalar aspect = renderer.height() ? static_cast<Scalar>(renderer.width()) / static_cast<Scalar>(renderer.height()) : 1.0f;
-    view = cam->transform()->localToWorld().inverse();
-    Matrix4 proj = Matrix4::perspective(cam->fov, aspect, cam->nearClip, cam->farClip);
-    renderer.setCamera(view, proj);
-    frustum = frustumFromViewProj(proj * view);
-  }
+  const Color32 kDefaultBackground(40, 60, 90, 255);
+  auto backgroundOf = [&](const Camera& c) { return c.backgroundColor == kDefaultBackground ? clear : c.backgroundColor; };
+  renderer.beginFrame(camCount ? backgroundOf(*cams[0]) : clear);
 
   // F5: the shared-3D tables (MSHL parallel to MESH). Without them every mesh takes the baked drawMesh path below.
   const PackMeshLit* lit = nullptr;
@@ -158,61 +163,117 @@ void renderWorld(World& world, IRenderer& renderer, Color32 clear) {
   }
   LightSet lights;
   gatherLights(world, lights);
-  if (lit || lights.fogOn) {  // a pack of only baked meshes (MSHL absent, no fog) sees exactly the old call sequence
-    renderer.setFrameLights(lights.lights, lights.count, lights.ambient);
-    renderer.setFog(lights.fogOn, lights.fogColor, lights.fogStart, lights.fogEnd);
+
+  bool viewportChanged = false;
+  const u32 passes = camCount ? camCount : 1;  // no Camera: one pass without setCamera (the meshes are dropped by the renderers)
+  for (u32 pass = 0; pass < passes; ++pass) {
+    Camera* cam = camCount ? cams[pass] : nullptr;
+    Matrix4 view;
+    Frustum frustum;  // invalid = never cull
+    CameraView cv;
+    i32 cullMask = -1;
+    if (cam) {
+      cv = makeCameraView(*cam, screenW, screenH);
+      if (cv.w <= 0 || cv.h <= 0) continue;
+      cullMask = cam->cullingMask;
+      if (!cv.full) {
+        renderer.setViewport(cv.x, cv.y, cv.w, cv.h);
+        viewportChanged = true;
+      } else if (viewportChanged) {
+        renderer.setViewport(0, 0, static_cast<i32>(screenW), static_cast<i32>(screenH));
+        viewportChanged = false;
+      }
+      if (pass > 0) {  // the first camera was cleared by beginFrame
+        switch (static_cast<CameraClear>(cam->clearFlags)) {
+          case CameraClear::Skybox:
+          case CameraClear::SolidColor: renderer.clearView(kClearColor | kClearDepth, backgroundOf(*cam)); break;
+          case CameraClear::DepthOnly: renderer.clearView(kClearDepth, backgroundOf(*cam)); break;
+          case CameraClear::Nothing: break;
+        }
+      }
+      view = cv.view;
+      renderer.setCamera(cv.view, cv.proj);
+      frustum = frustumFromViewProj(cv.proj * cv.view);
+    }
+    if (pass == 0 && (lit || lights.fogOn)) {  // a pack of only baked meshes (MSHL absent, no fog) sees exactly the old call sequence
+      renderer.setFrameLights(lights.lights, lights.count, lights.ambient);
+      renderer.setFog(lights.fogOn, lights.fogColor, lights.fogStart, lights.fogEnd);
+    }
+
+    // One draw of a mesh that has an MSHL record. `matGuid` overrides the record's material when it names a MATL entry; `block`
+    // is the renderer's MaterialPropertyBlock (per-instance color and texture, the material stays shared).
+    auto drawLit = [&](u32 meshIndex, const Guid& matGuid, Color32 tint, const Matrix4& w, u32 sortKey, const SkinnedMeshRenderer* smr,
+                       const MaterialPropertyBlock* block) {
+      const PackMeshLit& m = lit[meshIndex];
+      const Vector3 center = w.transformPoint(Vector3(m.boundsCenter[0], m.boundsCenter[1], m.boundsCenter[2]));
+      const Scalar radius = m.boundsRadius * maxScale(w);
+      if (m.boundsRadius > 0 && !sphereInFrustum(frustum, center, radius)) return;
+      DrawParams dp;
+      const PackMaterial* mat = nullptr;
+      if (assets) {
+        mat = assets->findMaterial(matGuid);
+        if (!mat && m.material != kInvalidIndex && m.material < assets->materialCount) mat = &assets->materials[m.material];
+      }
+      dp.matColor = tint;
+      if (mat) {
+        if (mat->texture != kInvalidIndex) dp.texture = GfxAssets::handle(mat->texture);
+        Color32 mc = color32FromABGR(mat->colorABGR);
+        dp.matColor = Color32(mulU8(mc.r, tint.r), mulU8(mc.g, tint.g), mulU8(mc.b, tint.b), mulU8(mc.a, tint.a));
+        dp.matFlags = mat->flags;
+      }
+      if (block) {
+        if (block->hasColor) {
+          const Color32 bc = block->color;
+          dp.matColor = Color32(mulU8(dp.matColor.r, bc.r), mulU8(dp.matColor.g, bc.g), mulU8(dp.matColor.b, bc.b), mulU8(dp.matColor.a, bc.a));
+        }
+        if (block->hasTexture) {
+          const u32 ti = GfxAssets::textureIndex(block->texture);
+          if (ti != kInvalidIndex) dp.texture = GfxAssets::handle(ti);
+        }
+      }
+      if (m.flags & kMeshLightBaked) dp.matFlags |= kMatUnlit;  // F6 b3: baked vertex lighting, no run-time lights
+      if (!(dp.matFlags & kMatUnlit)) {
+        u8 idx[kMaxDrawLights];
+        dp.lightCount = static_cast<u8>(selectLights(lights, center, radius, maxLights, idx));
+        for (u32 i = 0; i < dp.lightCount; ++i) dp.lights[i] = idx[i];
+      }
+      if (smr && m.isSkinned()) dp.palette = AnimationSystem::palette(world, *smr, &dp.paletteCount);
+      renderer.drawMeshEx(meshIndex, w, sortKey, dp);
+    };
+    auto sortKeyOf = [&](const Matrix4& w) {
+      Scalar depth = -view.transformPoint(w.translationPart()).z;
+      if (depth < 0) depth = 0;
+      Scalar key = depth * 16.0f;
+      return key > 16777215.0f ? 16777215u : static_cast<u32>(key);
+    };
+
+    world.forEach<MeshRenderer>([&](MeshRenderer& mr) {
+      GameObject* go = mr.gameObject();
+      if (!go || mr.meshIndex == kInvalidIndex || !go->activeInHierarchy() || !mr.enabled()) return;
+      if (cullMask != -1 && !layerInMask(cullMask, go->layer)) return;
+      Matrix4 w = go->transform.localToWorld();
+      const u32 sortKey = sortKeyOf(w);
+      if (lit && mr.meshIndex < litCount && !lit[mr.meshIndex].isBaked())
+        drawLit(mr.meshIndex, mr.material, mr.color, w, sortKey, nullptr, mr.propertyBlock_.isEmpty() ? nullptr : &mr.propertyBlock_);
+      else renderer.drawMesh(mr.meshIndex, w, sortKey);
+    });
+    world.forEach<SkinnedMeshRenderer>([&](SkinnedMeshRenderer& sr) {
+      GameObject* go = sr.gameObject();
+      if (!go || sr.meshIndex == kInvalidIndex || !go->activeInHierarchy() || !sr.enabled()) return;
+      if (cullMask != -1 && !layerInMask(cullMask, go->layer)) return;
+      Matrix4 w = go->transform.localToWorld();
+      const u32 sortKey = sortKeyOf(w);
+      if (lit && sr.meshIndex < litCount && !lit[sr.meshIndex].isBaked())
+        drawLit(sr.meshIndex, sr.material, Color32(255, 255, 255, 255), w, sortKey, &sr, sr.propertyBlock_.isEmpty() ? nullptr : &sr.propertyBlock_);
+      else renderer.drawMesh(sr.meshIndex, w, sortKey);
+    });
+    if (cam) {  // F6.09: effects after the opaque meshes of this camera, back to front, blended, not written to the depth buffer
+      Particles::draw(world, renderer, cv, cullMask);
+      Ribbons::drawLines(world, renderer, cv, cullMask);
+      Ribbons::drawDebug(renderer, cv);
+    }
   }
-
-  // One draw of a mesh that has an MSHL record. `matGuid` overrides the record's material when it names a MATL entry.
-  auto drawLit = [&](u32 meshIndex, const Guid& matGuid, Color32 tint, const Matrix4& w, u32 sortKey, const SkinnedMeshRenderer* smr) {
-    const PackMeshLit& m = lit[meshIndex];
-    const Vector3 center = w.transformPoint(Vector3(m.boundsCenter[0], m.boundsCenter[1], m.boundsCenter[2]));
-    const Scalar radius = m.boundsRadius * maxScale(w);
-    if (m.boundsRadius > 0 && !sphereInFrustum(frustum, center, radius)) return;
-    DrawParams dp;
-    const PackMaterial* mat = nullptr;
-    if (assets) {
-      mat = assets->findMaterial(matGuid);
-      if (!mat && m.material != kInvalidIndex && m.material < assets->materialCount) mat = &assets->materials[m.material];
-    }
-    dp.matColor = tint;
-    if (mat) {
-      if (mat->texture != kInvalidIndex) dp.texture = GfxAssets::handle(mat->texture);
-      Color32 mc = color32FromABGR(mat->colorABGR);
-      dp.matColor = Color32(mulU8(mc.r, tint.r), mulU8(mc.g, tint.g), mulU8(mc.b, tint.b), mulU8(mc.a, tint.a));
-      dp.matFlags = mat->flags;
-    }
-    if (!(dp.matFlags & kMatUnlit)) {
-      u8 idx[kMaxDrawLights];
-      dp.lightCount = static_cast<u8>(selectLights(lights, center, radius, maxLights, idx));
-      for (u32 i = 0; i < dp.lightCount; ++i) dp.lights[i] = idx[i];
-    }
-    if (smr && m.isSkinned()) dp.palette = AnimationSystem::palette(world, *smr, &dp.paletteCount);
-    renderer.drawMeshEx(meshIndex, w, sortKey, dp);
-  };
-  auto sortKeyOf = [&](const Matrix4& w) {
-    Scalar depth = -view.transformPoint(w.translationPart()).z;
-    if (depth < 0) depth = 0;
-    Scalar key = depth * 16.0f;
-    return key > 16777215.0f ? 16777215u : static_cast<u32>(key);
-  };
-
-  world.forEach<MeshRenderer>([&](MeshRenderer& mr) {
-    GameObject* go = mr.gameObject();
-    if (!go || mr.meshIndex == kInvalidIndex || !go->activeInHierarchy() || !mr.enabled()) return;
-    Matrix4 w = go->transform.localToWorld();
-    const u32 sortKey = sortKeyOf(w);
-    if (lit && mr.meshIndex < litCount && !lit[mr.meshIndex].isBaked()) drawLit(mr.meshIndex, mr.material, mr.color, w, sortKey, nullptr);
-    else renderer.drawMesh(mr.meshIndex, w, sortKey);
-  });
-  world.forEach<SkinnedMeshRenderer>([&](SkinnedMeshRenderer& sr) {
-    GameObject* go = sr.gameObject();
-    if (!go || sr.meshIndex == kInvalidIndex || !go->activeInHierarchy() || !sr.enabled()) return;
-    Matrix4 w = go->transform.localToWorld();
-    const u32 sortKey = sortKeyOf(w);
-    if (lit && sr.meshIndex < litCount && !lit[sr.meshIndex].isBaked()) drawLit(sr.meshIndex, sr.material, Color32(255, 255, 255, 255), w, sortKey, &sr);
-    else renderer.drawMesh(sr.meshIndex, w, sortKey);
-  });
+  if (viewportChanged) renderer.setViewport(0, 0, static_cast<i32>(screenW), static_cast<i32>(screenH));
   renderGameplay2D(world, renderer);  // sprites, tilemaps and UI draw after the 3D pass
   if (g_overlayHook) g_overlayHook(renderer);
   renderer.endFrame();

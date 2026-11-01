@@ -1,0 +1,281 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000040961",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000041473",
+   "name": "Sky",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     120.0,
+     68.0,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-00000000d101",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 4,
+      "srcH": 4,
+      "color": [
+       86,
+       128,
+       190,
+       255
+      ],
+      "sortingOrder": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000041474",
+   "name": "Floor",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     222,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     120.0,
+     12.5,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-00000000d101",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 4,
+      "srcH": 4,
+      "color": [
+       92,
+       70,
+       52,
+       255
+      ],
+      "sortingOrder": -4
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000041475",
+   "name": "Grass",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     222,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     120.0,
+     1.0,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-00000000d101",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 4,
+      "srcH": 4,
+      "color": [
+       84,
+       160,
+       80,
+       255
+      ],
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000041476",
+   "name": "Player",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     60,
+     222,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     4,
+     4,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "SpriteRenderer",
+     "fields": {
+      "texture": "00000000-0000-4000-8000-000000000102",
+      "srcX": 0,
+      "srcY": 0,
+      "srcW": 32,
+      "srcH": 32,
+      "pivotX": 16,
+      "pivotY": 32,
+      "sortingOrder": 1
+     }
+    },
+    {
+     "type": "Animator",
+     "fields": {
+      "controller": "00000000-0000-4000-8000-000000049665",
+      "speed": 1.0
+     }
+    },
+    {
+     "type": "PlayerBot",
+     "fields": {
+      "runFrom": 60,
+      "runTo": 260,
+      "jumpAt": [
+       140,
+       330
+      ],
+      "endAt": 420
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000041477",
+   "name": "StateLabel",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 8,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000041478",
+   "name": "ParamLabel",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "x": 8,
+      "y": 24,
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

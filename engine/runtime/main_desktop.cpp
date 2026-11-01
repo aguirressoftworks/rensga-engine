@@ -1,5 +1,5 @@
 // Desktop player (Linux, Windows, and the Android native library): SDL platform + GL renderer.
-//   rensga_desktop [--pack <game.rpak>] [--scene <name>] [--frames N] [--screenshot out.png] [--stress-sprites N] [--check-at N] [--headless-gl]
+//   rensga_desktop [--pack <game.rpak>] [--scene <name>] [--frames N] [--screenshot out.png] [--stress-sprites N] [--check-at N] [--headless-gl] [--fixed-dt]
 // Without --pack it loads data:/game.rpak next to the executable (the APK assets on Android).
 // --scene <name> start in this scene of the pack (default: the first). Saves go to the SDL pref folder (save:/).
 // --frames N      stop after N frames (default: run until the window closes)
@@ -113,11 +113,13 @@ int main(int argc, char** argv) {
   const char* shotPath = nullptr;
   const char* startScene = nullptr;
   u32 maxFrames = 0, stressCount = 0, checkAt = 0;
+  bool fixedDt = false;
   bool audioStress = false, injectDemo = false;
   for (int i = 1; i < argc; ++i) {
     if (!strcmp(argv[i], "--pack") && i + 1 < argc) packPath = argv[++i];
     else if (!strcmp(argv[i], "--scene") && i + 1 < argc) startScene = argv[++i];
     else if (!strcmp(argv[i], "--frames") && i + 1 < argc) maxFrames = static_cast<u32>(atoi(argv[++i]));
+    else if (!strcmp(argv[i], "--fixed-dt")) fixedDt = true;  // F6.09: every frame advances exactly one fixed step (screenshots at a known tick)
     else if (!strcmp(argv[i], "--screenshot") && i + 1 < argc) shotPath = argv[++i];
     else if (!strcmp(argv[i], "--stress-sprites") && i + 1 < argc) stressCount = static_cast<u32>(atoi(argv[++i]));
     else if (!strcmp(argv[i], "--audio-stress")) audioStress = true;
@@ -290,7 +292,7 @@ int main(int argc, char** argv) {
 #endif
     if (injectDemo) platform.injectDemo(frame);
     platform.pollInput(pad);
-    loop.frame(static_cast<Scalar>(now - last), pad);
+    loop.frame(fixedDt ? loop.config().fixedDelta : static_cast<Scalar>(now - last), pad);
     last = now;
     g_prof.mark(ProfSection::Update);
     if (stressCount) {

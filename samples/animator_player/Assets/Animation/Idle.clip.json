@@ -1,0 +1,35 @@
+{
+ "format": 1,
+ "kind": "PropertyClip",
+ "name": "Idle",
+ "fps": 10,
+ "length": 10,
+ "loop": true,
+ "curves": [
+  {
+   "property": "SpriteRenderer.srcX",
+   "interp": "step",
+   "keys": [
+    {
+     "t": 0,
+     "v": 0
+    },
+    {
+     "t": 5,
+     "v": 32
+    }
+   ]
+  },
+  {
+   "property": "SpriteRenderer.srcY",
+   "interp": "step",
+   "keys": [
+    {
+     "t": 0,
+     "v": 0
+    }
+   ]
+  }
+ ],
+ "events": []
+}

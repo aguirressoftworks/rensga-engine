@@ -18,6 +18,11 @@ struct MeshRenderer : Component {
   // F5 (appended: older scenes keep working). A Material asset (.mat.json): texture, color, unlit, alphaTest. A mesh with no
   // material stays baked (light baked into vertex colors) exactly as before; with one it is lit by the scene's Light components.
   SERIALIZE_FIELD(Guid, material, Guid())
+  // F6.02 (B3, appended): bake the scene's lights and a cheap ambient occlusion into this mesh's vertex colors when the scene is cooked
+  // (tools/cooker/src/vertex_bake.h). With a material the cooked material is the unlit variant; the runtime does no lighting for it.
+  APPENDED_FIELDS()
+  TOOLTIP("Bake the scene's lights and ambient occlusion into the vertex colors at cook time. A static mesh only; the light stays in the pack.")
+  SERIALIZE_FIELD(bool, bakeLighting, false)
   // Runtime only (not reflected): index into the pack MESH table, set by the pack loader.
   u32 meshIndex = kInvalidIndex;
   // F6 (B2): per-renderer color / texture override without duplicating the material. Runtime only; copied by Instantiate.
@@ -89,11 +94,12 @@ struct Camera : Component {
   TOOLTIP("Cameras draw in increasing depth; the main camera is the enabled one with the lowest depth.")
   SERIALIZE_FIELD(Scalar, depth, 0.0f)
   SERIALIZE_ENUM(clearFlags, 1, "Skybox|SolidColor|DepthOnly|Nothing")
-  SERIALIZE_FIELD(Color32, backgroundColor, Color32(49, 77, 121, 255))
+  TOOLTIP("Clear color of the SolidColor mode. The default (40, 60, 90) keeps the color the player passes to renderWorld.")
+  SERIALIZE_FIELD(Color32, backgroundColor, Color32(40, 60, 90, 255))
   TOOLTIP("Bit n set = objects on layer n are drawn. -1 = every layer.")
   SERIALIZE_FIELD(i32, cullingMask, -1)
 
-  // ---- Unity API (F6, defined in engine/api/src/render_api.cpp; stubs returning zeros until B2). Screen points are in the
+  // ---- Unity API (F6.09, defined in engine/api/src/render_api.cpp; the math is makeCameraView in render_view.h). Screen points are in the
   // renderer's virtual pixels with the origin at the TOP-left (like the UI); z is the distance from the camera in world units.
   // Viewport points are 0..1 with the origin at the BOTTOM-left of the camera's rect (Unity). Needs the camera's object to be
   // in a World; a null result means "no main camera".
@@ -135,6 +141,7 @@ struct AudioSource : Component {
   SERIALIZE_ENUM(outputGroup, 0, "Master|Music|SFX")
   // Runtime only (not reflected): the mixer voice of the last Play().
   u32 voice = 0;
+  u32 audioState_ = 0;  // F6.10 (B1) runtime: bit 0 playOnAwake handled, bit 1 voice started muted
   void Play();                       // (re)starts the clip on this source
   void Stop();
   void PlayOneShot(const Guid& other, Scalar volumeScale = 1.0f);  // fire and forget; does not touch `voice`

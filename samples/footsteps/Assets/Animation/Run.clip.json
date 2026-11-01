@@ -1,0 +1,54 @@
+{
+ "format": 1,
+ "kind": "PropertyClip",
+ "name": "Run",
+ "fps": 12,
+ "length": 4,
+ "loop": true,
+ "curves": [
+  {
+   "property": "SpriteRenderer.srcX",
+   "interp": "step",
+   "keys": [
+    {
+     "t": 0,
+     "v": 0
+    },
+    {
+     "t": 1,
+     "v": 32
+    },
+    {
+     "t": 2,
+     "v": 64
+    },
+    {
+     "t": 3,
+     "v": 96
+    }
+   ]
+  },
+  {
+   "property": "SpriteRenderer.srcY",
+   "interp": "step",
+   "keys": [
+    {
+     "t": 0,
+     "v": 32
+    }
+   ]
+  }
+ ],
+ "events": [
+  {
+   "t": 0,
+   "function": "Footstep",
+   "float": 1.0
+  },
+  {
+   "t": 2,
+   "function": "Footstep",
+   "float": 0.7
+  }
+ ]
+}

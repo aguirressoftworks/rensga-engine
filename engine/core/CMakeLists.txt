@@ -11,6 +11,9 @@ target_include_directories(rensga_core PUBLIC include)
 # --- F6 a3 begin ---
 target_sources(rensga_core PRIVATE src/scene_load.cpp src/runtime_stats.cpp src/script_samples.cpp)
 # --- F6 a3 end ---
+# --- F6 b2 begin ---
+target_sources(rensga_core PRIVATE src/render_view.cpp src/particles.cpp src/line_renderer.cpp src/debug_draw.cpp)
+# --- F6 b2 end ---
 rensga_runtime_target(rensga_core)
 
 # JSON load/save of reflected fields: host tools only.
@@ -19,3 +22,6 @@ if(RENSGA_BUILD_TESTS OR RENSGA_BUILD_TOOLS OR RENSGA_BUILD_EDITOR)
   target_link_libraries(rensga_reflect_json PUBLIC rensga_core nlohmann_json::nlohmann_json)
   rensga_host_target(rensga_reflect_json)
 endif()
+# --- F6 B1 begin ---
+target_sources(rensga_core PRIVATE src/prop_clip.cpp src/animator.cpp)
+# --- F6 B1 end ---

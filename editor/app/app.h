@@ -227,6 +227,8 @@ std::string createEmptyObject(App& a, const std::string& parent, const float* at
 std::string createPrimitiveObject(App& a, const std::string& shape, const std::string& parent, const float* at = nullptr);
 std::string createCameraObject(App& a, const std::string& parent, const float* at = nullptr);
 std::string createLightObject(App& a, const std::string& parent, const float* at = nullptr);
+std::string createPointLightObject(App& a, const std::string& parent, const float* at = nullptr);  // F6.02
+std::string createAudioSourceObject(App& a, const std::string& parent, const float* at = nullptr);   // F6.02
 void duplicateSelected(App& a);
 void deleteSelected(App& a);
 void copySelected(App& a);       // objects (with children) to the editor clipboard

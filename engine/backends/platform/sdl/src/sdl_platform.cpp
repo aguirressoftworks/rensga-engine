@@ -158,6 +158,27 @@ void SdlPlatform::pollInput(VirtualGamepad& pad) {
   for (int sc = 0; sc < 512; ++sc) down[sc] = (ks[sc] != 0 || evKeys_[sc] != 0) ? 1 : 0;
   applyKeyboard(down, pad);
   touch_.apply(pad);  // on-screen controls act like the keyboard / pad: same actions
+  // F6.09: the pointer. A finger on screen wins (touch zones keep working: a finger on a zone also reads as a click there), else the mouse.
+  {
+    float px = 0, py = 0;
+    if (touch_.pointer(&px, &py)) {
+      pad.pointerActive = true;
+      pad.pointerDown = true;
+      pad.pointerX = px;
+      pad.pointerY = py;
+    } else if (window_ && dw > 0 && dh > 0 && (SDL_GetWindowFlags(static_cast<SDL_Window*>(window_)) & SDL_WINDOW_MOUSE_FOCUS)) {
+      int mx = 0, my = 0, ww = 0, wh = 0;
+      const Uint32 buttons = SDL_GetMouseState(&mx, &my);
+      SDL_GetWindowSize(static_cast<SDL_Window*>(window_), &ww, &wh);
+      if (ww > 0 && wh > 0) {
+        touch_.toVirtual(static_cast<float>(mx) / static_cast<float>(ww), static_cast<float>(my) / static_cast<float>(wh), &px, &py);
+        pad.pointerActive = true;
+        pad.pointerDown = (buttons & SDL_BUTTON_LMASK) != 0;
+        pad.pointerX = px;
+        pad.pointerY = py;
+      }
+    }
+  }
   applyController(pad_, pad);
 }
 

@@ -94,6 +94,13 @@ class Input {
   static Vector2 GetRightStick();             // (rightX, rightY), y up
   static Scalar GetTrigger(bool right);       // L2 / R2, 0..1
   static const VirtualGamepad& pad();         // held / pressed / released + sticks, after the dead zone
+  // F6.09 (B2) pointer, Unity names. Position in the renderer's virtual pixels, origin top-left (the Camera API's screen space).
+  // Button 0 is the left mouse button or a finger; other buttons are not reported. Without a pointer they read false / (0, 0).
+  static bool mousePresent();
+  static Vector2 mousePosition();
+  static bool GetMouseButton(i32 button);
+  static bool GetMouseButtonDown(i32 button);  // went down this frame
+  static bool GetMouseButtonUp(i32 button);
 
   // ---- Actions API ----
   // A pointer into the fixed action table: valid until the next loadActions / clearActions (re-Find in Start).

@@ -7,6 +7,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#include "rensga/core/lighting.h"
 #include "rensga/core/log.h"
 
 namespace rensga {
@@ -43,6 +44,8 @@ constexpr GLenum GL_COLOR_BUFFER_BIT = 0x4000, GL_DEPTH_BUFFER_BIT = 0x100, GL_T
   X(void, ClearColor, (float, float, float, float))                                       \
   X(void, Clear, (GLenum))                                                                 \
   X(void, Viewport, (GLint, GLint, GLsizei, GLsizei))                                      \
+  X(void, Scissor, (GLint, GLint, GLsizei, GLsizei))                                       \
+  X(void, DepthMask, (unsigned char))                                                      \
   X(void, Enable, (GLenum))                                                                \
   X(void, Disable, (GLenum))                                                               \
   X(void, DepthFunc, (GLenum))                                                             \
@@ -159,6 +162,7 @@ uniform vec3 uAmbient;
 uniform int uNumLights, uLit;
 uniform vec4 uLightPos[8];
 uniform vec4 uLightCol[8];
+uniform float uPointK;  // kPointLightK (lighting.h): the curve the PSP GE can also draw
 out vec4 vCol; out vec2 vUV; out float vDepth;
 void main(){
   vec3 p = uDecOff + aPos * uDecScale;
@@ -185,11 +189,12 @@ void main(){
       } else {
         vec3 d = lp.xyz - wp.xyz;
         float dist = length(d);
-        float a = clamp(1.0 - dist / max(uLightCol[i].a, 0.0001), 0.0, 1.0);
-        l += uLightCol[i].rgb * (a * a) * max(dot(wn, d / max(dist, 0.0001)), 0.0);
+        float r = max(uLightCol[i].a, 0.0001);
+        float a = 1.0 / (1.0 + uPointK * dist * dist / (r * r));
+        l += uLightCol[i].rgb * a * max(dot(wn, d / max(dist, 0.0001)), 0.0);
       }
     }
-    c = base * l;
+    c = clamp(base * l, 0.0, 1.0);  // the GE clamps the lit vertex color to 8 bits before the texture multiplies it
   }
   vCol = vec4(c, aCol.a * uMat.a);
   vUV = aUV * uUvScale;
@@ -226,6 +231,19 @@ in vec2 vUV; in vec4 vCol; out vec4 o;
 uniform sampler2D uTex;
 void main(){ o = texture(uTex, vUV) * vCol; })";
 
+// F6.09: world-space quads (particles, line ribbons): position, uv, byte color; blended, depth tested, no depth write.
+const char* kQuadVs = R"(
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec2 aUV;
+layout(location=2) in vec4 aCol;
+uniform mat4 uVP;
+out vec2 vUV; out vec4 vCol;
+void main(){ vUV = aUV; vCol = aCol; gl_Position = uVP * vec4(aPos, 1.0); })";
+const char* kQuadFs = R"(
+in vec2 vUV; in vec4 vCol; out vec4 o;
+uniform sampler2D uTex;
+void main(){ o = texture(uTex, vUV) * vCol; if (o.a <= 0.0) discard; })";
+
 const char* kPresentVs = R"(
 out vec2 vUV;
 void main(){
@@ -253,6 +271,11 @@ void GlRenderer::shutdown() {
   gl.DeleteVertexArrays(1, &vaoEmpty_);
   freeLitMeshes();
   gl.DeleteBuffers(1, &vboLit_);
+  gl.DeleteBuffers(1, &vboQuad_);
+  gl.DeleteVertexArrays(1, &vaoQuad_);
+  gl.DeleteProgram(progQuad_);
+  free(quadVerts_);
+  quadVerts_ = nullptr;
   gl.DeleteProgram(progLit_);
   gl.DeleteProgram(progSkin_);
   gl.DeleteProgram(progMesh_);
@@ -333,7 +356,7 @@ bool GlRenderer::init(u32 width, u32 height) {
   }
   if (!compile(progMesh_, kMeshVs, kMeshFs) || !compile(progSprite_, kSpriteVs, kSpriteFs) ||
       !compile(progPresent_, kPresentVs, kPresentFs) || !compile(progLit_, kLitVs, kLitFs) ||
-      !compile(progSkin_, kLitVs, kLitFs, "#define SKIN 1\n"))
+      !compile(progSkin_, kLitVs, kLitFs, "#define SKIN 1\n") || !compile(progQuad_, kQuadVs, kQuadFs))
     return false;
   lookupLitUniforms(progLit_, uLit_);
   lookupLitUniforms(progSkin_, uSkin_);
@@ -369,6 +392,23 @@ bool GlRenderer::init(u32 width, u32 height) {
   gl.EnableVertexAttribArray(2);
   gl.VertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(SpriteVertex), reinterpret_cast<const void*>(16));
   gl.GenVertexArrays(1, &vaoEmpty_);
+  // F6.09 quad VAO: QuadVertex = pos (3 x float), uv (2 x float), color (4 x u8), 24 bytes; refilled per submission.
+  quadVerts_ = static_cast<QuadVertex*>(malloc(sizeof(QuadVertex) * kQuadChunk * 6));
+  if (!quadVerts_) return false;
+  gl.GenVertexArrays(1, &vaoQuad_);
+  gl.GenBuffers(1, &vboQuad_);
+  gl.BindVertexArray(vaoQuad_);
+  gl.BindBuffer(GL_ARRAY_BUFFER, vboQuad_);
+  gl.BufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(QuadVertex)) * kQuadChunk * 6, nullptr, GL_STREAM_DRAW);
+  gl.EnableVertexAttribArray(0);
+  gl.VertexAttribPointer(0, 3, GL_FLOAT, 0, sizeof(QuadVertex), reinterpret_cast<const void*>(0));
+  gl.EnableVertexAttribArray(1);
+  gl.VertexAttribPointer(1, 2, GL_FLOAT, 0, sizeof(QuadVertex), reinterpret_cast<const void*>(12));
+  gl.EnableVertexAttribArray(2);
+  gl.VertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, 1, sizeof(QuadVertex), reinterpret_cast<const void*>(20));
+  gl.UseProgram(progQuad_);
+  gl.Uniform1i(gl.GetUniformLocation(progQuad_, "uTex"), 0);
+  uQuadVp_ = gl.GetUniformLocation(progQuad_, "uVP");
   gl.BindVertexArray(0);
 
   if (!createTarget()) return false;
@@ -416,6 +456,7 @@ void GlRenderer::lookupLitUniforms(u32 p, LitUniforms& u) {
   u.bones = gl.GetUniformLocation(p, "uBones[0]");
   gl.UseProgram(p);
   gl.Uniform1i(u.tex, 0);
+  gl.Uniform1f(gl.GetUniformLocation(p, "uPointK"), static_cast<float>(kPointLightK));
 }
 
 // The texture must be bound to GL_TEXTURE_2D already.
@@ -500,12 +541,14 @@ void GlRenderer::beginFrame(Color32 c) {
   batch_.clear();
   cameraSet_ = false;
   lastDraws_ = 0;
+  lastQuads_ = 0;
   lightCount_ = 0;
   fogOn_ = false;
   ambient_[0] = ambient_[1] = ambient_[2] = 0;
   gl.BindFramebuffer(GL_FRAMEBUFFER, fbo_);
   gl.Viewport(0, 0, static_cast<GLsizei>(w_), static_cast<GLsizei>(h_));
   gl.Disable(GL_SCISSOR_TEST);
+  gl.DepthMask(1);
   gl.Disable(GL_CULL_FACE);
   gl.Enable(GL_DEPTH_TEST);
   gl.DepthFunc(GL_LEQUAL);
@@ -666,6 +709,74 @@ void GlRenderer::drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, co
   gl.BindVertexArray(0);
 }
 
+// ---- F6.09 cameras and effects
+void GlRenderer::setViewport(i32 x, i32 y, i32 w, i32 h) {
+  if (w <= 0 || h <= 0) return;
+  const bool full = x == 0 && y == 0 && w == static_cast<i32>(w_) && h == static_cast<i32>(h_);
+  // The GL origin is bottom-left; the API's is top-left.
+  gl.Viewport(x, static_cast<GLint>(h_) - y - h, w, h);
+  if (full) {
+    gl.Disable(GL_SCISSOR_TEST);
+  } else {
+    gl.Enable(GL_SCISSOR_TEST);
+    gl.Scissor(x, static_cast<GLint>(h_) - y - h, w, h);
+  }
+}
+
+void GlRenderer::clearView(u32 flags, Color32 c) {
+  GLenum mask = 0;
+  if (flags & kClearColor) {
+    gl.ClearColor(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f);
+    mask |= GL_COLOR_BUFFER_BIT;
+  }
+  if (flags & kClearDepth) mask |= GL_DEPTH_BUFFER_BIT;
+  if (mask) gl.Clear(mask);
+}
+
+bool GlRenderer::drawQuads3D(u32 tex, const Quad3D* q, u32 count, u32) {
+  if (!cameraSet_ || !quadVerts_ || !q) return true;  // nothing to draw into; "drawn" so the caller does not fall back
+  const Matrix4 vp = proj_ * view_;
+  gl.UseProgram(progQuad_);
+  gl.UniformMatrix4fv(uQuadVp_, 1, 0, vp.m);
+  gl.Enable(GL_BLEND);
+  gl.BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  gl.DepthMask(0);
+  gl.ActiveTexture(GL_TEXTURE0);
+  Tex& tx = (tex && tex <= texCount_) ? tex_[tex - 1] : tex_[whiteTex_ - 1];
+  gl.BindTexture(GL_TEXTURE_2D, tx.id);
+  setWrap(tx, false);
+  gl.BindVertexArray(vaoQuad_);
+  gl.BindBuffer(GL_ARRAY_BUFFER, vboQuad_);
+  static const u8 kOrder[6] = {0, 1, 2, 0, 2, 3};
+  for (u32 done = 0; done < count;) {
+    const u32 n = count - done < kQuadChunk ? count - done : kQuadChunk;
+    QuadVertex* o = quadVerts_;
+    for (u32 i = 0; i < n; ++i) {
+      const Quad3D& a = q[done + i];
+      const float uu[4] = {static_cast<float>(a.u0), static_cast<float>(a.u1), static_cast<float>(a.u1), static_cast<float>(a.u0)};
+      const float vv[4] = {static_cast<float>(a.v0), static_cast<float>(a.v0), static_cast<float>(a.v1), static_cast<float>(a.v1)};
+      for (u32 k = 0; k < 6; ++k, ++o) {
+        const u32 c = kOrder[k];
+        o->x = static_cast<float>(a.p[c].x);
+        o->y = static_cast<float>(a.p[c].y);
+        o->z = static_cast<float>(a.p[c].z);
+        o->u = uu[c];
+        o->v = vv[c];
+        o->r = a.color.r; o->g = a.color.g; o->b = a.color.b; o->a = a.color.a;
+      }
+    }
+    gl.BufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(n) * 6 * sizeof(QuadVertex), quadVerts_);
+    gl.DrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(n * 6));
+    ++lastDraws_;
+    done += n;
+  }
+  gl.DepthMask(1);
+  gl.Disable(GL_BLEND);
+  gl.BindVertexArray(0);
+  lastQuads_ += count;
+  return true;
+}
+
 void GlRenderer::drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 color) {
   drawRect(Rect(static_cast<Scalar>(x), static_cast<Scalar>(y), static_cast<Scalar>(w), static_cast<Scalar>(h)), color,
            0xFFFFFF00u);  // overlays sit on top of sprites
@@ -761,6 +872,8 @@ void GlRenderer::flush2d() {
   lastSprites_ = batch_.count();
   const u32 verts = batch_.build();
   if (!verts) return;
+  gl.Disable(GL_SCISSOR_TEST);
+  gl.Viewport(0, 0, static_cast<GLsizei>(w_), static_cast<GLsizei>(h_));
   gl.Disable(GL_DEPTH_TEST);
   gl.Enable(GL_BLEND);
   gl.BlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -810,6 +923,20 @@ void GlRenderer::endFrame() {
   gl.DrawArrays(GL_TRIANGLES, 0, 3);
   gl.BindVertexArray(0);
   SDL_GL_SwapWindow(win);
+}
+
+bool GlRenderer::readPixels(u8* out) {
+  if (!ready_ || !out) return false;
+  gl.BindFramebuffer(GL_FRAMEBUFFER, fbo_);
+  gl.PixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  gl.ReadPixels(0, 0, static_cast<GLsizei>(w_), static_cast<GLsizei>(h_), GL_RGBA, GL_UNSIGNED_BYTE, out);
+  gl.BindFramebuffer(GL_FRAMEBUFFER, 0);
+  for (u32 y = 0; y < h_ / 2; ++y) {  // GL rows run bottom to top
+    u8* a = out + static_cast<size_t>(y) * w_ * 4;
+    u8* b = out + static_cast<size_t>(h_ - 1 - y) * w_ * 4;
+    for (u32 i = 0; i < w_ * 4; ++i) { const u8 t = a[i]; a[i] = b[i]; b[i] = t; }
+  }
+  return true;
 }
 
 bool GlRenderer::screenshot(const char* pngPath) {

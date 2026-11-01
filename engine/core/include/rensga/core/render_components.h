@@ -1,7 +1,7 @@
-// F6 contract (C0): ParticleSystem and LineRenderer. Fields are final; drawing and simulation are stubbed until B2 (Stage 2,
-// API 7): both load, cook and round-trip and draw nothing. The methods are defined in engine/api/src/render_api.cpp.
-// CPU particles with a fixed pool per system (maxParticles, no heap); the random stream is seeded from `seed` so the
-// simulation is deterministic.
+// F6 (C0 contract, B2 behaviour, API 7): ParticleSystem and LineRenderer. The methods are defined in engine/api/src/render_api.cpp,
+// the simulation and drawing in engine/core/src/{particles,line_renderer}.cpp (render_view.h).
+// CPU particles with a fixed pool block per system (maxParticles, no heap); the random stream is seeded from `seed` so the
+// simulation is deterministic. Shapes emit along the object's +Y (Cone, Hemisphere, Box, Circle) or outward (Sphere, Point).
 #pragma once
 #include "rensga/core/object.h"
 

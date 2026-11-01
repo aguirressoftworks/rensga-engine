@@ -374,6 +374,7 @@ static_assert(sizeof(PackSceneRec) == 32, "PackSceneRec is 32 bytes");
 enum class PackVertexFormat : u32 { Baked = 0, LitF = 2, LitC16 = 3, SkinF = 4, SkinC16 = 5 };  // 1 is reserved
 constexpr u32 kMeshWindingCCW = 1u << 0;       // triangles are counter-clockwise (the default 0 = clockwise as the GU wants)
 constexpr u32 kMeshNeedsNearClip = 1u << 1;    // big mesh: the PSP renderer clips against the near plane on the CPU
+constexpr u32 kMeshLightBaked = 1u << 2;     // F6.02: the scene's light is baked into the vertex colors (MeshRenderer.bakeLighting): drawn unlit whatever its material says
 struct PackMeshLit {
   u32 vertexFormat;      // PackVertexFormat
   u32 vertexByteOffset;  // into VTX3, multiple of 16

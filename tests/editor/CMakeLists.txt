@@ -290,3 +290,45 @@ if(TARGET rensga-editor)  # the Enemy exercise: five instances, one override, a 
   set_tests_properties(exercise_prefab_enemies PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300 LABELS "slow;gl;f6_exercises")
 endif()
 # --- F6 A1 end ---
+
+# --- F6 B3 begin ---
+# F6.02 3D toolset, editor core: material document with target limits, Light / capsule / Rigidbody gizmos, glTF level in the Scene view list.
+if(TARGET rensga_editor_core AND TARGET rensga_target_psp)
+  add_executable(rensga_toolset3d_tests ../test_main.cpp test_toolset3d.cpp)
+  target_link_libraries(rensga_toolset3d_tests PRIVATE rensga_editor_core rensga_cooker_lib)
+  target_include_directories(rensga_toolset3d_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_toolset3d_tests PRIVATE
+    RENSGA_LEVEL_DIR="${CMAKE_SOURCE_DIR}/samples/level_walk"
+    RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_toolset3d")
+  rensga_link_whole_archive(rensga_toolset3d_tests PRIVATE rensga_target_psp)
+  rensga_host_target(rensga_toolset3d_tests)
+  add_test(NAME rensga_toolset3d_tests COMMAND rensga_toolset3d_tests)
+endif()
+# --- F6 B3 end ---
+
+# --- F6 B3 begin (ui) ---
+if(TARGET rensga-editor)
+  add_test(NAME editor_toolset3d_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/toolset3d_ui.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/level_walk ${CMAKE_CURRENT_BINARY_DIR}/toolset3d_ui)
+  set_tests_properties(editor_toolset3d_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl;f6_exercises" ENVIRONMENT "RENSGA_JOBS=2")
+  add_test(NAME editor_toolset3d_play_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/toolset3d_play_ui.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/level_walk ${CMAKE_CURRENT_BINARY_DIR}/toolset3d_play_ui)
+  set_tests_properties(editor_toolset3d_play_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl;f6_exercises" ENVIRONMENT "RENSGA_JOBS=2")
+endif()
+# --- F6 B3 end (ui) ---
+
+# --- F6 B3 begin (generator) ---
+add_test(NAME level_walk_generator COMMAND python3 -I ${CMAKE_SOURCE_DIR}/tools/samples/gen_level.py --check)
+# --- F6 B3 end (generator) ---
+
+# --- F6 B1 begin ---
+# F6.03 Animation window and Animator graph (xvfb; samples/animator_player). 77 = skipped.
+if(TARGET rensga-editor)
+  add_test(NAME editor_animation_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/animation_ui_check.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/animator_player ${CMAKE_CURRENT_BINARY_DIR}/animation_ui)
+  set_tests_properties(editor_animation_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300 LABELS "slow;gl")
+  add_test(NAME editor_animation_graph_ui COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/animation_graph_ui_check.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/animator_player ${CMAKE_CURRENT_BINARY_DIR}/animation_graph_ui)
+  set_tests_properties(editor_animation_graph_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 400 LABELS "slow;gl")
+endif()
+# --- F6 B1 end ---

@@ -344,7 +344,7 @@ TEST(appended_fields_load_from_older_blobs) {
   full.material = Pack3dBuilder::materialGuid();
   u8 blob[64];
   writeBlob(mt, &full, blob);
-  const u32 oldSize = blobSize(mt) - 16;  // before `material` existed
+  const u32 oldSize = blobSize(mt) - 16 - 1;  // before `material` existed (and before the F6 bakeLighting flag, 1 byte)
   MeshRenderer old;
   CHECK(readBlob(mt, &old, blob, oldSize));
   CHECK(old.mesh == Pack3dBuilder::cubeMeshGuid());

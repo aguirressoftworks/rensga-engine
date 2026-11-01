@@ -107,8 +107,17 @@ static const char* kPickMeshFs = R"(#version 330 core
 in vec3 vNrm; layout(location=0) out uint o; uniform uint uId;
 void main(){ o = uId; })";
 
+static const char* kBlitVs = R"(#version 330 core
+out vec2 vUv;
+void main(){ vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); vUv = p; gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); })";
+static const char* kBlitFs = R"(#version 330 core
+in vec2 vUv; out vec4 o; uniform sampler2D uTex;
+void main(){ o = vec4(texture(uTex, vUv).rgb, 1.0); })";
+
 bool SceneRenderer::init() {
   if (prog_) return true;
+  blitProg_ = link(kBlitVs, kBlitFs);
+  glGenVertexArrays(1, &blitVao_);
   prog_ = link(kMeshVs, kMeshFs);
   gridProg_ = link(kGridVs, kGridFs);
   lineProg_ = link(kLineVs, kLineFs);
@@ -245,12 +254,34 @@ static void markerLines(std::vector<float>& v, const Marker& m, const float col[
   auto P = [&](float x, float y, float z, float out[3]) { const float p[3] = {x, y, z}; m4Point(m.model, p, out); };
   float a[3], b[3];
   if (m.kind == "Camera") {
-    const float hw = 0.6f, hh = 0.34f, z = 0.8f;
+    const float hw = 0.6f, hh = 0.34f, z = -0.8f;  // the engine camera looks down its local -z
     float apex[3], c[4][3];
     P(0, 0, 0, apex);
     P(-hw, -hh, z, c[0]); P(hw, -hh, z, c[1]); P(hw, hh, z, c[2]); P(-hw, hh, z, c[3]);
     for (int i = 0; i < 4; ++i) { pushLine(v, apex, c[i], col); pushLine(v, c[i], c[(i + 1) % 4], col); }
-  } else if (m.kind == "DirectionalLight") {
+  } else if (m.kind == "PointLight") {  // F6.02: three rings around the lamp
+    for (int ax = 0; ax < 3; ++ax)
+      for (int i = 0; i < 12; ++i) {
+        const float t0 = static_cast<float>(i) * 0.5235988f, t1 = static_cast<float>(i + 1) * 0.5235988f, r = 0.28f;
+        float p0[3], p1[3];
+        const float c0 = std::cos(t0) * r, s0 = std::sin(t0) * r, c1 = std::cos(t1) * r, s1 = std::sin(t1) * r;
+        if (ax == 0) { P(c0, s0, 0, p0); P(c1, s1, 0, p1); }
+        else if (ax == 1) { P(c0, 0, s0, p0); P(c1, 0, s1, p1); }
+        else { P(0, c0, s0, p0); P(0, c1, s1, p1); }
+        pushLine(v, p0, p1, col);
+      }
+    P(0, 0, 0, a); P(0, 0.12f, 0, b); pushLine(v, a, b, col);
+  } else if (m.kind == "AudioSource") {  // a small speaker: box and cone
+    float c[8][3];
+    for (int k = 0; k < 8; ++k) P((k & 1) ? 0.12f : -0.12f, (k & 2) ? 0.12f : -0.12f, (k & 4) ? 0.0f : -0.12f, c[k]);
+    for (int k = 0; k < 8; ++k)
+      for (int bit = 1; bit < 8; bit <<= 1)
+        if (!(k & bit)) pushLine(v, c[k], c[k | bit], col);
+    float cone[4][3], tip[4][3];
+    const float cs[4][2] = {{-0.12f, -0.12f}, {0.12f, -0.12f}, {0.12f, 0.12f}, {-0.12f, 0.12f}};
+    for (int k = 0; k < 4; ++k) { P(cs[k][0], cs[k][1], 0.0f, cone[k]); P(cs[k][0] * 2.2f, cs[k][1] * 2.2f, 0.28f, tip[k]); pushLine(v, cone[k], tip[k], col); }
+    for (int k = 0; k < 4; ++k) pushLine(v, tip[k], tip[(k + 1) % 4], col);
+  } else if (m.kind == "DirectionalLight" || m.kind == "Light") {
     P(0, 0, 0, a); P(0, 0, 1.6f, b); pushLine(v, a, b, col);
     P(0.15f, 0, 1.3f, a); pushLine(v, a, b, col);
     P(-0.15f, 0, 1.3f, a); pushLine(v, a, b, col);
@@ -512,6 +543,21 @@ void SceneRenderer::render(RenderTarget& rt, const SceneDraw& sd, const RenderOp
             uShift = glGetUniformLocation(prog_, "uShift");
   glUniform1i(uUnlit, 0);
   glUniform2f(uShift, 0, 0);
+  if (opt.litTex && blitProg_) {  // F6.02: the lit image first, then the meshes again for depth only
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glUseProgram(blitProg_);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, opt.litTex);
+    glUniform1i(glGetUniformLocation(blitProg_, "uTex"), 0);
+    glBindVertexArray(blitVao_);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+    glUseProgram(prog_);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+  }
   for (const Drawable& d : sd.drawables) {
     const Gpu& g = upload(d.mesh);
     M4 mvp = m4Mul(vp, d.model);
@@ -521,6 +567,7 @@ void SceneRenderer::render(RenderTarget& rt, const SceneDraw& sd, const RenderOp
     glBindVertexArray(g.vao);
     glDrawArrays(GL_TRIANGLES, 0, g.count);
   }
+  glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
   // selection outline: wireframe of the selected mesh, a few pixels thick (offset copies), in the primary token
   if (!sel.empty()) {

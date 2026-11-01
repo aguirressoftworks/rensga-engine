@@ -19,6 +19,7 @@
 #include "rensga/core/gameplay.h"
 #include "rensga/core/loop.h"
 #include "rensga/core/scene_manager.h"
+#include "render/lit_view.h"
 #include "rensga/render/gl.h"
 
 namespace rensga {
@@ -170,6 +171,11 @@ std::string bytesText(uint64_t b) {
 
 }  // namespace
 
+// F6.02 (B3): the Scene view's lit pass shares this 5-6-5 / dither pass.
+unsigned previewPostProcess(unsigned src, int w, int h, bool quantize, bool dither, bool nearest) {
+  return postProcess(src, w, h, quantize, dither, nearest);
+}
+
 void gameViewRelease() {
   if (!g_pg) return;
   if (g_pg->inited) g_pg->gl.releaseUserTextures();
@@ -278,6 +284,10 @@ void drawGameView(App& a) {
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
       dl->AddImage(static_cast<ImTextureID>(shown), f0, f1, ImVec2(0, 1), ImVec2(1, 0));
     }
+  } else if (const unsigned litTex = litGameTexture(a, rw, rh)) {
+    // F6.02: the edit-mode scene as the Camera sees it, drawn by the player's renderer (lights, textures, baked colors)
+    const unsigned shown = postProcess(litTex, rw, rh, po.quantize, po.dither, a.gameIntegerScale);
+    dl->AddImage(static_cast<ImTextureID>(shown), f0, f1, ImVec2(0, 1), ImVec2(1, 0));
   } else {
     SceneDraw sd = gatherScene(a.doc, a.meshes);
     if (sd.camera.found && a.renderer.ready()) {

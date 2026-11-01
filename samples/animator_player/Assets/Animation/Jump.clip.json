@@ -1,0 +1,67 @@
+{
+ "format": 1,
+ "kind": "PropertyClip",
+ "name": "Jump",
+ "fps": 10,
+ "length": 8,
+ "loop": false,
+ "curves": [
+  {
+   "property": "SpriteRenderer.srcX",
+   "interp": "step",
+   "keys": [
+    {
+     "t": 0,
+     "v": 64
+    }
+   ]
+  },
+  {
+   "property": "SpriteRenderer.srcY",
+   "interp": "step",
+   "keys": [
+    {
+     "t": 0,
+     "v": 0
+    }
+   ]
+  },
+  {
+   "property": "Transform.localScale.y",
+   "interp": "smooth",
+   "keys": [
+    {
+     "t": 0,
+     "v": 4.0
+    },
+    {
+     "t": 3,
+     "v": 4.7
+    },
+    {
+     "t": 8,
+     "v": 4.0
+    }
+   ]
+  },
+  {
+   "property": "Transform.localScale.x",
+   "interp": "smooth",
+   "keys": [
+    {
+     "t": 0,
+     "v": 4.0
+    },
+    {
+     "t": 3,
+     "v": 3.6
+    },
+    {
+     "t": 8,
+     "v": 4.0
+    }
+   ]
+  }
+ ],
+ "events": []
+}

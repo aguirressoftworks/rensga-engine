@@ -63,3 +63,16 @@ target_sources(rensga_cooker_core PRIVATE src/physics_cook.cpp)
 # RSRC (Resources.Load names) and the additive scene flag (F6.11).
 target_sources(rensga_cooker_core PRIVATE src/resources_cook.cpp)
 # --- F6 a3 end ---
+
+# --- F6 B3 begin ---
+# Baked vertex lighting (F6.02): lights + AO into vertex colors at cook time.
+target_sources(rensga_cooker_core PRIVATE src/vertex_bake.cpp)
+# The ray casts are the one heavy loop of a cook: optimise it even in a Debug host tree (no fast-math, -ffp-contract=off stays global,
+# so the bake gives the same bytes at every optimisation level).
+set_source_files_properties(src/vertex_bake.cpp PROPERTIES COMPILE_OPTIONS "-O2")
+# --- F6 B3 end ---
+
+# --- F6 B1 begin ---
+# Property clips and animator controllers (F6.03): shared by the cooker and the editor preview.
+target_sources(rensga_cooker_core PRIVATE src/anim_cook.cpp)
+# --- F6 B1 end ---

@@ -1,0 +1,1451 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-000000000604",
+ "objects": [
+  {
+   "guid": "00000000-0000-4000-9000-000000000400",
+   "name": "Camera",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     1.6,
+     8.0
+    ],
+    "rotation": [
+     0.0,
+     1.0,
+     0.0,
+     0.0
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Camera",
+     "fields": {
+      "fov": 65.0,
+      "nearClip": 0.2,
+      "farClip": 60.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000401",
+   "name": "Player",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.95,
+     8.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "CharacterController",
+     "fields": {
+      "height": 1.8,
+      "radius": 0.35,
+      "gravity": -20.0,
+      "stepOffset": 0.3
+     }
+    },
+    {
+     "type": "LevelWalker",
+     "fields": {
+      "autoWalk": true,
+      "moveSpeed": 3.0,
+      "turnSpeed": 100.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000402",
+   "name": "Floor",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-000000000601",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000607",
+      "bakeLighting": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000403",
+   "name": "Walls",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-000000000602",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000608",
+      "bakeLighting": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000404",
+   "name": "Props",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-000000000603",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000609",
+      "bakeLighting": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000405",
+   "name": "RenderSettings",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     0,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "RenderSettings",
+     "fields": {
+      "ambient": [
+       46,
+       48,
+       62,
+       255
+      ],
+      "fogEnabled": true,
+      "fogColor": [
+       20,
+       22,
+       32,
+       255
+      ],
+      "fogStart": 14.0,
+      "fogEnd": 40.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000406",
+   "name": "Moon",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0,
+     8,
+     0
+    ],
+    "rotation": [
+     0.5,
+     0.0,
+     0.0,
+     0.866025
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 0,
+      "color": [
+       150,
+       170,
+       230,
+       255
+      ],
+      "intensity": 0.35,
+      "range": 0.0,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000407",
+   "name": "Lamp0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -6.0,
+     2.6,
+     6.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       255,
+       200,
+       130,
+       255
+      ],
+      "intensity": 1.15,
+      "range": 9.5,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000408",
+   "name": "Lamp1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     6.0,
+     2.6,
+     6.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       255,
+       200,
+       130,
+       255
+      ],
+      "intensity": 1.15,
+      "range": 9.5,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000409",
+   "name": "Lamp2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -6.0,
+     2.6,
+     -0.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       255,
+       170,
+       110,
+       255
+      ],
+      "intensity": 1.15,
+      "range": 9.5,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000040a",
+   "name": "Lamp3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     6.0,
+     2.6,
+     -0.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       255,
+       220,
+       160,
+       255
+      ],
+      "intensity": 1.15,
+      "range": 9.5,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000040b",
+   "name": "Lamp4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -6.0,
+     2.6,
+     -7.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       150,
+       190,
+       255,
+       255
+      ],
+      "intensity": 1.15,
+      "range": 9.5,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000040c",
+   "name": "Lamp5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     6.0,
+     2.6,
+     -7.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       255,
+       150,
+       110,
+       255
+      ],
+      "intensity": 1.15,
+      "range": 9.5,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000040d",
+   "name": "Lamp6",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     2.6,
+     -7.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "Light",
+     "fields": {
+      "type": 1,
+      "color": [
+       230,
+       230,
+       255,
+       255
+      ],
+      "intensity": 1.15,
+      "range": 9.5,
+      "renderMode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000040e",
+   "name": "ColFloor",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     -0.5,
+     0.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       20.0,
+       1.0,
+       20.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000040f",
+   "name": "ColSouth",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     1.5,
+     -10.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       22.0,
+       3.0,
+       1.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000410",
+   "name": "ColNorth",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     1.5,
+     10.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       22.0,
+       3.0,
+       1.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000411",
+   "name": "ColWest",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -10.5,
+     1.5,
+     0.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1.0,
+       3.0,
+       20.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000412",
+   "name": "ColEast",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     10.5,
+     1.5,
+     0.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1.0,
+       3.0,
+       20.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000413",
+   "name": "ColPartA0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -3.0,
+     1.5,
+     2.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       14.0,
+       3.0,
+       0.4
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000414",
+   "name": "ColPartB0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     8.0,
+     1.5,
+     2.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       4.0,
+       3.0,
+       0.4
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000415",
+   "name": "ColPartA1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -8.0,
+     1.5,
+     -4.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       4.0,
+       3.0,
+       0.4
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000416",
+   "name": "ColPartB1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     3.0,
+     1.5,
+     -4.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       14.0,
+       3.0,
+       0.4
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000417",
+   "name": "ColPillar0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -6.0,
+     1.5,
+     6.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       0.6,
+       3.0,
+       0.6
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000418",
+   "name": "ColPillar1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     1.5,
+     6.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       0.6,
+       3.0,
+       0.6
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000419",
+   "name": "ColPillar2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     6.0,
+     1.5,
+     6.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       0.6,
+       3.0,
+       0.6
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000041a",
+   "name": "ColPillar3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -6.0,
+     1.5,
+     -1.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       0.6,
+       3.0,
+       0.6
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000041b",
+   "name": "ColPillar4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     1.5,
+     -1.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       0.6,
+       3.0,
+       0.6
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000041c",
+   "name": "ColPillar5",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     6.0,
+     1.5,
+     -1.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       0.6,
+       3.0,
+       0.6
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000041d",
+   "name": "ColCrate0",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -7.0,
+     0.5,
+     -8.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1.0,
+       1.0,
+       1.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000041e",
+   "name": "ColCrate1",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     -6.0,
+     0.4,
+     -8.2
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       0.8,
+       0.8,
+       0.8
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-00000000041f",
+   "name": "ColCrate2",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     7.5,
+     0.5,
+     -6.0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1.0,
+       1.0,
+       1.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000420",
+   "name": "ColCrate3",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     7.5,
+     0.5,
+     -4.8
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1.0,
+       1.0,
+       1.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "00000000-0000-4000-9000-000000000421",
+   "name": "ColCrate4",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     8.2,
+     0.5,
+     -5.5
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     1,
+     1,
+     1
+    ]
+   },
+   "components": [
+    {
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1.0,
+       1.0,
+       1.0
+      ],
+      "isTrigger": false
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

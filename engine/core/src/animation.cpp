@@ -1,6 +1,7 @@
 // F5 (PSP Engine 6): skeletal clip player. Everything is integer time + float math with +,-,*,/ and sqrt only, so Linux and the
 // PSP produce the same bits (RULES 1.9). The palette pool is a fixed array (or arena memory from init()); nothing allocates per frame.
 #include "rensga/core/animation.h"
+#include "rensga/core/animator_system.h"  // F6 B1
 
 #include <string.h>
 
@@ -136,9 +137,11 @@ void AnimationSystem::shutdown() {
   g_litCount = 0;
   g_steps = 0;
   g_warned = false;
+  AnimatorSystem::shutdown();  // F6 B1
 }
 
 void AnimationSystem::fixedStep(World& world) {
+  AnimatorSystem::fixedStep(world);  // --- F6 B1 --- Animator controllers and property clips advance on the same fixed step
   bindAssets();
   // The pack changes on a scene reload (new records, same bytes layout per pack): re-read the tables every step, they are pointers.
   if (GfxAssets::bound()) {
@@ -211,7 +214,7 @@ const Matrix4* AnimationSystem::palette(const World& world, const SkinnedMeshRen
   GameObject* go = smr.gameObject();
   if (!go) return nullptr;
   const Animation* an = world.getComponent<Animation>(go);
-  if (!an || an->paletteSlot == kInvalidIndex || an->paletteSlot >= g_slotCount) return nullptr;
+  if (!an || an->paletteSlot == kInvalidIndex || an->paletteSlot >= g_slotCount) return AnimatorSystem::palette(world, smr, count);  // --- F6 B1 --- skeletal Animator states
   if (count) *count = g_slots[an->paletteSlot].count;
   return g_pool + g_slots[an->paletteSlot].offset;
 }
@@ -227,7 +230,7 @@ u32 AnimationSystem::skinHash() {
   return h;
 }
 
-void AnimationSystem::setTrace(bool on) { g_trace = on; }
+void AnimationSystem::setTrace(bool on) { g_trace = on; AnimatorSystem::setTrace(on); }  // F6 B1: also "rensga: anim f=.. h=.."
 u32 AnimationSystem::stepCount() { return g_steps; }
 
 void Animation::Play() { playing = true; tick = 0; phase = kStarted | kFreshPlay; }

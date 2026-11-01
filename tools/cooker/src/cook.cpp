@@ -21,7 +21,9 @@
 #include "prefab_cook.h"  // F6 A1
 #include "physics_cook.h"
 #include "resources_cook.h"  // F6 a3
+#include "vertex_bake.h"  // F6 b3
 #include "rensga/cooker/prefab_expand.h"
+#include "rensga/cooker/anim_cook.h"  // F6 B1
 #include "rensga/core/components.h"
 #include "rensga/core/pack_format.h"
 #include "rensga/core/reflect_json.h"
@@ -508,6 +510,47 @@ CookResult cookProject(const CookOptions& optIn, const CookSink& sink) {
       }
 lightDone:
 
+  // --- F6 b3 --- baked vertex lighting (vertex_bake.cpp): MeshRenderers with bakeLighting get the scene's lights and a cheap AO in
+  // their vertex colors. Nothing here runs, and no byte changes, in a scene where no MeshRenderer sets the field.
+  std::unique_ptr<cooker::VertexBakeScene> vbake;
+  {
+    std::vector<cooker::BakeObjectIn> bo(objs.size());
+    for (size_t k = 0; k < objs.size(); ++k) {
+      bo[k].parent = objs[k].parent;
+      bo[k].active = objs[k].active;
+      for (int j = 0; j < 3; ++j) { bo[k].pos[j] = objs[k].xf.position[j]; bo[k].scale[j] = objs[k].xf.scale[j]; }
+      for (int j = 0; j < 4; ++j) bo[k].rot[j] = objs[k].xf.rotation[j];
+      for (const auto& c : objs[k].comps) bo[k].comps.push_back({c.type->name, c.fields});
+    }
+    auto loadBakeMesh = [&](const std::string& mg, std::vector<Vector3>& pp, std::vector<Vector3>& nn, std::string& err) -> bool {
+      auto ait = assets.find(mg);
+      if (ait == assets.end()) { err = "not an asset of the project"; return false; }
+      PrimitiveMesh pm;
+      if (isGltfRel(ait->second.rel)) {
+        if (!importGltf(ait->second.path, pm, err)) return false;
+        ModelImport mi;
+        if (!parseModelImport(ait->second.importSettings, mi, err)) return false;
+        applyModelImport(pm, mi);
+      } else if (ait->second.rel.find(".prim.json") != std::string::npos) {
+        std::string txt;
+        readText(ait->second.path, txt);
+        PrimitiveParams prm;
+        if (!parsePrimitive(txt, prm, err)) return false;
+        pm = generatePrimitive(prm, target);
+      } else {
+        err = "not a primitive or glTF asset";
+        return false;
+      }
+      pp = std::move(pm.positions);
+      nn = std::move(pm.normals);
+      return true;
+    };
+    std::vector<std::string> berrs;
+    vbake = cooker::VertexBakeScene::create(bo, loadBakeMesh, berrs);
+    for (const std::string& e : berrs) cx.msg(CookMessage::Warning, e, sceneAsset.rel, sceneAsset.guid);
+  }
+  // --- end F6 b3 ---
+
   // ---- meshes: one baked variant per MeshRenderer
   std::vector<PackMeshRec> meshRecs;
   std::vector<uint8_t> vertBytes;
@@ -556,6 +599,9 @@ lightDone:
     const std::string mg = c.fields.value("mesh", std::string());
     Guid matG, meshG;
     Guid::parse(c.fields.value("material", std::string()).c_str(), matG);
+    // --- F6 b3 --- a baked MeshRenderer: its colors carry the scene's light (kMeshLightBaked: the renderers draw it unlit)
+    const bool bakeThis = !smr && vbake && cooker::VertexBakeScene::wants(c.fields);
+    // --- end F6 b3 ---
     if (smr && (!Guid::parse(mg.c_str(), meshG) || meshG.isNull())) {  // nothing to draw yet (Unity allows an empty mesh slot)
       cx.msg(CookMessage::Warning, who + " has no mesh; it draws nothing", sceneAsset.rel, sceneAsset.guid);
       return true;
@@ -572,7 +618,7 @@ lightDone:
       return false;
     }
     const Asset& src = ait->second;
-    const std::string key = mg + (smr ? "|S" : "|M");
+    const std::string key = mg + (smr ? "|S" : "|M") + (bakeThis ? "|B" + std::to_string(i) : std::string());  // F6 b3: baked colors are per object
     auto cit = litCache.find(key);
     if (cit == litCache.end()) {
       LitCached lc;
@@ -649,6 +695,19 @@ lightDone:
         }
         lm = litMeshFromPrimitive(generatePrimitive(pp, target));
       }
+      // --- F6 b3 --- baked vertex lighting into the colors of this object's copy of the mesh
+      if (bakeThis) {
+        std::vector<uint8_t> bc;
+        vbake->bakeObject(i, lm.positions, lm.normals, false, bc);
+        const bool hadColors = lm.colors.size() == lm.positions.size();
+        lm.colors.resize(lm.positions.size());
+        for (size_t k = 0; k < lm.positions.size(); ++k) {
+          const Color32 old = hadColors ? lm.colors[k] : Color32(255, 255, 255, 255);
+          lm.colors[k] = Color32(static_cast<uint8_t>((old.r * bc[k * 4] + 127) / 255), static_cast<uint8_t>((old.g * bc[k * 4 + 1] + 127) / 255),
+                                 static_cast<uint8_t>((old.b * bc[k * 4 + 2] + 127) / 255), old.a);
+        }
+      }
+      // --- end F6 b3 ---
       // Skin split into batches of at most maxBones joints.
       uint32_t firstBatch = static_cast<uint32_t>(allBatches.size()), batchCount = 0;
       if (smr) {
@@ -687,6 +746,7 @@ lightDone:
     }
     const LitCached& lc = cit->second;
     PackMeshLit d = lc.desc;
+    if (bakeThis) d.flags |= kMeshLightBaked;  // F6 b3
     if (!matG.isNull()) {
       auto mit = assets.find(guidText(matG));
       if (mit == assets.end() || !endsWith(mit->second.rel, ".mat.json")) {
@@ -710,7 +770,7 @@ lightDone:
     meshRecs.push_back(rec);
     meshLit.push_back(d);
     anyLit = true;
-    litUses.push_back({i, d.boundsRadius, Vector3(d.boundsCenter[0], d.boundsCenter[1], d.boundsCenter[2])});
+    if (!bakeThis) litUses.push_back({i, d.boundsRadius, Vector3(d.boundsCenter[0], d.boundsCenter[1], d.boundsCenter[2])});  // F6 b3: a baked mesh uses no runtime light
     if (objs[i].active) {
       const uint64_t tris = d.vertexCount / 3;
       budget.triangles += tris;
@@ -782,10 +842,26 @@ lightDone:
         readBlob(*c.type, inst.mem, c.blob.data(), static_cast<u32>(c.blob.size()));
         base = static_cast<MeshRenderer*>(inst.mem)->color;
       }
+      // --- F6 b3 --- baked vertex lighting: the colors carry the light, so the cooker's own single-light bake is neutral
+      BakedLight useLight = light;
+      if (vbake && cooker::VertexBakeScene::wants(c.fields)) {
+        std::vector<uint8_t> bc;
+        vbake->bakeObject(i, m.positions, m.normals, true, bc);
+        const bool hadColors = m.colors.size() == m.positions.size();
+        m.colors.resize(m.positions.size());
+        for (size_t k = 0; k < m.positions.size(); ++k) {
+          const Color32 old = hadColors ? m.colors[k] : Color32(255, 255, 255, 255);
+          m.colors[k] = Color32(static_cast<uint8_t>((old.r * bc[k * 4] + 127) / 255), static_cast<uint8_t>((old.g * bc[k * 4 + 1] + 127) / 255),
+                                static_cast<uint8_t>((old.b * bc[k * 4 + 2] + 127) / 255), old.a);
+        }
+        useLight.ambient = 1.0f;
+        useLight.color = Color32(255, 255, 255, 255);
+      }
+      // --- end F6 b3 ---
       uint32_t count = 0;
       std::string cerr;
       size_t firstByte = vertBytes.size();
-      if (!meshPlugin || !meshPlugin->cookMesh(m, light, base, vertBytes, count, cerr)) {
+      if (!meshPlugin || !meshPlugin->cookMesh(m, useLight, base, vertBytes, count, cerr)) {
         if (!meshPlugin) cerr = "no mesh format plugin for profile '" + target.profile + "'";
         cx.error("cookMesh failed for '" + objs[i].name + "': " + cerr, sceneAsset.rel, sceneAsset.guid);
         continue;
@@ -809,6 +885,14 @@ lightDone:
     }
   }
   if (!R.errors.empty()) return R;
+
+  // --- F6 b3 --- what the baked vertex lighting cost
+  if (vbake && vbake->bakedObjects()) {
+    const cooker::BakeStats st = cooker::lastBakeStats();
+    cx.info("vertex bake: " + std::to_string(st.meshes) + " meshes, " + std::to_string(st.vertices) + " vertices, " + std::to_string(st.rays) + " rays (" +
+            std::to_string(st.cacheHits) + " meshes from the bake cache), " + std::to_string(static_cast<long>(st.ms + 0.5)) + " ms");
+  }
+  // --- end F6 b3 ---
 
   // ---- F5 validation: lights that reach one lit object (the profile draws at most maxLightsPerObject)
   if (anyLit && target.maxLightsPerObject) {
@@ -1113,6 +1197,48 @@ lightDone:
     if (!R.errors.empty()) return R;
   }
   // --- end F6 a3 ---
+  // --- F6 B1 --- PCLP / ANIC: property clips (*.clip.json) and animator controllers (*.controller.json); the work is in anim_cook.cpp
+  cooker::AnimCooked animCooked;
+  {
+    std::vector<cooker::AnimAssetRef> clipRefs, ctlRefs;
+    auto endsWith = [](const std::string& s, const char* suf) { const size_t n = strlen(suf); return s.size() >= n && s.compare(s.size() - n, n, suf) == 0; };
+    for (const auto& kv : assets) {
+      if (endsWith(kv.second.rel, ".clip.json")) clipRefs.push_back({kv.second.path, kv.second.rel, kv.second.guid});
+      else if (endsWith(kv.second.rel, ".controller.json")) ctlRefs.push_back({kv.second.path, kv.second.rel, kv.second.guid});
+    }
+    if (!clipRefs.empty() || !ctlRefs.empty()) {
+      u32 fixedHz = 60;
+      std::string timeText;
+      if (readText(settings / "Time.json", timeText)) {
+        const json tj = json::parse(timeText, nullptr, false);
+        const double fts = tj.is_object() ? tj.value("fixedTimestep", 0.0) : 0.0;
+        if (fts > 0.0005 && fts < 1.0) fixedHz = static_cast<u32>(1.0 / fts + 0.5);
+      }
+      auto skeletal = [&](const std::string& gt, Guid& out) {
+        Guid g;
+        if (!Guid::parse(gt.c_str(), g)) return false;
+        if (clipGuids.count(gt)) { out = g; return true; }
+        for (const SkinEntry& se : skinsOut)
+          if (se.guid == g && !se.clips.empty()) { out = deriveGuid(se.guid, 0); return true; }
+        return false;
+      };
+      std::vector<cooker::AnimIssue> animIssues;
+      cooker::cookAnimationAssets(clipRefs, ctlRefs, fixedHz, skeletal, addStr, cooked.blob, animCooked, animIssues);
+      for (const cooker::AnimIssue& i : animIssues) cx.error(i.message, i.asset, i.guid);
+    }
+    for (const ObjectDef& o : objs)
+      for (const auto& c : o.comps) {
+        if (strcmp(c.type->name, "Animator") != 0) continue;
+        const std::string g = c.fields.value("controller", std::string());
+        Guid parsed;
+        if (!Guid::parse(g.c_str(), parsed) || parsed.isNull()) continue;
+        bool found = false;
+        for (const PackAnimController& pc : animCooked.controllers) found = found || pc.guid == parsed;
+        if (!found) cx.error("'" + o.name + "' (guid " + guidText(o.guid) + ") Animator.controller references GUID " + g + ", which is not an animator controller (*.controller.json) of the project", sceneAsset.rel, sceneAsset.guid);
+      }
+    if (!R.errors.empty()) return R;
+  }
+  // --- end F6 B1 ---
   secs.push_back({pack_section::STRS, strs, strCount});
   secs.push_back({pack_section::OBJS, bytesOf(pobjs.data(), pobjs.size() * sizeof(PackObject)), static_cast<u32>(pobjs.size())});
   secs.push_back({pack_section::XFRM, bytesOf(pxf.data(), pxf.size() * sizeof(PackTransform)), static_cast<u32>(pxf.size())});
@@ -1167,6 +1293,11 @@ lightDone:
   if (!pmats.empty()) secs.push_back({pack_section::MATL, bytesOf(pmats.data(), pmats.size() * sizeof(PackMaterial)), static_cast<u32>(pmats.size())});
   if (!pskins.empty()) secs.push_back({pack_section::SKIN, bytesOf(pskins.data(), pskins.size() * sizeof(PackSkin)), static_cast<u32>(pskins.size())});
   if (!pclips.empty()) secs.push_back({pack_section::CLP3, bytesOf(pclips.data(), pclips.size() * sizeof(PackClip3)), static_cast<u32>(pclips.size())});
+
+  // --- F6 B1 ---
+  if (!animCooked.clips.empty()) secs.push_back({pack_section::PCLP, bytesOf(animCooked.clips.data(), animCooked.clips.size() * sizeof(PackPropClip)), static_cast<u32>(animCooked.clips.size())});
+  if (!animCooked.controllers.empty()) secs.push_back({pack_section::ANIC, bytesOf(animCooked.controllers.data(), animCooked.controllers.size() * sizeof(PackAnimController)), static_cast<u32>(animCooked.controllers.size())});
+  // --- end F6 B1 ---
 
   // --- F6 a3 ---
   if (!poolReserve.empty()) secs.push_back({pack_section::PCAP, bytesOf(poolReserve.data(), poolReserve.size() * sizeof(PackPoolReserve)), static_cast<u32>(poolReserve.size())});

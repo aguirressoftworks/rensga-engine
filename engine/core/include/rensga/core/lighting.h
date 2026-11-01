@@ -30,6 +30,17 @@ struct LightSet {
 // ambient is black and fog is off. No heap.
 void gatherLights(World& world, LightSet& out);
 
+// F6.09: the one shading curve of a point light, on every renderer. The PSP GE can only attenuate by 1 / (c + l d + q d^2), so the
+// desktop shader uses the same: intensity / (1 + kPointLightK * (d / range)^2). That is 1 at the light, 0.5 at 0.26 of the range, 0.25
+// at 0.45 and 1/16 (6 %) at `range`, where the older clamp01(1 - d / range)^2 reached 0; lights farther than range + radius are still
+// left out by selectLights. GL: uPointK in the lit shader; GU: sceGuLightAtt(1, 0, kPointLightK / range^2).
+constexpr Scalar kPointLightK = 15.0f;
+inline Scalar pointLightFalloff(Scalar dist, Scalar range) {
+  if (range <= 0) return 0;
+  const Scalar x = dist / range;
+  return 1.0f / (1.0f + kPointLightK * x * x);
+}
+
 // Picks the strongest lights for a sphere (world-space center and radius) and writes their LightSet indices to
 // outIndices, strongest first. Returns how many (at most maxLights, at most 8).
 // Order, exactly: 1) directional lights and renderMode == Important lights first (among them component order),

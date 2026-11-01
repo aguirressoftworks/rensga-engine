@@ -80,10 +80,11 @@ class MeshLibrary {
   std::shared_ptr<const MeshData> get(const std::string& guid);  // nullptr if unknown/invalid
   const std::map<std::string, std::filesystem::path>& files() const { return files_; }  // mesh asset guid -> file
   std::string guidForShape(const std::string& shape) const;  // "cube", "sphere"... -> asset guid or ""
+  const std::filesystem::path& projectRoot() const { return root_; }
 
  private:
   std::filesystem::path root_;
-  std::map<std::string, std::filesystem::path> files_;
+  std::map<std::string, std::filesystem::path> files_;   // primitives (.prim.json) and glTF models (.gltf), by asset guid
   std::map<std::string, std::string> shapes_;
   std::map<std::string, std::shared_ptr<const MeshData>> cache_;
   struct Tess { int sphere = 12, capsule = 12; } tess_;
@@ -98,7 +99,7 @@ struct Drawable {
 struct Marker {  // objects with no mesh: lights, cameras, empties
   std::string guid;
   M4 model;
-  std::string kind;  // first component type, or "Empty"
+  std::string kind;  // first component type, or "Empty"; "Light" (directional) / "PointLight" for the F5 Light
 };
 struct LightInfo {
   float dir[3] = {-0.4f, -1.0f, -0.3f};  // direction the light travels
@@ -117,6 +118,9 @@ struct SceneDraw {
   std::vector<Marker> markers;
   LightInfo light;
   CameraInfo camera;
+  // F6.02: the document the scene came from (null for hand-made SceneDraws in tests). The lit Scene view cooks it into a World.
+  const SceneDocument* doc = nullptr;
+  std::filesystem::path projectRoot;
 };
 SceneDraw gatherScene(const SceneDocument& doc, MeshLibrary& lib);  // active objects only
 

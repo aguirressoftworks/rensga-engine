@@ -23,6 +23,11 @@ struct VirtualGamepad {
   Buttons held;
   Buttons pressed;   // went down this frame (set by Input::update)
   Buttons released;  // went up this frame (set by Input::update)
+  // F6.09 (B2): a pointer (mouse, or the first finger) in the renderer's virtual pixels, origin top-left. Platforms without one (PSP,
+  // PS2) leave pointerActive false. Input::mousePosition / GetMouseButton read these.
+  bool pointerActive = false;  // a pointer exists and is inside the window
+  bool pointerDown = false;    // primary button (left mouse button, or a finger) held
+  Scalar pointerX = 0, pointerY = 0;
 };
 
 class IPlatform {
@@ -136,6 +141,17 @@ struct TextureDesc {
   u32 flags = 0;
 };
 
+// F6.09 (B2): one camera-facing (or any) world-space quad. Corners run top-left, top-right, bottom-right, bottom-left; (u0,v0) is the
+// texture coordinate of the top-left corner and (u1,v1) of the bottom-right one (0..1 of the whole texture). `color` multiplies the
+// texture (white texture when `tex` is 0). Particles and line ribbons are drawn as Quad3Ds.
+struct Quad3D {
+  Vector3 p[4];
+  Color32 color = Color32(255, 255, 255, 255);
+  Scalar u0 = 0, v0 = 0, u1 = 1, v1 = 1;
+};
+// clearView flags
+constexpr u32 kClearColor = 1, kClearDepth = 2;
+
 class IRenderer {
  public:
   virtual ~IRenderer() {}
@@ -173,6 +189,18 @@ class IRenderer {
   virtual void drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, const DrawParams& /*params*/) {
     drawMesh(meshIndex, world, sortKey);
   }
+
+  // ---- F6.09 (B2) cameras and effects. Defaults mean "not supported": renderWorld then falls back (quads become 2D rects) or
+  // keeps the single full-screen view.
+  // Restricts the following 3D draws and clearView to a pixel rectangle (virtual pixels, origin top-left). The whole screen
+  // (0, 0, width(), height()) restores the default. Call between cameras of renderWorld, never inside a draw sequence.
+  virtual void setViewport(i32 /*x*/, i32 /*y*/, i32 /*w*/, i32 /*h*/) {}
+  // Clears the current viewport rectangle: kClearColor and/or kClearDepth. beginFrame already cleared the first camera's view.
+  virtual void clearView(u32 /*flags*/, Color32 /*color*/) {}
+  // Draws `count` world-space quads with the camera set by setCamera, alpha blended and depth tested but not depth written, in
+  // submission order (the caller sorts back to front). `tex` is a handle from uploadTexture, 0 = untextured. False = this renderer
+  // cannot draw them (GS, Null): the caller draws screen rectangles instead.
+  virtual bool drawQuads3D(u32 /*tex*/, const Quad3D* /*quads*/, u32 /*count*/, u32 /*sortKey*/) { return false; }
 };
 
 class AudioMixer;
@@ -229,7 +257,7 @@ class NullRenderer : public IRenderer {
  public:
   bool init(u32 w, u32 h) override { w_ = w; h_ = h; return true; }
   void setMeshes(const MeshTable& t) override { table = t; }
-  void beginFrame(Color32) override { ++frames; draws = 0; overlays = 0; }
+  void beginFrame(Color32 c) override { ++frames; draws = 0; overlays = 0; viewportCalls = clearViews = quadBatches = quads = 0; frameClear = c; }
   void setCamera(const Matrix4& v, const Matrix4& p) override { view = v; proj = p; cameraSet = true; }
   void drawMesh(u32, const Matrix4&, u32) override { ++draws; ++totalDraws; }
   void setFrameLights(const RenderLight* l, u32 n, Color32 amb) override {
@@ -245,6 +273,17 @@ class NullRenderer : public IRenderer {
     lastExMesh = mesh;
   }
   void drawOverlayQuad(i32, i32, i32, i32, Color32) override { ++overlays; }
+  // F6.09: the views and quads renderWorld sent (a Null renderer accepts quads so tests can count them).
+  void setViewport(i32 x, i32 y, i32 w, i32 h) override { viewport[0] = x; viewport[1] = y; viewport[2] = w; viewport[3] = h; ++viewportCalls; }
+  void clearView(u32 flags, Color32 c) override { lastClearFlags = flags; lastClearColor = c; ++clearViews; }
+  bool drawQuads3D(u32 tex, const Quad3D* q, u32 n, u32) override {
+    if (!acceptQuads) return false;
+    quadBatches++;
+    quads += n;
+    lastQuadTex = tex;
+    if (n) lastQuad = q[0];
+    return true;
+  }
   void endFrame() override {}
   u32 width() const override { return w_; }
   u32 height() const override { return h_; }
@@ -260,6 +299,12 @@ class NullRenderer : public IRenderer {
   bool fogOn = false;
   Color32 fogColor = Color32(0, 0, 0, 255);
   Scalar fogStart = 0, fogEnd = 0;
+  // F6.09 (B2)
+  bool acceptQuads = true;
+  i32 viewport[4] = {0, 0, 0, 0};
+  u32 viewportCalls = 0, clearViews = 0, lastClearFlags = 0, quadBatches = 0, quads = 0, lastQuadTex = 0;
+  Color32 lastClearColor, frameClear;
+  Quad3D lastQuad;
 
  private:
   u32 w_ = 0, h_ = 0;

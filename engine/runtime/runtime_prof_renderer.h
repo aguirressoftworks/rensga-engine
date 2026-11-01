@@ -27,6 +27,14 @@ class ProfilingRenderer : public IRenderer {
   void setFog(bool on, Color32 color, Scalar start, Scalar end) override { in_.setFog(on, color, start, end); }
   void drawMeshEx(u32 mesh, const Matrix4& world, u32 key, const DrawParams& p) override { count(mesh); in_.drawMeshEx(mesh, world, key, p); }
   void drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 c) override { in_.drawOverlayQuad(x, y, w, h, c); }
+  // F6.09 (B2): cameras and effects; a quad is two triangles of the frame's budget counters.
+  void setViewport(i32 x, i32 y, i32 w, i32 h) override { in_.setViewport(x, y, w, h); }
+  void clearView(u32 flags, Color32 c) override { in_.clearView(flags, c); }
+  bool drawQuads3D(u32 tex, const Quad3D* q, u32 n, u32 key) override {
+    const bool drawn = in_.drawQuads3D(tex, q, n, key);
+    if (drawn) { ++draws_; tris_ += 2 * n; }
+    return drawn;
+  }
   void endFrame() override {
     if (hook_) hook_(in_, user_);
     prof_.mark(ProfSection::Render);

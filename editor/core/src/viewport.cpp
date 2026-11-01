@@ -4,6 +4,7 @@
 #include <cmath>
 #include <fstream>
 
+#include "rensga/cooker/assets.h"
 #include "rensga/cooker/cooker.h"
 
 namespace rensga {
@@ -190,6 +191,16 @@ void MeshLibrary::setProject(const fs::path& root) {
   for (fs::recursive_directory_iterator it(root / "Assets", ec), end; !ec && it != end; it.increment(ec)) {
     const fs::path& p = it->path();
     std::string n = p.filename().string();
+    if (n.size() > 10 && n.compare(n.size() - 10, 10, ".gltf.meta") == 0) {  // F6.02: a glTF model is a mesh the Scene view can draw and pick
+      try {
+        std::ifstream in(p);
+        nlohmann::json j = nlohmann::json::parse(in);
+        fs::path asset = p;
+        asset.replace_extension("");
+        if (fs::exists(asset)) files_[j.at("guid").get<std::string>()] = asset;
+      } catch (...) {}
+      continue;
+    }
     if (n.size() < 15 || n.compare(n.size() - 15, 15, ".prim.json.meta") != 0) continue;
     try {
       std::ifstream in(p);
@@ -217,7 +228,35 @@ std::shared_ptr<const MeshData> MeshLibrary::get(const std::string& guid) {
   if (c != cache_.end()) return c->second;
   std::shared_ptr<const MeshData> out;
   auto f = files_.find(guid);
-  if (f != files_.end()) {
+  if (f != files_.end() && f->second.extension() == ".gltf") {
+    PrimitiveMesh pm;
+    std::string err;
+    if (importGltf(f->second, pm, err)) {
+      ModelImport mi;
+      try {  // the model's import settings (scale, flat normals) from its .meta
+        fs::path meta = f->second;
+        meta += ".meta";
+        std::ifstream min(meta);
+        nlohmann::json mj = nlohmann::json::parse(min);
+        std::string perr;
+        parseModelImport(mj.contains("importSettings") ? mj["importSettings"].dump() : std::string("{}"), mi, perr);
+      } catch (...) {}
+      applyModelImport(pm, mi);
+      auto md = std::make_shared<MeshData>();
+      for (size_t i = 0; i < pm.positions.size(); ++i) {
+        const Vector3& pp = pm.positions[i];
+        const Vector3& nn = pm.normals[i];
+        const float pv[3] = {static_cast<float>(pp.x), static_cast<float>(pp.y), static_cast<float>(pp.z)};
+        md->pos.insert(md->pos.end(), pv, pv + 3);
+        md->nrm.push_back(static_cast<float>(nn.x)); md->nrm.push_back(static_cast<float>(nn.y)); md->nrm.push_back(static_cast<float>(nn.z));
+        for (int k = 0; k < 3; ++k) {
+          if (i == 0 || pv[k] < md->bmin[k]) md->bmin[k] = pv[k];
+          if (i == 0 || pv[k] > md->bmax[k]) md->bmax[k] = pv[k];
+        }
+      }
+      if (!md->pos.empty()) out = md;
+    }
+  } else if (f != files_.end()) {
     try {
       std::ifstream in(f->second, std::ios::binary);
       std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
@@ -306,6 +345,9 @@ float Editor2DCamera::gridStep() const {
 // ---- scene ---------------------------------------------------------------------------------------
 SceneDraw gatherScene(const SceneDocument& doc, MeshLibrary& lib) {
   SceneDraw sd;
+  sd.doc = &doc;
+  sd.projectRoot = lib.projectRoot();
+  bool haveF5Light = false;
   for (const SceneObject& o : doc.scene().objects) {
     if (!o.active) continue;
     double wd[16];
@@ -313,8 +355,21 @@ SceneDraw gatherScene(const SceneDocument& doc, MeshLibrary& lib) {
     M4 w = m4FromDouble(wd);
     const SceneComponent* mr = nullptr;
     for (const SceneComponent& c : o.components) {
-      if (c.type == "MeshRenderer" && !mr) mr = &c;
-      else if (c.type == "DirectionalLight") {
+      if ((c.type == "MeshRenderer" || c.type == "SkinnedMeshRenderer") && !mr) mr = &c;
+      else if (c.type == "Light") {  // F6.02: the F5 Light drives the unlit fallback's single light too (first directional one)
+        if (!haveF5Light && c.fields.value("type", 0) == 0) {
+          haveF5Light = true;
+          const auto& f = c.fields;
+          // a directional Light shines along the object's forward (+z) axis
+          for (int i = 0; i < 3; ++i) sd.light.dir[i] = w[8 + i];
+          try {
+            if (f.contains("color")) {
+              const float k = f.value("intensity", 1.0f);
+              for (int i = 0; i < 3; ++i) sd.light.color[i] = std::min(1.0f, f["color"].at(i).get<float>() / 255.0f * k);
+            }
+          } catch (...) {}
+        }
+      } else if (c.type == "DirectionalLight") {
         const auto& f = c.fields;
         try {
           if (f.contains("direction")) for (int i = 0; i < 3; ++i) sd.light.dir[i] = f["direction"].at(i).get<float>();
@@ -348,8 +403,11 @@ SceneDraw gatherScene(const SceneDocument& doc, MeshLibrary& lib) {
       Marker m;
       m.guid = o.guid; m.model = w;
       m.kind = o.components.empty() ? "Empty" : o.components[0].type;
-      for (const SceneComponent& c : o.components)
+      for (const SceneComponent& c : o.components) {
         if (c.type == "Camera" || c.type == "DirectionalLight") { m.kind = c.type; break; }
+        if (c.type == "Light") { m.kind = c.fields.value("type", 0) == 1 ? "PointLight" : "Light"; break; }
+        if (c.type == "AudioSource") { m.kind = c.type; break; }
+      }
       sd.markers.push_back(std::move(m));
     }
   }

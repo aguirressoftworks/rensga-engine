@@ -26,13 +26,18 @@ class GlRenderer : public IRenderer {
   void setCamera(const Matrix4& view, const Matrix4& proj) override;
   void drawMesh(u32 meshIndex, const Matrix4& world, u32 sortKey) override;
   // F5: lit / textured / skinned meshes (MSHL + VTX3). The lighting is per vertex (Gouraud, like the PSP GU) so the desktop
-  // build looks like the PSP one: ambient + up to 8 directional / point lights (point: intensity * clamp01(1 - d / range)^2),
+  // build looks like the PSP one: ambient + up to 8 directional / point lights (point: intensity / (1 + kPointLightK * (d / range)^2), lighting.h, the curve the GE draws too; the lit vertex color is clamped to 0..1 before the texture multiplies it, as the GE does),
   // times vertex color x material color, times the texture (nearest), then linear fog by view-space depth. Skinning is on the
   // GPU: 8 weights per vertex, weight slot i uses DrawParams.palette[batch.bones[i]]. A baked mesh takes the drawMesh path.
   void setFrameLights(const RenderLight* lights, u32 count, Color32 ambient) override;
   void setFog(bool on, Color32 color, Scalar start, Scalar end) override;
   void drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, const DrawParams& params) override;
   void drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 color) override;
+  // F6.09: camera viewport rectangles with their own clears, and world-space quads (particles, line ribbons): alpha blended, depth
+  // tested against the meshes drawn before, never depth written, drawn in call order.
+  void setViewport(i32 x, i32 y, i32 w, i32 h) override;
+  void clearView(u32 flags, Color32 color) override;
+  bool drawQuads3D(u32 tex, const Quad3D* quads, u32 count, u32 sortKey) override;
   void endFrame() override;
   u32 width() const override { return w_; }
   u32 height() const override { return h_; }
@@ -53,9 +58,12 @@ class GlRenderer : public IRenderer {
   u32 colorTexture() const { return colorTex_; }
   // Writes the last presented virtual-resolution image (RGBA, upright) as a PNG. Call after endFrame().
   bool screenshot(const char* pngPath);
+  // F6.09 tests: the last frame as width() * height() RGBA pixels, top row first. `out` needs width() * height() * 4 bytes.
+  bool readPixels(u8* out);
   // Stats of the last frame, for logs.
   u32 lastSpriteCount() const { return lastSprites_; }
   u32 lastDrawCalls() const { return lastDraws_; }
+  u32 lastQuadCount() const { return lastQuads_; }
   u32 droppedSprites() const { return batch_.dropped(); }
 
  private:
@@ -107,7 +115,13 @@ class GlRenderer : public IRenderer {
   bool cameraSet_ = false;
   bool depthOn_ = false;
   SpriteBatch batch_;
-  u32 lastSprites_ = 0, lastDraws_ = 0;
+  u32 lastSprites_ = 0, lastDraws_ = 0, lastQuads_ = 0;
+  // F6.09 quads
+  static constexpr u32 kQuadChunk = 512;
+  struct QuadVertex { float x, y, z, u, v; u8 r, g, b, a; };
+  u32 progQuad_ = 0, vaoQuad_ = 0, vboQuad_ = 0;
+  i32 uQuadVp_ = -1;
+  QuadVertex* quadVerts_ = nullptr;
   u32 winW_ = 0, winH_ = 0;
   bool warnedFull_ = false;
   bool offscreen_ = false;

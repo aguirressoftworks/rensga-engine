@@ -28,6 +28,13 @@ class GuRenderer : public IRenderer {
   void setFog(bool on, Color32 color, Scalar start, Scalar end) override;
   void drawMeshEx(u32 meshIndex, const Matrix4& world, u32 sortKey, const DrawParams& params) override;
   void drawOverlayQuad(i32 x, i32 y, i32 w, i32 h, Color32 color) override;
+  // ---- F6.09 cameras and effects. The draws of a frame are recorded and run at endFrame, so every setCamera / setViewport / clearView
+  // that follows draws starts a new pass with its own matrices, viewport rectangle and clear (at most kMaxPasses per frame; the
+  // extra cameras are merged into the last pass). World-space quads (particles, ribbons) are recorded per pass and drawn after its
+  // meshes: blended, depth tested, not depth written.
+  void setViewport(i32 x, i32 y, i32 w, i32 h) override;
+  void clearView(u32 flags, Color32 color) override;
+  bool drawQuads3D(u32 tex, const Quad3D* quads, u32 count, u32 sortKey) override;
   void endFrame() override;
   u32 width() const override { return w_; }
   u32 height() const override { return h_; }
@@ -63,6 +70,9 @@ class GuRenderer : public IRenderer {
   u32 lastLitDraws() const { return litDraws_; }
   u32 lastBatches() const { return batchesDrawn_; }
   u32 lastClipped() const { return clipped_; }
+  u32 lastQuads() const { return quadsDrawn_; }   // F6.09: particle / ribbon quads recorded last frame
+  u32 lastPasses() const { return passCount_; }   // camera passes of the last frame
+  u32 quadsDropped() const { return quadsDropped_; }
 
  private:
   struct Draw { u32 key, mesh; Matrix4 world; DrawParams params; bool ex; };
@@ -91,6 +101,22 @@ class GuRenderer : public IRenderer {
   void bind3DTexture(u32 handle);
   void applyLights(const DrawParams& p, bool unlit);
   void drawSprites();
+  // F6.09 (gu_fx.cpp, gu_3d.cpp)
+  struct Pass {
+    Matrix4 view, proj;
+    i32 x = 0, y = 0, w = 480, h = 272;  // viewport rectangle, origin top-left
+    u32 clearFlags = 0;                  // kClearColor | kClearDepth, applied before the pass's draws (passes after the first)
+    Color32 clearColor;
+    u32 firstDraw = 0, firstRun = 0;     // first draws_ / qruns_ entry of the pass
+  };
+  struct QuadRun { u32 tex, byteOffset, vertexCount, pass; };
+  static constexpr u32 kMaxPasses = 6, kMaxQuadRuns = 96;
+  Pass& editPass();
+  void applyViewport(const Pass& p);
+  void resetViewport();
+  void drawPassQuads(u32 pass);
+  void computeBakedBounds();
+  bool drawBakedClipped(const Draw& d, const PackMeshRec& m);
 
   u32 w_ = 480, h_ = 272;  // virtual (2D) size; the screen is always 480x272
   GuViewMap map_;
@@ -127,6 +153,14 @@ class GuRenderer : public IRenderer {
   u32 hwMask_ = 0;          // hardware light slots enabled
   u32 cullState_ = 0xFF;    // 0 off, 1 front CW, 2 front CCW
   bool alphaTest3D_ = false;
+
+  // F6.09 passes, quads and near-plane clipping of big baked meshes
+  Pass passes_[kMaxPasses];
+  u32 passCount_ = 1;
+  QuadRun qruns_[kMaxQuadRuns];
+  u32 qrunCount_ = 0, quadBytes_ = 0, quadsDrawn_ = 0, quadsDropped_ = 0;
+  u32 clipUsed_ = 0;       // clipped vertices handed out this frame (each clipped draw owns a slice until the list has run)
+  u32 boundsCount_ = 0;    // baked meshes with a bounding sphere (computed in setMeshes)
 };
 
 }  // namespace rensga

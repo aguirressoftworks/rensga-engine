@@ -104,7 +104,10 @@ void buildDocumentGizmos(const SceneDocument& doc, const DocumentGizmoContext& c
         rect(vx + (vw - dw) * 0.5f, vy + (vh - dh) * 0.5f, dw, dh);
       } else if (selected && c.type == "Camera") {
         Gizmos::setColor(st.camera);
-        Gizmos::setMatrix(toMatrix(world));
+        // the engine camera looks down its local -z: turn the +z frustum drawing half a circle about y
+        Matrix4 turn = Matrix4::identity();
+        turn.m[0] = -1; turn.m[10] = -1;
+        Gizmos::setMatrix(toMatrix(world) * turn);
         const float far = std::min(numf(f, "farClip", 200), 30.0f);  // long frusta are cut for readability
         Gizmos::DrawFrustum(Vector3(0, 0, 0), numf(f, "fov", 60), far, std::max(numf(f, "nearClip", 0.3f), 0.05f),
                             ctx.viewH > 0 ? ctx.viewW / ctx.viewH : 1.7778f);
@@ -127,6 +130,67 @@ void buildDocumentGizmos(const SceneDocument& doc, const DocumentGizmoContext& c
         Gizmos::setColor(selected ? st.selection : st.collider);
         Gizmos::setMatrix(toMatrix(world));
         Gizmos::DrawWireSphere(Vector3(ctr[0], ctr[1], ctr[2]), numf(f, "radius", 0.5f));
+      } else if (c.type == "Light" && !ctx.is2D) {  // F6.02: the F5 Light
+        // the light's own color (selected: the selection color so it reads as selected), through the document's 0..255 Color32
+        Color lc = st.light;
+        if (f.contains("color") && f["color"].is_array() && f["color"].size() >= 3)
+          lc = Color(f["color"][0].get<float>() / 255.0f, f["color"][1].get<float>() / 255.0f, f["color"][2].get<float>() / 255.0f, 1);
+        Gizmos::setColor(selected ? st.selection : lc);
+        if (f.value("type", 0) == 1) {  // point: the range sphere (a faint dot when not selected)
+          Matrix4 t = Matrix4::translation(Vector3(world[12], world[13], world[14]));
+          Gizmos::setMatrix(t);
+          const float range = std::max(numf(f, "range", 10), 0.01f);
+          if (selected) {
+            Gizmos::DrawWireSphere(Vector3(0, 0, 0), range);
+            Gizmos::DrawWireSphere(Vector3(0, 0, 0), range * 0.5f);
+          }
+          Gizmos::DrawWireSphere(Vector3(0, 0, 0), 0.12f);
+        } else {  // directional: parallel rays along the light's forward (+z) axis
+          Gizmos::setMatrix(toMatrix(world));
+          const float len = selected ? 3.0f : 1.2f;
+          Gizmos::DrawRay(Vector3(0, 0, 0), Vector3(0, 0, len));
+          if (selected)
+            for (int i = 0; i < 4; ++i) {
+              const float ox = (i & 1 ? 0.35f : -0.35f), oy = (i & 2 ? 0.35f : -0.35f);
+              Gizmos::DrawRay(Vector3(ox, oy, 0), Vector3(0, 0, len));
+            }
+        }
+      } else if (c.type == "AudioSource" && !ctx.is2D) {  // F6.02: its range, when the project's AudioSource has one (spatial audio fields)
+        const float maxD = numf(f, "maxDistance", 0), minD = numf(f, "minDistance", 0);
+        if (selected && maxD > 0) {
+          Gizmos::setColor(st.selection);
+          Gizmos::setMatrix(Matrix4::translation(Vector3(world[12], world[13], world[14])));
+          Gizmos::DrawWireSphere(Vector3(0, 0, 0), maxD);
+          if (minD > 0) Gizmos::DrawWireSphere(Vector3(0, 0, 0), minD);
+        }
+      } else if (c.type == "CapsuleCollider" && !ctx.is2D) {
+        float ctr[3];
+        vec3(f, "center", ctr, 0);
+        const float r = std::max(numf(f, "radius", 0.5f), 0.01f), h = std::max(numf(f, "height", 2.0f), r * 2);
+        const int dir = f.value("direction", 1);  // 0 X, 1 Y, 2 Z
+        const float half = h * 0.5f - r;
+        Vector3 axis(0, 1, 0), u(1, 0, 0), w(0, 0, 1);
+        if (dir == 0) { axis = Vector3(1, 0, 0); u = Vector3(0, 1, 0); w = Vector3(0, 0, 1); }
+        else if (dir == 2) { axis = Vector3(0, 0, 1); u = Vector3(1, 0, 0); w = Vector3(0, 1, 0); }
+        const Vector3 c0(ctr[0], ctr[1], ctr[2]);
+        const Vector3 a = c0 + axis * half, b = c0 - axis * half;
+        Gizmos::setColor(selected ? st.selection : (f.value("isTrigger", false) ? st.trigger : st.collider));
+        Gizmos::setMatrix(toMatrix(world));
+        Gizmos::DrawWireSphere(a, r);
+        Gizmos::DrawWireSphere(b, r);
+        Gizmos::DrawLine(a + u * r, b + u * r);
+        Gizmos::DrawLine(a - u * r, b - u * r);
+        Gizmos::DrawLine(a + w * r, b + w * r);
+        Gizmos::DrawLine(a - w * r, b - w * r);
+      } else if (c.type == "Rigidbody" && selected && !ctx.is2D) {  // a gravity arrow (world down) and the body's axes
+        Gizmos::setMatrix(identity);
+        Gizmos::setColor(f.value("isKinematic", false) ? st.trigger : st.selection);
+        if (f.value("useGravity", true) && !f.value("isKinematic", false))
+          Gizmos::DrawRay(Vector3(world[12], world[13], world[14]), Vector3(0, -1.0f, 0));
+        Gizmos::setMatrix(toMatrix(world));
+        Gizmos::DrawLine(Vector3(0, 0, 0), Vector3(0.4f, 0, 0));
+        Gizmos::DrawLine(Vector3(0, 0, 0), Vector3(0, 0.4f, 0));
+        Gizmos::DrawLine(Vector3(0, 0, 0), Vector3(0, 0, 0.4f));
       } else if (selected && c.type == "SpriteRenderer") {  // selection outline
         Sprite2D s;
         s.model = world;

@@ -44,6 +44,10 @@ struct RenderOptions {
   float gridColor[4] = {1, 1, 1, 0.2f}, xColor[4] = {1, 0, 0, 1}, zColor[4] = {0, 0, 1, 1};
   float markerColor[4] = {0.8f, 0.8f, 0.8f, 1}, selectColor[4] = {1, 0.8f, 0, 1};
   std::string selected;
+  // F6.02: the scene already drawn by the player's renderer (lit_view.h), a GL texture the size of the target (bottom row first).
+  // 0 = draw the meshes here, flat shaded as before. With it the meshes only write depth, so the grid, outline, markers and
+  // gizmos are occluded as before.
+  unsigned litTex = 0;
 };
 
 class SceneRenderer {
@@ -66,6 +70,7 @@ class SceneRenderer {
   void drawQuads(const std::vector<SpriteQuad>& quads, const M4& vp, bool pickMode);
   void ensurePickTarget(int w, int h);
   unsigned pickFbo_ = 0, pickColor_ = 0, pickDepth_ = 0, pickW_ = 0, pickH_ = 0;
+  unsigned blitProg_ = 0, blitVao_ = 0;
   unsigned spriteProg_ = 0, pickMeshProg_ = 0, pickSpriteProg_ = 0, spriteVao_ = 0, spriteVbo_ = 0, whiteTex_ = 0;
   unsigned triProg_ = 0, triVao_ = 0, triVbo_ = 0;
   std::shared_ptr<MeshData> markerCube_;

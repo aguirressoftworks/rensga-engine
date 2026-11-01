@@ -27,3 +27,11 @@ target_sources(rensga_editor_core PRIVATE src/project_settings.cpp  src/asset_st
 # --- F6 A1 begin ---
 target_sources(rensga_editor_core PRIVATE src/prefab_library.cpp src/prefab_edit.cpp src/prefab_scene.cpp)  # F6.01 prefabs (the format and expansion live in the cooker core)
 # --- F6 A1 end ---
+
+# --- F6 B3 begin ---
+target_sources(rensga_editor_core PRIVATE src/material_document.cpp)  # F6.02 material document (profile-limited .mat.json editing, no UI)
+# --- F6 B3 end ---
+
+# --- F6 B1 begin ---
+target_sources(rensga_editor_core PRIVATE src/anim_clip_doc.cpp src/anim_controller_doc.cpp src/anim_preview.cpp)  # F6.03 Editor 9: clip and controller documents, preview + record (no UI)
+# --- F6 B1 end ---

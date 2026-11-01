@@ -185,6 +185,8 @@ static bool openAsset(App& a, const Tile& t) {
   if (t.kind == AssetKind::Folder) { u.folder = relOf(a, t.path); u.search[0] = 0; return true; }
   if (t.kind == AssetKind::Scene) return openSceneFile(a, t.path);
   if (t.kind == AssetKind::Prefab && !t.guid.empty()) return prefabOpen(a, t.guid);   // F6.01: double-click opens prefab mode
+  if (t.kind == AssetKind::PropertyClip) return panelHook(a, "animclip", relOf(a, t.path));          // F6.03: Animation window
+  if (t.kind == AssetKind::AnimatorController) return panelHook(a, "animctl", relOf(a, t.path));       // F6.03: Animator graph
   if (t.kind == AssetKind::Texture && !t.guid.empty()) { openSpriteEditor(a, t.guid); return true; }   // F4.08
   if (t.kind == AssetKind::Tilemap && !t.guid.empty()) { openTilePalette(a, t.guid); return true; }
   if (t.kind == AssetKind::Script) {

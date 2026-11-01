@@ -57,7 +57,8 @@ class AudioMixer {
 
   // ---- sound effects. Returns a voice id (non-zero), or 0 when nothing could be started.
   // volume 0..2, pan -1 (left) .. 1 (right), pitch 0.25..4 (1 = unchanged).
-  u32 play(const AudioClip* clip, Scalar volume = 1.0f, Scalar pan = 0.0f, bool loop = false, Scalar pitch = 1.0f, u8 priority = 128);
+  u32 play(const AudioClip* clip, Scalar volume = 1.0f, Scalar pan = 0.0f, bool loop = false, Scalar pitch = 1.0f, u8 priority = 128,
+           AudioGroup group = AudioGroup::SFX);
   void stop(u32 voice);
   void stopAll();
   bool isPlaying(u32 voice) const;  // false for stale ids (the voice ended or was stolen)
@@ -79,6 +80,12 @@ class AudioMixer {
   u32 musicUnderruns() const { return music_.underruns; }
 
   void setMasterVolume(Scalar volume);  // 0..2
+
+  // F6.10 mixer groups. Master scales every output (it is setMasterVolume), Music scales the streamed music voice and the voices
+  // played with AudioGroup::Music, SFX the voices played with AudioGroup::SFX. Linear 0..2, default 1; takes effect at once for
+  // voices that are already playing. Integer Q15 mixing as before: no libm in the sample loop.
+  void setGroupVolume(AudioGroup group, Scalar volume);
+  Scalar groupVolume(AudioGroup group) const;
 
   // Main thread, once per frame: refills the music chunks that were consumed.
   void update();
@@ -107,6 +114,7 @@ class AudioMixer {
     u32 serial = 0;     // start order (voice stealing)
     u16 generation = 0;
     u8 priority = 128;  // 0 = most important
+    u8 group = 2;       // AudioGroup
     bool active = false, loop = false;
     Scalar volume = 1, pan = 0, pitch = 1;
   };
@@ -128,6 +136,7 @@ class AudioMixer {
 
   static constexpr u32 kMixChunk = 256;
   void computeGains(Voice& v);
+  void computeMusicGain();
   u32 voiceId(u32 index) const;
   Voice* lookup(u32 id);
   const Voice* lookup(u32 id) const;
@@ -142,6 +151,7 @@ class AudioMixer {
   u32 stolen_ = 0;
   u32 limit_ = kMaxVoices;
   i32 master_ = 32768;  // Q15
+  Scalar groupVolume_[kAudioGroupCount] = {1, 1, 1};  // F6.10 (Master mirrors master_)
   IFileSystem* fs_ = nullptr;
   Voice voices_[kMaxVoices];
   Music music_;

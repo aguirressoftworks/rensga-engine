@@ -4,52 +4,42 @@
 #include "rensga/core/animator.h"
 #include "rensga/core/components.h"
 #include "rensga/core/reflect_method.h"
+#include "rensga/core/world.h"
 
 namespace rensga {
 
-// ---- Animator (TODO(B1 animation): ANIC state machine, PCLP property clips, CLP3 skeletal states, integer ticks) ----
-bool AnimatorStateInfo::IsName(const char* name) const { return name && nameHash == fnv1a32(name); }
-u32 Animator::StringToHash(const char* name) { return name ? fnv1a32(name) : 0; }
-void Animator::SetFloat(const char*, Scalar) {}
-void Animator::SetInt(const char*, i32) {}
-void Animator::SetBool(const char*, bool) {}
-void Animator::SetTrigger(const char*) {}
-void Animator::ResetTrigger(const char*) {}
-void Animator::SetFloat(u32, Scalar) {}
-void Animator::SetInt(u32, i32) {}
-void Animator::SetBool(u32, bool) {}
-void Animator::SetTrigger(u32) {}
-void Animator::ResetTrigger(u32) {}
-Scalar Animator::GetFloat(const char*) const { return 0; }
-i32 Animator::GetInt(const char*) const { return 0; }
-bool Animator::GetBool(const char*) const { return false; }
-bool Animator::Play(const char*) { return false; }
-bool Animator::Play(u32) { return false; }
-bool Animator::CrossFade(const char*, Scalar) { return false; }
-AnimatorStateInfo Animator::GetCurrentStateInfo() const { return AnimatorStateInfo(); }
-
-namespace AnimationEvents {
-namespace {
-Handler g_handler = nullptr;
-}
-void setHandler(Handler handler) { g_handler = handler; }
-// TODO(B1 animation): default handler = OnAnimationEvent on every Behaviour of `target`, then the METHOD(Name) method by name.
-void dispatch(GameObject* target, const AnimationEvent& event) {
-  if (g_handler) g_handler(target, event);
-}
-}  // namespace AnimationEvents
-
-// ---- Audio (TODO(B1 audio): wire the groups into AudioMixer, position for PlayClipAtPoint) ----
+// ---- Audio: mixer groups and PlayClipAtPoint (F6.10) ----
 namespace {
 Scalar g_groupVolume[kAudioGroupCount] = {1, 1, 1};
 bool g_groupMuted[kAudioGroupCount] = {false, false, false};
+// 10^(k/20) for k = -80 .. +6 dB
+const Scalar kDbTable[87] = {0.0001, 0.0001122018, 0.0001258925, 0.0001412538, 0.0001584893, 0.0001778279, 0.0001995262, 0.0002238721, 0.0002511886, 0.0002818383, 0.0003162278, 0.0003548134, 0.0003981072, 0.0004466836, 0.0005011872, 0.0005623413, 0.0006309573, 0.0007079458, 0.0007943282, 0.0008912509, 0.001, 0.001122018, 0.001258925, 0.001412538, 0.001584893, 0.001778279, 0.001995262, 0.002238721, 0.002511886, 0.002818383, 0.003162278, 0.003548134, 0.003981072, 0.004466836, 0.005011872, 0.005623413, 0.006309573, 0.007079458, 0.007943282, 0.008912509, 0.01, 0.01122018, 0.01258925, 0.01412538, 0.01584893, 0.01778279, 0.01995262, 0.02238721, 0.02511886, 0.02818383, 0.03162278, 0.03548134, 0.03981072, 0.04466836, 0.05011872, 0.05623413, 0.06309573, 0.07079458, 0.07943282, 0.08912509, 0.1, 0.1122018, 0.1258925, 0.1412538, 0.1584893, 0.1778279, 0.1995262, 0.2238721, 0.2511886, 0.2818383, 0.3162278, 0.3548134, 0.3981072, 0.4466836, 0.5011872, 0.5623413, 0.6309573, 0.7079458, 0.7943282, 0.8912509, 1, 1.122018, 1.258925, 1.412538, 1.584893, 1.778279, 1.995262f};
 }  // namespace
-void AudioMixerGroups::SetVolume(AudioGroup g, Scalar v) {
-  if (static_cast<u32>(g) < kAudioGroupCount) g_groupVolume[static_cast<u32>(g)] = v < 0 ? 0 : (v > 2 ? 2 : v);
+
+Scalar AudioMixerGroups::DbToLinear(Scalar db) {
+  if (!(db > -80.0f)) return 0;
+  if (db >= 6.0f) return kDbTable[86];
+  const Scalar pos = db + 80.0f;
+  const u32 i = static_cast<u32>(pos);
+  const Scalar f = pos - static_cast<Scalar>(i);
+  return kDbTable[i] + (kDbTable[i + 1] - kDbTable[i]) * f;
 }
+void AudioMixerGroups::Apply() {
+  AudioMixer* m = AudioSystem::mixer();
+  if (!m) return;
+  for (u32 i = 0; i < kAudioGroupCount; ++i) m->setGroupVolume(static_cast<AudioGroup>(i), g_groupMuted[i] ? 0.0f : g_groupVolume[i]);
+}
+void AudioMixerGroups::SetVolume(AudioGroup g, Scalar v) {
+  if (static_cast<u32>(g) >= kAudioGroupCount) return;
+  g_groupVolume[static_cast<u32>(g)] = v < 0 ? 0 : (v > 2 ? 2 : v);
+  Apply();
+}
+void AudioMixerGroups::SetVolumeDb(AudioGroup g, Scalar db) { SetVolume(g, DbToLinear(db)); }
 Scalar AudioMixerGroups::GetVolume(AudioGroup g) { return static_cast<u32>(g) < kAudioGroupCount ? g_groupVolume[static_cast<u32>(g)] : 0; }
 void AudioMixerGroups::SetMuted(AudioGroup g, bool m) {
-  if (static_cast<u32>(g) < kAudioGroupCount) g_groupMuted[static_cast<u32>(g)] = m;
+  if (static_cast<u32>(g) >= kAudioGroupCount) return;
+  g_groupMuted[static_cast<u32>(g)] = m;
+  Apply();
 }
 bool AudioMixerGroups::IsMuted(AudioGroup g) { return static_cast<u32>(g) < kAudioGroupCount && g_groupMuted[static_cast<u32>(g)]; }
 void AudioMixerGroups::ResetAll() {
@@ -57,7 +47,34 @@ void AudioMixerGroups::ResetAll() {
     g_groupVolume[i] = 1;
     g_groupMuted[i] = false;
   }
+  Apply();
 }
-bool AudioSource::PlayClipAtPoint(const Guid&, const Vector3&, Scalar) { return false; }
+
+// Fire and forget at a world position: pan from the main camera's right vector, linear fall-off from 1 unit (full) to 40 units (silent).
+bool AudioSource::PlayClipAtPoint(const Guid& clip, const Vector3& position, Scalar volume) {
+  AudioMixer* m = AudioSystem::mixer();
+  const AudioClip* c = AudioSystem::findClip(clip);
+  if (!m || !c) return false;
+  Scalar pan = 0, atten = 1;
+  if (World* w = World::active()) {
+    Camera* cam = nullptr;
+    w->forEach<Camera>([&](Camera& cc) {
+      if (!cam && cc.gameObject() && cc.gameObject()->activeInHierarchy()) cam = &cc;
+    });
+    if (cam) {
+      const Vector3 cp = cam->transform()->position();
+      const Vector3 d = position - cp;
+      const Scalar dist = d.magnitude();
+      constexpr Scalar kNear = 1.0f, kFar = 40.0f;
+      if (dist >= kFar) return false;
+      if (dist > kNear) atten = (kFar - dist) / (kFar - kNear);
+      if (dist > 0.0001f) {
+        pan = cam->transform()->right().x * d.x / dist + cam->transform()->right().y * d.y / dist + cam->transform()->right().z * d.z / dist;
+        pan = pan < -1.0f ? -1.0f : (pan > 1.0f ? 1.0f : pan);
+      }
+    }
+  }
+  return m->play(c, volume * atten, pan, false, 1.0f, 128, AudioGroup::SFX) != 0;
+}
 
 }  // namespace rensga

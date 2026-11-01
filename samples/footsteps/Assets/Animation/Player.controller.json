@@ -1,0 +1,59 @@
+{
+ "format": 1,
+ "kind": "AnimatorController",
+ "name": "Player",
+ "parameters": [
+  {
+   "name": "speed",
+   "type": "float",
+   "default": 0
+  }
+ ],
+ "defaultState": "Idle",
+ "states": [
+  {
+   "name": "Idle",
+   "motion": "00000000-0000-4000-8000-000000049441",
+   "loop": true,
+   "pos": [
+    60,
+    80
+   ]
+  },
+  {
+   "name": "Run",
+   "motion": "00000000-0000-4000-8000-000000049442",
+   "loop": true,
+   "pos": [
+    300,
+    80
+   ]
+  }
+ ],
+ "transitions": [
+  {
+   "from": "Idle",
+   "to": "Run",
+   "duration": 0.08,
+   "conditions": [
+    {
+     "param": "speed",
+     "mode": "greater",
+     "value": 0.1
+    }
+   ]
+  },
+  {
+   "from": "Run",
+   "to": "Idle",
+   "duration": 0.08,
+   "conditions": [
+    {
+     "param": "speed",
+     "mode": "less",
+     "value": 0.1
+    }
+   ]
+  }
+ ]
+}

@@ -28,6 +28,10 @@ class TouchPad {
   void apply(VirtualGamepad& pad);
   bool used() const { return used_; }  // a finger has touched the screen at least once
   const TouchZones& zones() const { return zones_; }
+  // F6.09: the first finger down, in virtual coordinates (the pointer of a touch screen). False when none.
+  bool pointer(float* vx, float* vy) const;
+  // Normalized window coordinates -> virtual pixels (the mouse uses the same letterbox mapping as a finger).
+  void toVirtual(float nx, float ny, float* vx, float* vy) const;
 
  private:
   struct Finger {
@@ -35,7 +39,6 @@ class TouchPad {
     float x = 0, y = 0;  // virtual coordinates
     bool active = false, released = false;
   };
-  void toVirtual(float nx, float ny, float* vx, float* vy) const;
   Finger* find(i64 id);
   void layout();
   Finger fingers_[kMaxFingers];

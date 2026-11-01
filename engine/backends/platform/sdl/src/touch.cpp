@@ -29,6 +29,16 @@ void TouchPad::setView(u32 virtualW, u32 virtualH, u32 windowW, u32 windowH) {
   wh_ = windowH;
 }
 
+bool TouchPad::pointer(float* vx, float* vy) const {
+  for (const Finger& f : fingers_)
+    if (f.active) {
+      *vx = f.x;
+      *vy = f.y;
+      return true;
+    }
+  return false;
+}
+
 // Same fit as GlRenderer (computeLetterbox): whole-number scale when it fits, else aspect fit, centered.
 void TouchPad::toVirtual(float nx, float ny, float* vx, float* vy) const {
   const float px = nx * static_cast<float>(ww_), py = ny * static_cast<float>(wh_);

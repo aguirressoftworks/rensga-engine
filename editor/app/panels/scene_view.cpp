@@ -12,6 +12,7 @@
 #include "panel_registry.h"
 #include "panels/asset_ui.h"
 #include "panels/tile_tools.h"
+#include "render/lit_view.h"
 #include "rensga/core/gizmos.h"
 #include "rensga/editor/document_gizmos.h"
 #include "rensga/editor/editor_log.h"
@@ -297,6 +298,9 @@ void drawSceneView(App& a) {
       a.editWorld.drawGizmos(a.doc.selected());
     }
   }
+  // F6.02 (B3): the 3D scene drawn by the player's renderer (textures, materials, lights, baked colors); this view adds the grid,
+  // outline, markers and gizmos on top. Without a World (scripts building, scene does not cook) the old unlit drawing stays.
+  if (!sv.mode2d) ro.litTex = litSceneTexture(a, LitSlot::Scene, a.sceneRT.w, a.sceneRT.h, ro.view, ro.proj);
   a.renderer.render(a.sceneRT, sd, ro);
   ImGui::Image(static_cast<ImTextureID>(a.sceneRT.tex), sz, ImVec2(0, 1), ImVec2(1, 0));
   auto rayAt = [&](ImVec2 m) { return rayFromScreen(ro.view, ro.proj, (m.x - p0.x) / sz.x, (m.y - p0.y) / sz.y); };
@@ -368,6 +372,10 @@ void drawSceneView(App& a) {
   if (toolButton("2D", sv.mode2d, "2D mode: orthographic, +Y down (pixel space of the 2D layer)")) {
     sv.mode2d = !sv.mode2d;
     if (sv.mode2d) sv.needFrame2d = true;
+  }
+  if (!sv.mode2d) {  // F6.02: the lit (console preview) drawing of the 3D scene
+    ImGui::SameLine(0, 14);
+    if (toolButton("Lit", litViewEnabled(), "Draw the scene with the player's renderer: textures, materials, lights, baked vertex colors")) litViewEnabled() = !litViewEnabled();
   }
   ImGui::PopStyleVar();
 
