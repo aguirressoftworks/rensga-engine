@@ -24,6 +24,7 @@
 #include "vertex_bake.h"  // F6 b3
 #include "rensga/cooker/prefab_expand.h"
 #include "rensga/cooker/anim_cook.h"  // F6 B1
+#include "rensga/cooker/data_cook.h"  // F6 D3
 #include "rensga/core/components.h"
 #include "rensga/core/pack_format.h"
 #include "rensga/core/reflect_json.h"
@@ -1239,6 +1240,22 @@ lightDone:
     if (!R.errors.empty()) return R;
   }
   // --- end F6 B1 ---
+  // --- F6 D3 --- DATA: data assets (*.asset.json, ScriptableObject equivalent); the work is in data_cook.cpp
+  std::vector<PackDataAsset> dataRecs;
+  {
+    std::vector<cooker::DataAssetRef> dataRefs;
+    for (const auto& kv : assets) {
+      const std::string& rel = kv.second.rel;
+      if (rel.size() > 11 && rel.compare(rel.size() - 11, 11, ".asset.json") == 0) dataRefs.push_back({kv.second.path, rel, kv.second.guid});
+    }
+    if (!dataRefs.empty()) {
+      std::vector<cooker::DataIssue> dataIssues;
+      cooker::cookDataAssets(dataRefs, addStr, cooked.blob, dataRecs, dataIssues);
+      for (const cooker::DataIssue& i : dataIssues) cx.error(i.message, i.asset, i.guid);
+      if (!R.errors.empty()) return R;
+    }
+  }
+  // --- end F6 D3 ---
   secs.push_back({pack_section::STRS, strs, strCount});
   secs.push_back({pack_section::OBJS, bytesOf(pobjs.data(), pobjs.size() * sizeof(PackObject)), static_cast<u32>(pobjs.size())});
   secs.push_back({pack_section::XFRM, bytesOf(pxf.data(), pxf.size() * sizeof(PackTransform)), static_cast<u32>(pxf.size())});
@@ -1298,6 +1315,10 @@ lightDone:
   if (!animCooked.clips.empty()) secs.push_back({pack_section::PCLP, bytesOf(animCooked.clips.data(), animCooked.clips.size() * sizeof(PackPropClip)), static_cast<u32>(animCooked.clips.size())});
   if (!animCooked.controllers.empty()) secs.push_back({pack_section::ANIC, bytesOf(animCooked.controllers.data(), animCooked.controllers.size() * sizeof(PackAnimController)), static_cast<u32>(animCooked.controllers.size())});
   // --- end F6 B1 ---
+
+  // --- F6 D3 ---
+  if (!dataRecs.empty()) secs.push_back({pack_section::DATA, bytesOf(dataRecs.data(), dataRecs.size() * sizeof(PackDataAsset)), static_cast<u32>(dataRecs.size())});
+  // --- end F6 D3 ---
 
   // --- F6 a3 ---
   if (!poolReserve.empty()) secs.push_back({pack_section::PCAP, bytesOf(poolReserve.data(), poolReserve.size() * sizeof(PackPoolReserve)), static_cast<u32>(poolReserve.size())});

@@ -5,6 +5,9 @@ add_library(rensga_api STATIC src/physics.cpp src/hud.cpp src/sim.cpp src/testle
   # --- F6 a3 begin ---
   src/resources.cpp src/playerprefs.cpp src/savesystem.cpp src/profiler_api.cpp src/budget.cpp
   # --- F6 a3 end ---
+  # --- F6 d3 begin ---
+  src/data_assets.cpp
+  # --- F6 d3 end ---
   )
 target_include_directories(rensga_api PUBLIC include)
 target_link_libraries(rensga_api PUBLIC rensga_core)

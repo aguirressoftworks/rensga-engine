@@ -1,0 +1,20 @@
+{
+ "format": 1,
+ "kind": "DataAsset",
+ "type": "EnemyStats",
+ "fields": {
+  "label": "Brute",
+  "kind": 2,
+  "health": 120,
+  "speed": 0.9,
+  "tint": [
+   150,
+   110,
+   220,
+   255
+  ],
+  "pauses": [
+   1.5
+  ]
+ }
+}

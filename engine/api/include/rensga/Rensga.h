@@ -19,6 +19,7 @@
 //   F4: Rigidbody2D (bodyType, gravityScale, velocityX / velocityY).
 //   F3.05 events: StartCoroutine(Wait(1).Then(f)) / step functions, Invoke / InvokeRepeating, Event<Args>, UnityEvent, METHOD(Name).
 #pragma once
+#include "rensga/DataAsset.h"  // F6.07: DataAsset base + DataAssets::Get<T>
 #include "rensga/core/animator.h"
 #include "rensga/core/application.h"
 #include "rensga/core/behaviour_events.h"

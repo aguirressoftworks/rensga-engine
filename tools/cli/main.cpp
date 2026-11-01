@@ -19,16 +19,23 @@
 #include <nlohmann/json.hpp>
 
 #include "modules_cmd.h"
+#include "rensga/editor/editor_log.h"
+#include "rensga/editor/game_module.h"
+#include "rensga/pipeline/platform_build.h"
 #include "rensga/pipeline/emulator_launcher.h"
 #include "rensga/pipeline/pipeline.h"
 
 using namespace rensga::pipeline;
+namespace editor = rensga::editor;
 
 static void usage() {
   std::fprintf(stderr,
                "usage: rensga <validate|cook|build|play> [--target ID] [--json] [--quit-after SECONDS] [project]\n"
                "       play options: --headless (no emulator window) --debugger (emulator debugger on) --hang-timeout SECONDS (0 = off)\n"
                "                     --stdin-control (pause | resume | step [N] | stop | ctl <raw> lines on stdin)\n"
+               "       build/play options: --platform ID (one of `rensga platforms`: the Build Settings flow, output in <project>/Builds/<ID>)\n"
+               "                     --development (dev build: profiler stream) --output DIR (root of the finished builds) --run (build, then run it)\n"
+               "       rensga platforms [project]   the platforms Build Settings offers for the project\n"
                "       rensga modules <list|install|remove|verify|env|path|doctor> ...   (build support modules)\n"
                "  validate  check the project and its budgets (cooks into the cache)\n"
                "  cook      validate + cook the asset pack\n"
@@ -43,8 +50,12 @@ int main(int argc, char** argv) {
   }
   std::string cmd = argv[1];
   if (cmd == "modules") return runModulesCommand(argc - 2, argv + 2);
+  if (cmd == "platforms") {
+    for (const std::string& p : platformsForProject(argc > 2 ? argv[2] : ".")) std::printf("%s\n", p.c_str());
+    return 0;
+  }
   BuildRequest req;
-  bool json = false, stdinControl = false;
+  bool json = false, stdinControl = false, runAfter = false, showProf = false;
   for (int i = 2; i < argc; ++i) {
     std::string a = argv[i];
     if (a == "--target" && i + 1 < argc) req.target = argv[++i];
@@ -55,6 +66,11 @@ int main(int argc, char** argv) {
     else if (a == "--debugger") req.debugger = true;
     else if (a == "--hang-timeout" && i + 1 < argc) req.hangTimeoutSeconds = std::atoi(argv[++i]);
     else if (a == "--stdin-control") stdinControl = true;
+    else if (a == "--platform" && i + 1 < argc) req.platform = argv[++i];
+    else if (a == "--development" || a == "--dev") req.development = true;
+    else if (a == "--output" && i + 1 < argc) req.outputDir = argv[++i];
+    else if (a == "--run") runAfter = true;
+    else if (a == "--show-prof") showProf = true;
     else if (!a.empty() && a[0] != '-' && req.project.empty()) req.project = a;
     else { std::fprintf(stderr, "rensga: unknown argument '%s'\n", a.c_str()); usage(); return 2; }
   }
@@ -64,6 +80,22 @@ int main(int argc, char** argv) {
   else if (cmd == "build") { req.release = true; req.lastStage = Stage::Package; }
   else if (cmd == "play") { req.release = false; req.launch = true; }
   else { std::fprintf(stderr, "rensga: unknown command '%s'\n", cmd.c_str()); usage(); return 2; }
+
+  if (!req.platform.empty() && cmd == "build") {
+    req.release = !req.development;
+    if (runAfter) { req.launch = true; req.lastStage = Stage::Launch; }
+  }
+  if (!req.platform.empty() && cmd == "play") req.development = true;
+  // F6.05: load the project's script module (built on demand) so the cook knows its component types.
+  {
+    editor::EditorLog::instance().setEcho(!json);
+    std::error_code ec;
+    const editor::ModuleState ms = editor::ensureGameModule(std::filesystem::absolute(req.project, ec), true);
+    if (ms == editor::ModuleState::BuildFailed || ms == editor::ModuleState::LoadFailed) {
+      std::fprintf(stderr, "rensga: the project's scripts did not build or load (see above)\n");
+      return 1;
+    }
+  }
 
   auto print = [&](const Event& e) {
     if (json) {
@@ -86,6 +118,7 @@ int main(int argc, char** argv) {
   if (ok && req.launch) {
     auto drain = [&]() {
       for (const std::string& l : session.drainGameLog()) {
+        if (!showProf && l.find("rensga: pf ") != std::string::npos) continue;  // F6.06 per-frame profiler lines: --show-prof prints them
         if (json) {
           nlohmann::json j;
           j["type"] = "gamelog";

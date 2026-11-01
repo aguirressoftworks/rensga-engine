@@ -33,6 +33,12 @@ struct BuildRequest {
   bool debugger = false;         // start the emulator with its debugger on ("Relaunch with debugger")
   bool embed = false;            // the editor reparents the emulator window into a docked view
   int hangTimeoutSeconds = 15;   // no heartbeat for this long = Hung (0 = off)
+  // F6.05 (Build Settings): a non-empty platform (an id of tools/pipeline/data/platforms.json, `rensga platforms`) runs the Build Settings flow: every scene
+  // of the build is validated against the budgets (voices block too), the platform's cooked form is built, compiled and packaged into
+  // outputDir/<platform>, and with `launch` the result is started (emulator, exe, wine, adb). `target` is then ignored.
+  std::string platform;
+  bool development = false;               // development build: profiler stream on, debug logging; false = the release package of a module-flow platform
+  std::filesystem::path outputDir;        // root of the finished builds ("" = <project>/Builds); absolute, or relative to the project
 };
 
 using EventSink = std::function<void(const Event&)>;
@@ -67,8 +73,14 @@ class Session {
   int exitSignal() const;
   std::string exitDetail() const;
   bool saveLog(const std::filesystem::path& path) const;
+  // F6.05: what the last platform run produced (EBOOT.PBP, rensga.iso, a folder, an APK); empty before a successful Package.
+  std::filesystem::path lastOutput() const;
+  // F6.05: true when the last Build and Run built but could not run here (no adb device, no wine); lastNote() says why.
+  bool builtNotRun() const;
+  std::string lastNote() const;
 
  private:
+  bool runPlatform(const BuildRequest& request, const EventSink& sink);
   struct Impl;
   Impl* impl_;
 };

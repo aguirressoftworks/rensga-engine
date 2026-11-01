@@ -118,6 +118,11 @@ bool drawUnityEventField(DrawCtx& c, const json& value, json& out) {
       ImGui::PopStyleColor();
     }
     if (mi && mi->arg != MethodArgKind::None) {
+      // F6 (D1): "Dynamic" = the method gets the value the event is raised with (Slider.onValueChanged -> the slider's value) instead of the argument below.
+      bool dyn = l.value("dynamic", false);
+      if (ImGui::Checkbox("Dynamic (event value)##dyn", &dyn)) { if (dyn) l["dynamic"] = true; else l.erase("dynamic"); edited = true; }
+    }
+    if (mi && mi->arg != MethodArgKind::None && !l.value("dynamic", false)) {
       ImGui::SetNextItemWidth(-FLT_MIN);
       const json cur = l.contains("arg") ? l["arg"] : defaultArg(mi->arg);
       if (mi->arg == MethodArgKind::Scalar) {

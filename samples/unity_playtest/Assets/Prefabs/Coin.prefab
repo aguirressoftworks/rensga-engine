@@ -1,0 +1,75 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-d400-000000000002",
+ "rootFileId": 1,
+ "nextFileId": 5,
+ "objects": [
+  {
+   "fileId": 1,
+   "name": "Coin",
+   "parent": null,
+   "active": true,
+   "tag": "Coin",
+   "layer": 0,
+   "transform": {
+    "position": [
+     0,
+     0.6,
+     0
+    ],
+    "rotation": [
+     0,
+     0,
+     0,
+     1
+    ],
+    "scale": [
+     0.6,
+     0.6,
+     0.12
+    ]
+   },
+   "components": [
+    {
+     "fileId": 2,
+     "type": "MeshRenderer",
+     "fields": {
+      "mesh": "00000000-0000-4000-8000-00000000c001",
+      "color": [
+       255,
+       255,
+       255,
+       255
+      ],
+      "material": "00000000-0000-4000-8000-000000000602"
+     }
+    },
+    {
+     "fileId": 3,
+     "type": "BoxCollider",
+     "fields": {
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       1.6,
+       1.6,
+       6
+      ],
+      "isTrigger": true
+     }
+    },
+    {
+     "fileId": 4,
+     "type": "Coin",
+     "fields": {
+      "spin": 180.0,
+      "value": 10
+     }
+    }
+   ]
+  }
+ ]
+}

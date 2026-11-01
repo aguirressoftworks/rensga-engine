@@ -24,7 +24,9 @@ struct LaunchSpec {
   // F5.19-F5.22 additions (all optional).
   std::filesystem::path logPath;      // the launcher writes the whole session log here when the session ends (<project>/Library/Logs/last-play.log)
   int hangTimeoutSeconds = 15;        // alive but no 'rensga: frame' heartbeat for this long = Hung (0 = off); the clock starts at the first game line
-  int bootTimeoutSeconds = 60;        // no game line at all within this time after start = Hung (0 = off)
+  int bootTimeoutSeconds = 60;
+  // F6.05 additions: extra arguments for generic process launchers (the player exe, wine); emulator launchers ignore them.
+  std::vector<std::string> args;        // no game line at all within this time after start = Hung (0 = off)
 };
 
 // How an emulator session ended (or that it has not).

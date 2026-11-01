@@ -5,8 +5,11 @@
 //   label->SetText(s.c_str());
 //   char buf[32];  Format(buf, sizeof(buf), "HP {0}/{1}", hp, maxHp);   // {0} {1} ... name the arguments (any order, any number of times); {{ and }} are braces
 // Arguments: i32, u32, Scalar (2 decimals; Fixed(value, n) picks n = 0..6), bool ("true" / "false"), const char*, char.
+// Format specs: Format(buf, n, "{0:02}:{1:02}", minutes, seconds) -> "03:07" (see FmtArg below).
 #pragma once
 #include <string.h>
+
+#include <type_traits>
 
 #include "rensga/core/scalar.h"
 #include "rensga/core/types.h"
@@ -82,32 +85,39 @@ class StrBuf {
   bool truncated_ = false;
 };
 
+// ---- Format -----------------------------------------------------------------------------------------------------------------
+// {N} names argument N (0..9); {N:spec} adds a spec: [0][width][.decimals]. "{0:03}" -> 007, "{0:5}" -> "   42" (right aligned), "{0:.1}" ->
+// 2.5, "{0:06.2}" -> 003.14. Width and zero fill apply to every argument kind (a string is padded with spaces on the left).
+struct FmtArg {
+  enum Kind : u8 { None, Int, Uint, Real, Bool, Str, Char };
+  Kind kind = None;
+  u8 decimals = 2;
+  i32 i = 0;
+  u32 u = 0;
+  Scalar s = 0;
+  const char* str = nullptr;
+};
+inline FmtArg fmtArg(bool v) { FmtArg a; a.kind = FmtArg::Bool; a.i = v ? 1 : 0; return a; }
+inline FmtArg fmtArg(char v) { FmtArg a; a.kind = FmtArg::Char; a.i = v; return a; }
+inline FmtArg fmtArg(const char* v) { FmtArg a; a.kind = FmtArg::Str; a.str = v ? v : ""; return a; }
+inline FmtArg fmtArg(Scalar v) { FmtArg a; a.kind = FmtArg::Real; a.s = v; return a; }
+inline FmtArg fmtArg(const Fixed& v) { FmtArg a; a.kind = FmtArg::Real; a.s = v.value; a.decimals = static_cast<u8>(v.decimals); return a; }
+template <class T, typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value && !std::is_same<T, char>::value &&
+                                               std::is_signed<T>::value, int>::type = 0>
+inline FmtArg fmtArg(T v) { FmtArg a; a.kind = FmtArg::Int; a.i = static_cast<i32>(v); return a; }
+template <class T, typename std::enable_if<std::is_integral<T>::value && !std::is_same<T, bool>::value && !std::is_same<T, char>::value &&
+                                               !std::is_signed<T>::value, int>::type = 0>
+inline FmtArg fmtArg(T v) { FmtArg a; a.kind = FmtArg::Uint; a.u = static_cast<u32>(v); return a; }
+
+// Out of line (text_format.cpp): `args` has `count` entries.
+u32 FormatArgs(char* buf, u32 size, const char* fmt, const FmtArg* args, u32 count);
+
 // Writes `fmt` with {0}.. replaced by the arguments into buf (NUL terminated, cut to `size`). Returns the length written.
+// Arguments: i32 and the other integers, Scalar, Fixed(value, n), bool, const char*, char. Up to 10 are named by {0}..{9}.
 template <class... Args>
 u32 Format(char* buf, u32 size, const char* fmt, const Args&... args) {
-  if (!buf || size == 0) return 0;
-  // Render every argument to its own small buffer first, so {n} can be used in any order and more than once.
-  constexpr u32 kArgs = sizeof...(Args) ? sizeof...(Args) : 1;
-  StrBuf<32> parts[kArgs];  // an argument longer than 31 characters is cut
-  u32 i = 0;
-  (void)i;
-  int dummy[] = {0, (parts[i++].Append(args), 0)...};
-  (void)dummy;
-  u32 n = 0;
-  auto put = [&](char c) { if (n + 1 < size) buf[n++] = c; };
-  for (const char* p = fmt; p && *p; ++p) {
-    if (p[0] == '{' && p[1] == '{') { put('{'); ++p; continue; }
-    if (p[0] == '}' && p[1] == '}') { put('}'); ++p; continue; }
-    if (p[0] == '{' && p[1] >= '0' && p[1] <= '9' && p[2] == '}') {
-      u32 idx = static_cast<u32>(p[1] - '0');
-      if (idx < sizeof...(Args)) for (const char* q = parts[idx].c_str(); *q; ++q) put(*q);
-      p += 2;
-      continue;
-    }
-    put(*p);
-  }
-  buf[n] = 0;
-  return n;
+  const FmtArg list[sizeof...(Args) ? sizeof...(Args) : 1] = {fmtArg(args)...};
+  return FormatArgs(buf, size, fmt, list, static_cast<u32>(sizeof...(Args)));
 }
 
 }  // namespace rensga

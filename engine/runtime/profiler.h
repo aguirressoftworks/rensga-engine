@@ -7,6 +7,8 @@
 // `logEvery` frames and resets the window:
 //   rensga: prof frames=60 total_us=<avg>/<max> update_us=<avg>/<max> render_us=<avg>/<max> present_us=<avg>/<max> audio_us=<avg>/<max>
 #pragma once
+#include "prof_stream.h"
+#include "rensga/core/memory.h"
 #include "rensga/core/types.h"
 
 namespace rensga {
@@ -42,6 +44,10 @@ class FrameProfiler {
   void setScene(const char* name);
   void noteDraws(u32 draws, u32 triangles);
   void noteResources(u32 textures, u32 vramBytes);
+  // F6.06 remote profiler: `frameEnd` also pushes one ProfFrameRecord per frame to the ProfStream (log line "rensga: pf ..." and/or a localhost
+  // TCP client), when the stream is on (see prof_stream.h). bindMemory names the arena whose use is reported.
+  void bindMemory(const Arena* arena) { arena_ = arena; }
+  ProfStream& stream() { return stream_; }
   const ProfCounts& peak() const { return peak_; }       // maxima of the current window
   const ProfBudget& budget() const { return budget_; }
   // Bit 0 draws, 1 triangles, 2 textures, 3 vram: kinds over their limit in the current window.
@@ -59,6 +65,10 @@ class FrameProfiler {
   bool haveCounts_ = false;
   char scene_[32] = {};
   u32 warned_ = 0;
+  // F6.06
+  ProfStream stream_;
+  const Arena* arena_ = nullptr;
+  u32 streamFrame_ = 0, frameDraws_ = 0, frameTris_ = 0, lastTex_ = 0, lastVram_ = 0;
 };
 
 }  // namespace rensga

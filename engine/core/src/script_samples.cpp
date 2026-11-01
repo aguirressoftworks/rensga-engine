@@ -12,6 +12,9 @@ struct Entry {
   const char* name = nullptr;
   u32 curUs = 0, curCalls = 0;
   u32 lastUs = 0;
+  u32 lastCalls = 0;
+  u32 lastSeq = 0;     // roll sequence number of the frame lastUs/lastCalls belong to (F6.06 remote profiler)
+  i32 parent = -1;     // entry index of the sample that was open at the first BeginSample of this name (hierarchy view)
   u64 winUs = 0;
   u32 winCalls = 0, winMax = 0;
 };
@@ -25,6 +28,7 @@ Open g_stack[kMaxDepth];
 u32 g_depth = 0;
 u32 g_winFrames = 0;
 u64 g_frame = 0;
+u32 g_endSeq = 0;  // endFrame() calls: a sample is 'in the last frame' only when it was rolled since the previous endFrame()
 bool g_dirty = false;
 ClockUsFn g_clock = nullptr;
 
@@ -48,6 +52,8 @@ void roll() {
   for (u32 i = 0; i < g_count; ++i) {
     Entry& e = g_entries[i];
     e.lastUs = e.curUs;
+    e.lastCalls = e.curCalls;
+    e.lastSeq = e.curCalls ? g_endSeq : e.lastSeq;
     e.winUs += e.curUs;
     e.winCalls += e.curCalls;
     if (e.curUs > e.winMax) e.winMax = e.curUs;
@@ -73,6 +79,8 @@ void begin(const char* name) {
   g_dirty = true;
   if (g_depth >= kMaxDepth) return;
   Entry* e = find(name, true);
+  if (e && e->parent < 0 && g_depth > 0 && g_stack[g_depth - 1].entry && g_stack[g_depth - 1].entry != e)
+    e->parent = static_cast<i32>(g_stack[g_depth - 1].entry - g_entries);
   g_stack[g_depth].entry = e;  // null when the table is full: the sample is skipped
   g_stack[g_depth].start = nowUs();
   ++g_depth;
@@ -96,7 +104,19 @@ u32 lastMicros(const char* name) {
 }
 
 void endFrame() {
+  ++g_endSeq;
   if (g_dirty) roll();
+}
+
+bool lastFrameEntry(u32 i, LastFrameEntry* out) {
+  if (i >= g_count || !out) return false;
+  const Entry& e = g_entries[i];
+  if (e.lastSeq != g_endSeq || e.lastCalls == 0) return false;  // not sampled in the most recent rolled frame
+  out->name = e.name;
+  out->us = e.lastUs;
+  out->calls = e.lastCalls;
+  out->parent = e.parent;
+  return true;
 }
 
 u32 windowCount() { return g_count; }
@@ -127,6 +147,7 @@ void reset() {
   g_winFrames = 0;
   g_dirty = false;
   g_frame = 0;
+  g_endSeq = 0;
 }
 
 }  // namespace script_samples

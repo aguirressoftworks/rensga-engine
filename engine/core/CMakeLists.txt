@@ -25,3 +25,6 @@ endif()
 # --- F6 B1 begin ---
 target_sources(rensga_core PRIVATE src/prop_clip.cpp src/animator.cpp)
 # --- F6 B1 end ---
+# --- F6 d1 begin ---
+target_sources(rensga_core PRIVATE src/ui_runtime.cpp src/text_format.cpp)
+# --- F6 d1 end ---

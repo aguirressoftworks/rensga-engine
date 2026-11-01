@@ -11,6 +11,7 @@
 #include "app.h"
 #include "panel_registry.h"
 #include "panels/asset_ui.h"
+#include "panels/canvas_edit.h"  // F6.04 (D1): UI elements claim the click
 #include "panels/tile_tools.h"
 #include "render/lit_view.h"
 #include "rensga/core/gizmos.h"
@@ -485,7 +486,7 @@ void drawSceneView(App& a) {
     }
   };
   if (inView && io.MouseClicked[0] && !io.KeyAlt) {
-    sv.clickValid = !overGizmo && !cubeHot && (!painting || io.KeyCtrl);
+    sv.clickValid = !overGizmo && !cubeHot && (!painting || io.KeyCtrl) && !(sv.mode2d && canvasEditClaimsMouse());  // F6.04 (D1)
     sv.clickPos = io.MousePos;
     sv.boxing = false;
   }

@@ -63,6 +63,8 @@ class World {
   // The World the static lookups (GameObject::Find, Instantiate without an explicit owner) use: the most
   // recently initialised one that has not been shut down.
   static World* active() { return active_; }
+  // F6 (D1): editor-only preview Worlds (init makes a World active) hand the previous active World back with this.
+  static void setActive(World* w) { active_ = w; }
 
   bool init(const WorldConfig& config, Arena& arena);
   // Runs OnDisable/OnDestroy for everything still alive.

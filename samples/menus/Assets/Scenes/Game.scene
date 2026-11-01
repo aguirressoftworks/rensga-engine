@@ -1,0 +1,459 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-0000000d1002",
+ "objects": [
+  {
+   "guid": "c675f09d-7c54-47ba-ba2b-df2f98fd50b4",
+   "name": "Canvas",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "Canvas",
+     "fields": {
+      "matchWidthOrHeight": 0.5,
+      "referenceHeight": 272,
+      "referenceWidth": 480,
+      "scaleMode": 1
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "c43ab6bd-a4be-4bff-a81f-143534d0acfe",
+   "name": "EventSystem",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "EventSystem",
+     "fields": {}
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "4bbe4e91-3a27-4fca-a693-7680e732ef73",
+   "name": "GameTitle",
+   "parent": "c675f09d-7c54-47ba-ba2b-df2f98fd50b4",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "GAME RUNNING",
+      "x": 0,
+      "y": -40
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "21d5674c-b54c-4a61-8dbd-47536a48dd31",
+   "name": "ClockText",
+   "parent": "c675f09d-7c54-47ba-ba2b-df2f98fd50b4",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "label": "TIME 00:00",
+      "x": 10,
+      "y": 10
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "de246a2a-df13-4330-842a-395ee0fb7be0",
+   "name": "HintText",
+   "parent": "c675f09d-7c54-47ba-ba2b-df2f98fd50b4",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 8,
+      "label": "START PAUSE",
+      "x": -10,
+      "y": -10
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "3f66e850-6f09-43e8-a82b-e1d801139eb8",
+   "name": "PausePanel",
+   "parent": "c675f09d-7c54-47ba-ba2b-df2f98fd50b4",
+   "active": false,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       0,
+       0,
+       0,
+       170
+      ],
+      "h": 272,
+      "w": 480,
+      "x": 0,
+      "y": 0,
+      "sortingOrder": 5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "5c6a052f-9553-47ad-aa79-4cb05b520b81",
+   "name": "PauseHeading",
+   "parent": "3f66e850-6f09-43e8-a82b-e1d801139eb8",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "PAUSED",
+      "x": 0,
+      "y": -50,
+      "sortingOrder": 7
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "b4b6d6ff-6d52-4d7d-803e-f3dfd6b9d2fe",
+   "name": "ResumeButton",
+   "parent": "3f66e850-6f09-43e8-a82b-e1d801139eb8",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "h": 24,
+      "w": 150,
+      "x": 0,
+      "y": -10,
+      "sortingOrder": 6,
+      "onClick": [
+       {
+        "method": "Resume",
+        "target": "099e74da-9869-4068-831d-1bbfc6377633",
+        "type": "MenuFlow"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "119cbc6a-b064-4232-b4c5-a29c9a4c109d",
+   "name": "ResumeButtonLabel",
+   "parent": "b4b6d6ff-6d52-4d7d-803e-f3dfd6b9d2fe",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "RESUME",
+      "sortingOrder": 7,
+      "x": 0,
+      "y": -10
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "f1c73a4c-0032-47cb-adb8-769c7386d5a0",
+   "name": "QuitToTitleButton",
+   "parent": "3f66e850-6f09-43e8-a82b-e1d801139eb8",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "h": 24,
+      "w": 150,
+      "x": 0,
+      "y": 30,
+      "sortingOrder": 6,
+      "onClick": [
+       {
+        "method": "ToTitle",
+        "target": "099e74da-9869-4068-831d-1bbfc6377633",
+        "type": "MenuFlow"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "3063613c-2937-4d0a-b957-05706329d359",
+   "name": "QuitToTitleButtonLabel",
+   "parent": "f1c73a4c-0032-47cb-adb8-769c7386d5a0",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "QUIT TO TITLE",
+      "sortingOrder": 7,
+      "x": 0,
+      "y": 30
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "099e74da-9869-4068-831d-1bbfc6377633",
+   "name": "MenuFlowObject",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "MenuFlow",
+     "fields": {
+      "mode": 1
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

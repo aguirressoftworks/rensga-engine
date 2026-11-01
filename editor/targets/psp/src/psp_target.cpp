@@ -84,6 +84,11 @@ std::string exitAfterFrames() {
   return std::to_string(n > 0 ? n : 0);
 }
 
+std::string extraCmakeArgs() {
+  const char* e = std::getenv("RENSGA_PSP_CMAKE_ARGS");
+  return e ? e : "";
+}
+
 int buildJobs() {
   const char* j = std::getenv("RENSGA_JOBS");
   int n = j ? std::atoi(j) : 0;
@@ -225,6 +230,8 @@ class PspTargetModule : public TargetModule {
     in.addString(ctx.release ? "release" : "dev");
     in.addString(pipeline::toolchainBackendName(tr.backend()));
     in.addString(exitAfterFrames());
+    in.addString(ctx.development ? "prof-stream" : "no-prof-stream");  // F6.06
+    in.addString(extraCmakeArgs());  // F6.05: RENSGA_PSP_CMAKE_ARGS (CI: -DRENSGA_GU_DUMP_FRAME=<n> for screenshots)
     in.addFileContent(ctx.generatedDir / "console_target.gen.h", "console_target.gen.h");
     in.addFileContent(ctx.project / "ProjectSettings" / "ConsoleTarget.json", "ConsoleTarget.json");
     const std::vector<std::string> scripts = in.addTreeContent(ctx.project / "Assets", {".cpp", ".h", ".hpp", ".cc"});
@@ -247,7 +254,14 @@ class PspTargetModule : public TargetModule {
                                     std::string("-DRENSGA_PSP_PRX=") + (ctx.release ? "ON" : "OFF"),
                                     // CI only (tools/ci/psp_eboot.sh): RENSGA_PSP_EXIT_AFTER_FRAMES=N makes the game quit cleanly after N
                                     // frames so a headless emulator run ends. Always passed (0 = never) so the cache never keeps a stale value.
-                                    "-DRENSGA_EXIT_AFTER_FRAMES=" + exitAfterFrames()};
+                                    "-DRENSGA_EXIT_AFTER_FRAMES=" + exitAfterFrames(),
+                                    // F6.06: development builds log one 'rensga: pf' profiler line per frame (the editor's Profiler reads them)
+                                    std::string("-DRENSGA_PROF_STREAM_LOG=") + (ctx.development ? "ON" : "OFF")};
+    cfg.push_back("-DRENSGA_GU_DUMP_FRAME=0");  // reset every run; RENSGA_PSP_CMAKE_ARGS below may set it
+    {  // F6.05: extra cache entries for CI and screenshots, e.g. RENSGA_PSP_CMAKE_ARGS="-DRENSGA_GU_DUMP_FRAME=300"
+      std::istringstream extra(extraCmakeArgs());
+      for (std::string t; extra >> t;) cfg.push_back(t);
+    }
     if (native) cfg.insert(cfg.begin() + 5, {"-G", "Ninja"});
     // CMake only needs to run again when its arguments or the set of script files changed; edits to a script are picked up by the build.
     pipeline::InputHasher ch;

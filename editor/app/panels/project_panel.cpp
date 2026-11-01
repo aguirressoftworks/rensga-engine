@@ -10,6 +10,7 @@
 #include "app.h"
 #include "panel_registry.h"
 #include "panels/asset_ui.h"
+#include "panels/data_asset_ui.h"  // F6 D3
 #include "panels/prefab_ui.h"
 #include "panels/tile_tools.h"
 #include "rensga/editor/asset_stubs.h"
@@ -104,8 +105,10 @@ static const char* kindGlyph(AssetKind k) {
 static void drawCreateStubItems(App& a) {
   int n = 0;
   const StubKind* kinds = stubKinds(&n);
-  for (int i = 0; i < n; ++i)
+  for (int i = 0; i < n; ++i) {
+    if (kinds[i].kind == AssetKind::DataAsset) { drawCreateDataAssetMenu(a); continue; }  // F6 D3: Data Asset > <Type>
     if (ImGui::MenuItem(kinds[i].label)) createAssetFromMenu(a, kinds[i].label, std::string());
+  }
 }
 
 bool createAssetFromMenu(App& a, const std::string& labelIn, const std::string& name) {

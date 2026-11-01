@@ -1,0 +1,27 @@
+{
+ "comment": "F6.05: the Build Settings platforms. Console knowledge lives here as data, not in tools/pipeline code (tools/check_editor_core.sh). flow: 'module' = a TargetModule of editor/targets does validate/compile/package/launch; 'cmake' = the pipeline configures and builds the player with a CMake preset; 'gradle' = tools/android. package.kind: 'folder' (exe + pack + music), 'script' (a host script makes the image), 'file' (copy the artifact). run.kind: 'process' (the exe), 'wine', 'script' (an emulator script, optional needs: 'bios'), 'adb'. devStream: how the development build streams profiler frames: 'cmake-log' (compile define), 'env-tcp' / 'env-log' (RENSGA_PROF_STREAM at run time), 'none'.",
+ "platforms": [
+  {"id": "psp", "name": "PSP", "console": true, "flow": "module", "module": "psp-build", "docker": "psp", "output": "EBOOT.PBP",
+   "devStream": "cmake-log"},
+  {"id": "ps2", "name": "PS2", "console": true, "flow": "cmake", "module": "ps2-build", "docker": "ps2", "output": "rensga.iso",
+   "preset": "ps2", "target": "rensga_ps2", "artifact": "engine/runtime/rensga_ps2.elf", "devStream": "cmake-log",
+   "cmakeDefaults": ["-DRENSGA_PS2_CHECK_FRAMES=300", "-DRENSGA_PS2_AUTOSTART=", "-DRENSGA_PS2_VRAM_STRESS=OFF", "-DRENSGA_PS2_SAVE_SELFTEST=OFF",
+                     "-DRENSGA_PS2_FORMAT_BLANK_CARD=OFF", "-DRENSGA_PS2_AUDIO_STRESS=0", "-DRENSGA_PS2_SHOT_FRAME=0"],
+   "package": {"kind": "script", "script": "tools/ps2/make_iso.sh", "file": "rensga.iso", "note": "no BIOS inside; the emulator needs your own"},
+   "run": {"kind": "script", "script": "tools/emulators/pcsx2_boot.sh", "name": "PCSX2", "needs": "bios", "frames": 120, "timeoutSeconds": 120, "log": "Library/Logs/pcsx2.log"}},
+  {"id": "windows", "name": "Windows", "console": false, "flow": "cmake", "module": "windows-build", "docker": "windows", "output": "folder with the exe and the pack",
+   "preset": "windows", "target": "rensga_desktop", "artifact": "engine/runtime/rensga_desktop.exe", "devStream": "env-log",
+   "copyRuntime": {"native": "$SDL2_MINGW_ROOT/bin/SDL2.dll", "docker": "$SDL2_MINGW_ROOT/bin/SDL2.dll /usr/x86_64-w64-mingw32/lib/libwinpthread-1.dll"},
+   "package": {"kind": "folder", "exeSuffix": ".exe", "dll": "SDL2.dll"},
+   "run": {"kind": "wine"}},
+  {"id": "linux", "name": "Linux", "console": false, "flow": "cmake", "module": "", "docker": "", "output": "folder with the executable and the pack",
+   "preset": "linux-host", "target": "rensga_desktop", "artifact": "engine/runtime/rensga_desktop", "devStream": "env-tcp",
+   "cmakeArgs": ["-DRENSGA_BUILD_TESTS=OFF", "-DRENSGA_BUILD_EDITOR=OFF"],
+   "package": {"kind": "folder", "exeSuffix": ""},
+   "run": {"kind": "process"}},
+  {"id": "android", "name": "Android", "console": false, "flow": "gradle", "module": "android-build", "docker": "android", "output": "debug APK",
+   "artifact": "tools/android/app/build/outputs/apk/debug/app-debug.apk", "devStream": "none",
+   "package": {"kind": "file", "suffix": ".apk", "note": "debug build, signed with the generated Android debug key"},
+   "run": {"kind": "adb", "package": "com.rensga.player"}}
+ ]
+}

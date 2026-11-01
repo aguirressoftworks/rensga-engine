@@ -7,6 +7,7 @@
 #include "rensga/core/rigidbody2d.h"
 #include "rensga/core/input.h"
 #include "rensga/core/time.h"
+#include "rensga/core/ui_components.h"  // F6 (D1): UI::draw
 #include "rensga/core/world.h"
 
 namespace rensga {
@@ -21,9 +22,6 @@ u32 g_handles[GfxAssets::kMaxTextures] = {};
 u32 g_handleCount = 0;
 bool g_bound = false;
 
-UI::ClickHandler g_clickHandler = nullptr;
-u32 g_focusSlot = kInvalidIndex;
-
 Scalar absS(Scalar v) { return v < 0 ? -v : v; }
 }  // namespace
 
@@ -34,7 +32,7 @@ void GfxAssets::bind(const PackView* pack, const PackAssets* assets, const u32* 
   g_handleCount = count < kMaxTextures ? count : kMaxTextures;
   for (u32 i = 0; i < g_handleCount; ++i) g_handles[i] = handles ? handles[i] : 0;
   g_bound = assets != nullptr;
-  g_focusSlot = kInvalidIndex;
+  UI::resetFocus();  // F6 (D1): the focus lives in ui_runtime.cpp
   Physics2D::loadFromPack(pack);
   physics3d::loadFromPack(pack);  // F6 a2: PHY3 (3D gravity and layer matrix)
 }
@@ -52,7 +50,6 @@ u32 GfxAssets::textureIndex(const Guid& texture) {
 
 static u32 clampOrder(i32 order) { return static_cast<u32>((order < -2048 ? -2048 : (order > 2047 ? 2047 : order)) + 2048); }
 u32 spriteSortKey(i32 sortingOrder) { return kSpriteSortBase + clampOrder(sortingOrder); }
-static u32 uiSortKey(i32 order) { return kUiSortBase + clampOrder(order); }
 
 // ---- SpriteAnimator ---------------------------------------------------------------------------------------------
 bool SpriteAnimator::PlayGuid(const Guid& clipGuid) {
@@ -601,62 +598,7 @@ i32 UI::textHeight(const PackFontRec& f, const char* text) {
   return f.glyphH + (lines - 1) * lh;
 }
 
-bool UIButton::isFocused() const {
-  World* w = gameObject() ? gameObject()->world : nullptr;
-  const ComponentPool* p = w ? w->pool<UIButton>() : nullptr;
-  if (!p || g_focusSlot >= p->highWater) return false;
-  return p->at(g_focusSlot) == static_cast<const void*>(this);
-}
-
-void UI::setClickHandler(ClickHandler handler) { g_clickHandler = handler; }
-void UI::resetFocus() { g_focusSlot = kInvalidIndex; }
-
-void UI::update(World& world) {
-  const ComponentPool* p = world.pool<UIButton>();
-  if (!p || p->liveCount == 0) return;
-  auto usable = [&](u32 i) {
-    if ((p->flags[i] & (kSlotAlive | kSlotDying)) != kSlotAlive) return false;
-    const UIButton* b = static_cast<const UIButton*>(p->at(i));
-    const GameObject* go = b->gameObject();
-    return b->interactable && b->enabled() && go && go->activeInHierarchy();
-  };
-  // Focus order is reading order on screen (top to bottom, then left to right), not pool order: a pool hands out freed slots in
-  // any order after a scene load, and a menu must always start on its first button. Anchors resolve against the current view size.
-  constexpr u32 kMaxFocus = 32;
-  struct Cand { u32 slot; i32 y, x; } cand[kMaxFocus];
-  u32 n = 0;
-  for (u32 i = 0; i < p->highWater && n < kMaxFocus; ++i) {
-    if (!usable(i)) continue;
-    const UIButton* b = static_cast<const UIButton*>(p->at(i));
-    const Rect r = UI::resolveRect(b->anchor, b->x, b->y, b->w, b->h, static_cast<i32>(g_defaultViewW), static_cast<i32>(g_defaultViewH));
-    Cand c{i, static_cast<i32>(r.y), static_cast<i32>(r.x)};
-    u32 j = n++;
-    while (j > 0 && (cand[j - 1].y > c.y || (cand[j - 1].y == c.y && (cand[j - 1].x > c.x || (cand[j - 1].x == c.x && cand[j - 1].slot > c.slot))))) {
-      cand[j] = cand[j - 1];
-      --j;
-    }
-    cand[j] = c;
-  }
-  if (n == 0) { g_focusSlot = kInvalidIndex; return; }
-  u32 pos = 0;
-  bool found = false;
-  for (u32 k = 0; k < n; ++k) if (cand[k].slot == g_focusSlot) { pos = k; found = true; break; }
-  if (!found) pos = 0;
-  g_focusSlot = cand[pos].slot;
-  const VirtualGamepad& pad = Input::pad();
-  const bool next = pad.pressed.down || pad.pressed.right, prev = pad.pressed.up || pad.pressed.left;
-  if (found && next) pos = (pos + 1) % n;
-  else if (found && prev) pos = (pos + n - 1) % n;
-  g_focusSlot = cand[pos].slot;
-  if (pad.pressed.south) {
-    GameObject* go = static_cast<UIButton*>(p->at(g_focusSlot))->gameObject();
-    if (go) {
-      Ref<GameObject> ref = go->ref();
-      world.sendUIClick(go);
-      if (g_clickHandler && ref) g_clickHandler(ref.get());
-    }
-  }
-}
+// F6 (D1): UIButton::isFocused, UI::update (focus, navigation, sliders, toggles, layout) and UI::draw moved to ui_runtime.cpp.
 
 // ---- 2D contact events ------------------------------------------------------------------------------------------
 // Each fixed step lists the overlapping pairs and diffs them with the previous step: new pairs send Enter, pairs that
@@ -788,7 +730,6 @@ void renderGameplay2D(World& world, IRenderer& r) {
   if (!GfxAssets::bound()) return;
   const PackAssets& as = GfxAssets::assets();
   const Scalar vw = static_cast<Scalar>(r.width()), vh = static_cast<Scalar>(r.height());
-  const i32 viewW = static_cast<i32>(r.width()), viewH = static_cast<i32>(r.height());
   Camera2D::setDefaultViewSize(vw, vh);
   // World-space drawing is scrolled by the camera view; the UI below is not.
   Scalar camX = 0, camY = 0;
@@ -848,38 +789,7 @@ void renderGameplay2D(World& world, IRenderer& r) {
     r.drawSprite(handle, src, dst, sr.color, spriteSortKey(sr.sortingOrder));
   });
 
-  world.forEach<UIImage>([&](UIImage& im) {
-    GameObject* go = im.gameObject();
-    if (!go || !im.enabled() || !go->activeInHierarchy()) return;
-    const Rect dst = UI::resolveRect(im.anchor, im.x, im.y, im.w, im.h, viewW, viewH);
-    const u32 ti = GfxAssets::textureIndex(im.texture);
-    if (ti >= as.textureCount) { r.drawRect(dst, im.color, uiSortKey(im.sortingOrder)); return; }
-    const u32 handle = GfxAssets::handle(ti);
-    if (!handle) return;
-    const Scalar sw = im.srcW > 0 ? static_cast<Scalar>(im.srcW) : static_cast<Scalar>(as.textures[ti].width);
-    const Scalar sh = im.srcH > 0 ? static_cast<Scalar>(im.srcH) : static_cast<Scalar>(as.textures[ti].height);
-    r.drawSprite(handle, Rect(static_cast<Scalar>(im.srcX), static_cast<Scalar>(im.srcY), sw, sh), dst, im.color, uiSortKey(im.sortingOrder));
-  });
-
-  world.forEach<UIButton>([&](UIButton& b) {
-    GameObject* go = b.gameObject();
-    if (!go || !b.enabled() || !go->activeInHierarchy()) return;
-    Color32 c = b.isFocused() ? b.focusColor : b.normalColor;
-    if (!b.interactable) c = Color32(c.r / 2, c.g / 2, c.b / 2, c.a);
-    r.drawRect(UI::resolveRect(b.anchor, b.x, b.y, b.w, b.h, viewW, viewH), c, uiSortKey(b.sortingOrder));
-  });
-
-  world.forEach<UIText>([&](UIText& t) {
-    GameObject* go = t.gameObject();
-    if (!go || !t.enabled() || !go->activeInHierarchy() || !t.text[0] || as.fontCount == 0) return;
-    const PackFontRec* font = t.font.isNull() ? &as.fonts[0] : as.findFont(t.font);
-    if (!font) font = &as.fonts[0];
-    if (font->texture >= as.textureCount) return;
-    const u32 handle = GfxAssets::handle(font->texture);
-    if (!handle) return;
-    const Rect box = UI::resolveRect(t.anchor, t.x, t.y, UI::textWidth(*font, t.text), UI::textHeight(*font, t.text), viewW, viewH);
-    r.drawText(handle, *font, static_cast<i32>(box.x), static_cast<i32>(box.y), t.text, t.color, uiSortKey(t.sortingOrder) + 1);
-  });
+  UI::draw(world, r);  // F6 (D1): images (with fill), buttons, text, Canvas scaling (ui_runtime.cpp)
 }
 
 }  // namespace rensga

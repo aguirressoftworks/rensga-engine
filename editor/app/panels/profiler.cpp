@@ -12,6 +12,8 @@
 #include <vector>
 
 #include "dock_debug.h"
+#include "rensga/core/script_samples.h"
+#include "rensga/editor/profiler_model.h"
 
 #if !defined(_WIN32)
 #include <arpa/inet.h>
@@ -173,6 +175,34 @@ void pumpEditor(App& a) {
   g_p.vramArea = static_cast<unsigned>(st.vramCapacity);
   g_p.memUsed = static_cast<unsigned>(st.memUsed);
   g_p.memBudget = static_cast<unsigned>(st.memCapacity);
+}
+
+// F6.06: Play in editor feeds the frame timeline too, one entry per editor frame (update = the sim step, the rest is the editor's own).
+void pumpEditorFrames(App& a) {
+  static unsigned frame = 0;
+  if (!a.session.active() || a.session.state() != PlayState::Playing) return;
+  const PlayStats& st = a.session.stats();
+  script_samples::endFrame();
+  ProfFrameData f;
+  f.frame = ++frame;
+  f.sectionUs[0] = static_cast<uint32_t>(st.simMs * 1000.0);
+  f.totalUs = st.fps > 0 ? static_cast<uint32_t>(1000000.0 / st.fps) : f.sectionUs[0];
+  f.draws = st.draws;
+  f.triangles = st.triangles;
+  f.vramBytes = static_cast<uint32_t>(st.vramUsed);
+  f.memUsed = static_cast<uint32_t>(st.memUsed);
+  f.memCapacity = static_cast<uint32_t>(st.memCapacity);
+  std::vector<int> idx(script_samples::windowCount(), -1);
+  for (uint32_t i = 0; i < script_samples::windowCount() && f.samples.size() < 8; ++i) {
+    script_samples::LastFrameEntry e;
+    if (!script_samples::lastFrameEntry(i, &e)) continue;
+    idx[i] = static_cast<int>(f.samples.size());
+    ProfSampleRec r;
+    r.name = e.name; r.us = e.us; r.calls = e.calls;
+    r.parent = e.parent >= 0 && static_cast<uint32_t>(e.parent) < i ? idx[e.parent] : -1;
+    f.samples.push_back(r);
+  }
+  ProfilerFeed::instance().push(std::move(f), ProfilerFeed::Source::Editor);
 }
 
 // ---- PPSSPP debugger (WebSocket) ---------------------------------------------------------------------------------------
@@ -445,17 +475,220 @@ Sample average() {
   return s;
 }
 
+
+// ---- F6.06: the frame view -----------------------------------------------------------------------------------------------
+struct FrameView {
+  bool paused = false;
+  std::vector<ProfFrameData> frozen;
+  long selected = -1;        // frame number (ProfFrameData::frame); -1 = follow the newest
+  bool wantWorst = false;
+  bool floating = false;
+};
+FrameView g_fv;
+
+std::vector<ProfFrameData> currentFrames() {
+  if (g_fv.paused) return g_fv.frozen;
+  return ProfilerFeed::instance().snapshot();
+}
+
+const ProfFrameData* pick(const std::vector<ProfFrameData>& fr) {
+  if (fr.empty()) return nullptr;
+  if (g_fv.selected >= 0)
+    for (const ProfFrameData& f : fr)
+      if (static_cast<long>(f.frame) == g_fv.selected) return &f;
+  return &fr.back();
+}
+
+const ProfFrameData* worstOf(const std::vector<ProfFrameData>& fr) {
+  const ProfFrameData* w = nullptr;
+  for (const ProfFrameData& f : fr)
+    if (!w || f.totalUs > w->totalUs) w = &f;
+  return w;
+}
+
+float budgetMsOf(const ConsoleTargetData& ct) { return 1000.0f / static_cast<float>(ct.refreshHz ? ct.refreshHz : 60); }
+
+void drawTimeline(const std::vector<ProfFrameData>& fr, float budgetMs, ImVec2 size) {
+  ImDrawList* dl = ImGui::GetWindowDrawList();
+  const ImVec2 p0 = ImGui::GetCursorScreenPos();
+  ImGui::InvisibleButton("##timeline", size);
+  const bool hovered = ImGui::IsItemHovered();
+  dl->AddRectFilled(p0, ImVec2(p0.x + size.x, p0.y + size.y), ImGui::GetColorU32(brandToken("surface-2")));
+  float top = budgetMs * 2.0f;
+  for (const ProfFrameData& f : fr) top = std::max(top, f.totalUs / 1000.0f * 1.08f);
+  const auto y = [&](float ms) { return p0.y + size.y - std::min(ms, top) / top * size.y; };
+  const float barW = std::min(6.0f, std::max(1.0f, size.x / static_cast<float>(std::max<size_t>(fr.size(), 200))));
+  const size_t fit = static_cast<size_t>(size.x / barW);
+  const size_t first = fr.size() > fit ? fr.size() - fit : 0;
+  const struct { int sec; const char* tok; } parts[4] = {{0, "info"}, {1, "primary"}, {2, "text-2"}, {3, "ok"}};
+  const ProfFrameData* sel = pick(fr);
+  const ProfFrameData* hover = nullptr;
+  const ImVec2 mouse = ImGui::GetIO().MousePos;
+  for (size_t i = first; i < fr.size(); ++i) {
+    const ProfFrameData& f = fr[i];
+    const float x0 = p0.x + (i - first) * barW, x1 = x0 + barW;
+    const float totalMs = f.totalUs / 1000.0f;
+    float acc = 0;
+    for (const auto& pr : parts) {
+      const float v = f.sectionUs[pr.sec] / 1000.0f;
+      dl->AddRectFilled(ImVec2(x0, y(acc + v)), ImVec2(x1, y(acc)), ImGui::GetColorU32(brandToken(pr.tok)));
+      acc += v;
+    }
+    if (acc < totalMs) dl->AddRectFilled(ImVec2(x0, y(totalMs)), ImVec2(x1, y(acc)), ImGui::GetColorU32(brandToken("border-strong")));
+    if (totalMs > budgetMs * 1.5f) dl->AddRectFilled(ImVec2(x0, p0.y), ImVec2(x1, p0.y + 3), ImGui::GetColorU32(brandToken("danger")));  // spike marker
+    if (sel == &f) dl->AddRect(ImVec2(x0 - 1, p0.y), ImVec2(x1 + 1, p0.y + size.y), ImGui::GetColorU32(brandToken("primary")));
+    if (hovered && mouse.x >= x0 && mouse.x < x1) hover = &f;
+  }
+  const float by = y(budgetMs);
+  dl->AddLine(ImVec2(p0.x, by), ImVec2(p0.x + size.x, by), ImGui::GetColorU32(brandToken("danger")), 1.5f);
+  char b[64];
+  std::snprintf(b, sizeof b, "budget %.1f ms", budgetMs);
+  dl->AddText(ImVec2(p0.x + 6, by - ImGui::GetTextLineHeight() - 1), ImGui::GetColorU32(brandToken("danger")), b);
+  std::snprintf(b, sizeof b, "%.0f ms", top);
+  dl->AddText(ImVec2(p0.x + 6, p0.y + 4), ImGui::GetColorU32(brandToken("muted")), b);
+  if (fr.empty()) {
+    const char* m = "Waiting for frames: Play on a console (development build), Play in editor, or Build and Run a Linux development build.";
+    const ImVec2 ts = ImGui::CalcTextSize(m);
+    dl->AddText(ImVec2(p0.x + std::max(6.0f, (size.x - ts.x) * 0.5f), p0.y + (size.y - ts.y) * 0.5f), ImGui::GetColorU32(brandToken("muted")), m);
+  }
+  if (hover) {
+    ImGui::BeginTooltip();
+    ImGui::Text("frame %u: %.2f ms%s", hover->frame, hover->totalUs / 1000.0, hover->totalUs / 1000.0f > budgetMs * 1.5f ? "  [spike]" : "");
+    ImGui::EndTooltip();
+    if (ImGui::IsMouseClicked(0)) { g_fv.selected = hover->frame; if (!g_fv.paused) { g_fv.frozen = fr; g_fv.paused = true; } }
+  }
+}
+
+void secRow(const char* name, uint32_t us, uint32_t totalUs, const char* tok) {
+  ImGui::TableNextRow();
+  ImGui::TableNextColumn();
+  const ImVec2 p = ImGui::GetCursorScreenPos();
+  const float h = ImGui::GetTextLineHeight();
+  ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(p.x, p.y + 3), ImVec2(p.x + h - 4, p.y + h - 1), ImGui::GetColorU32(brandToken(tok)));
+  ImGui::Dummy(ImVec2(h, h));
+  ImGui::SameLine(0, 0);
+  ImGui::TextUnformatted(name);
+  ImGui::TableNextColumn(); ImGui::Text("%.3f ms", us / 1000.0);
+  ImGui::TableNextColumn(); ImGui::Text("%.0f %%", totalUs ? 100.0 * us / totalUs : 0.0);
+}
+
+void drawSampleTree(const ProfFrameData& f, int parent, int depth) {
+  for (size_t i = 0; i < f.samples.size(); ++i) {
+    const ProfSampleRec& r = f.samples[i];
+    if (r.parent != parent) continue;
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::Indent(depth * 14.0f);
+    ImGui::TextUnformatted(r.name.c_str());
+    ImGui::Unindent(depth * 14.0f);
+    ImGui::TableNextColumn(); ImGui::Text("%.3f ms", r.us / 1000.0);
+    ImGui::TableNextColumn(); ImGui::Text("%u", r.calls);
+    drawSampleTree(f, static_cast<int>(i), depth + 1);
+  }
+}
+
+void memBar(const char* label, double used, double cap, const char* unit, double scale) {
+  char t[96];
+  std::snprintf(t, sizeof t, "%.2f / %.2f %s", used / scale, cap / scale, unit);
+  ImGui::TextUnformatted(label);
+  ImGui::SameLine(120);
+  const double r = cap > 0 ? used / cap : 0;
+  ImGui::PushStyleColor(ImGuiCol_PlotHistogram, brandToken(r > 1.0 ? "danger" : r > 0.8 ? "warn" : "ok"));
+  ImGui::ProgressBar(static_cast<float>(std::min(r, 1.0)), ImVec2(220, 0), cap > 0 ? t : "-");
+  ImGui::PopStyleColor();
+  ImGui::SameLine();
+  ImGui::TextColored(levelColor(used, cap), "%s", cap > 0 ? levelWord(used, cap) : "no budget");
+}
+
+void drawFrames(App& a, const ConsoleTargetData& ct) {
+  ProfilerFeed& feed = ProfilerFeed::instance();
+  const float budgetMs = budgetMsOf(ct);
+  if (!g_fv.paused) g_fv.frozen.clear();
+  const std::vector<ProfFrameData> fr = currentFrames();
+  if (ImGui::Checkbox("Pause", &g_fv.paused)) {
+    if (g_fv.paused) g_fv.frozen = feed.snapshot();
+    else g_fv.selected = -1;
+  }
+  ImGui::SameLine();
+  ImGui::TextColored(brandToken("text-2"), "Source: %s%s   %llu frames received", profSourceName(feed.source()),
+                     feed.source() == ProfilerFeed::Source::Tcp ? (" (127.0.0.1:" + std::to_string(feed.port()) + " " + feed.state() + ")").c_str() : "",
+                     static_cast<unsigned long long>(feed.totalFrames()));
+  ImGui::SameLine();
+  if (ImGui::Button("Clear")) { feed.clear(); g_fv.frozen.clear(); g_fv.selected = -1; }
+  ImGui::SameLine();
+  if (ImGui::Button("Attach to player (127.0.0.1:47017)")) feed.attachTcp(47017, 4000);
+  ImGui::SameLine();
+  ImGui::BeginDisabled(fr.empty());
+  if (ImGui::Button("Select slowest frame")) { if (const ProfFrameData* w = worstOf(fr)) { g_fv.selected = w->frame; if (!g_fv.paused) { g_fv.frozen = fr; g_fv.paused = true; } } }
+  ImGui::EndDisabled();
+
+  drawTimeline(fr, budgetMs, ImVec2(ImGui::GetContentRegionAvail().x, std::max(90.0f, std::min(170.0f, ImGui::GetContentRegionAvail().y * 0.34f))));
+  legend("info", "update");
+  legend("primary", "render");
+  legend("text-2", "present");
+  legend("ok", "audio");
+  legend("border-strong", "other");
+  legend("danger", "over 1.5 x budget");
+  ImGui::NewLine();
+
+  const ProfFrameData* f = pick(fr);
+  if (!f) return;
+  const ProfFrameData* w = worstOf(fr);
+  ImGui::Text("Frame %u   %.2f ms   %s", f->frame, f->totalUs / 1000.0, f->totalUs / 1000.0f > budgetMs * 1.5f ? "[x] over budget" : f->totalUs / 1000.0f > budgetMs ? "[!] near budget" : "[ok]");
+  if (w) {
+    ImGui::SameLine();
+    ImGui::TextColored(brandToken("text-2"), "   slowest in view: frame %u (%.2f ms)", w->frame, w->totalUs / 1000.0);
+  }
+  if (ImGui::BeginTable("##detail", 3, ImGuiTableFlags_SizingStretchProp | ImGuiTableFlags_Resizable)) {
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::SeparatorText("Systems");
+    if (ImGui::BeginTable("##sec", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
+      ImGui::TableSetupColumn("System"); ImGui::TableSetupColumn("Time"); ImGui::TableSetupColumn("Share");
+      ImGui::TableHeadersRow();
+      secRow("Update", f->sectionUs[0], f->totalUs, "info");
+      secRow("Render", f->sectionUs[1], f->totalUs, "primary");
+      secRow("Present", f->sectionUs[2], f->totalUs, "text-2");
+      secRow("Audio", f->sectionUs[3], f->totalUs, "ok");
+      ImGui::EndTable();
+    }
+    ImGui::TableNextColumn();
+    ImGui::SeparatorText("Samples (Profiler.BeginSample)");
+    if (f->samples.empty()) ImGui::TextDisabled("No samples in this frame.");
+    else if (ImGui::BeginTable("##smp", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
+      ImGui::TableSetupColumn("Sample"); ImGui::TableSetupColumn("Time"); ImGui::TableSetupColumn("Calls");
+      ImGui::TableHeadersRow();
+      drawSampleTree(*f, -1, 0);
+      ImGui::EndTable();
+    }
+    ImGui::TableNextColumn();
+    ImGui::SeparatorText("Memory");
+    memBar("Arena", f->memUsed, f->memCapacity ? f->memCapacity : static_cast<double>(ct.ramBytes), "MiB", 1048576.0);
+    memBar("Texture VRAM", f->vramBytes, static_cast<double>(ct.vramBytes), "KiB", 1024.0);
+    memBar("Triangles", f->triangles, static_cast<double>(ct.trianglesPerFrame), "tris", 1.0);
+    ImGui::Text("Draw calls %u   textures %u", f->draws, f->textures);
+    ImGui::EndTable();
+  }
+  (void)a;
+}
+
 }  // namespace
 
 void drawProfiler(App& a) {
   if (!a.loaded) return;
   pumpLog(a);
   pumpEditor(a);
+  pumpEditorFrames(a);
   const ConsoleTargetData& ct = consoleTargetFor(a.project.root);
   g_p.frameBudgetMs = 1000.0f / static_cast<float>(ct.refreshHz ? ct.refreshHz : 60);
   if (!g_p.trisBudget) g_p.trisBudget = ct.trianglesPerFrame;
   DockDebugState& st = dockDebug();
   if (!st.showProfiler) return;
+  if (g_fv.floating) {  // --ui-event profilerfloat: a big floating window (screenshots); dragging it back into a dock works as always
+    ImGui::SetNextWindowDockID(0, ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(60, 50), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(1180, 760), ImGuiCond_Always);
+  }
   if (!ImGui::Begin("Profiler", &st.showProfiler)) { ImGui::End(); return; }
 
   const bool console = a.play.status() == PlayStatus::Running || (g_p.fromConsole && !a.session.active());
@@ -470,6 +703,9 @@ void drawProfiler(App& a) {
   ImGui::SameLine();
   if (ImGui::Button("Clear")) { const size_t c = g_p.cursor; g_p = Prof(); g_p.cursor = c; }
 
+  if (ImGui::BeginTabBar("##proftabs")) {
+  if (ImGui::BeginTabItem("Frames")) { drawFrames(a, ct); ImGui::EndTabItem(); }
+  if (ImGui::BeginTabItem("Summary")) {
   // Wide panel: graph on the left, budget table on the right. Narrow: stacked.
   const bool wide = ImGui::GetContentRegionAvail().x > 760;
   const float gw = wide ? ImGui::GetContentRegionAvail().x * 0.46f : ImGui::GetContentRegionAvail().x;
@@ -523,6 +759,10 @@ void drawProfiler(App& a) {
     ImGui::SameLine();
     ImGui::TextColored(brandToken("text-2"), "%s", g_p.dbgText.c_str());
   }
+  ImGui::EndTabItem();
+  }
+  ImGui::EndTabBar();
+  }
   ImGui::End();
 }
 
@@ -559,7 +799,57 @@ bool profilerUiHolds(App&, const std::string& event) {
 
 bool profilerUiHook(App& a, const std::string& act, const std::string& arg) {
   if (act == "profiler") { ImGui::SetWindowFocus("Profiler"); dockDebug().showProfiler = true; return true; }
-  if (act == "profilerclear") { const size_t c = g_p.cursor; g_p = Prof(); g_p.cursor = c; return true; }
+  // F6.06 frame view verbs
+  if (act == "profilerfloat") { g_fv.floating = arg != "off"; dockDebug().showProfiler = true; std::printf("profiler: floating=%d\n", g_fv.floating ? 1 : 0); return true; }
+  if (act == "profilerframes") {
+    ProfilerFeed& feed = ProfilerFeed::instance();
+    const std::vector<ProfFrameData> fr = currentFrames();
+    const ProfFrameData* w = worstOf(fr);
+    std::vector<uint32_t> t;
+    for (const ProfFrameData& f : fr) t.push_back(f.totalUs);
+    std::sort(t.begin(), t.end());
+    const uint32_t med = t.empty() ? 0 : t[t.size() / 2];
+    std::printf("profiler: frames=%zu received=%llu source=%s tcp=%s median_ms=%.3f worst_frame=%u worst_ms=%.3f paused=%d\n", fr.size(),
+                static_cast<unsigned long long>(feed.totalFrames()), profSourceName(feed.source()), feed.state().c_str(), med / 1000.0, w ? w->frame : 0,
+                w ? w->totalUs / 1000.0 : 0.0, g_fv.paused ? 1 : 0);
+    return true;
+  }
+  if (act == "profilerselect") {
+    const std::vector<ProfFrameData> fr = currentFrames();
+    if (arg == "worst") { if (const ProfFrameData* w = worstOf(fr)) g_fv.selected = w->frame; }
+    else if (arg == "latest" || arg.empty()) g_fv.selected = -1;
+    else g_fv.selected = std::atol(arg.c_str());
+    if (g_fv.selected >= 0 && !g_fv.paused) { g_fv.frozen = fr; g_fv.paused = true; }
+    if (g_fv.selected < 0) g_fv.paused = false;
+    dockDebug().showProfiler = true;
+    const ProfFrameData* f = pick(currentFrames().empty() ? fr : (g_fv.paused ? g_fv.frozen : fr));
+    std::printf("profiler: selected frame=%u total_ms=%.3f\n", f ? f->frame : 0, f ? f->totalUs / 1000.0 : 0.0);
+    return true;
+  }
+  if (act == "profilerpause") {
+    g_fv.paused = arg != "0";
+    if (g_fv.paused) g_fv.frozen = ProfilerFeed::instance().snapshot(); else g_fv.selected = -1;
+    std::printf("profiler: paused=%d frames=%zu\n", g_fv.paused ? 1 : 0, g_fv.frozen.size());
+    return true;
+  }
+  if (act == "profilerattach") {
+    const int port = arg.empty() ? 47017 : std::atoi(arg.c_str());
+    const bool ok = ProfilerFeed::instance().attachTcp(port, 8000);
+    std::printf("profiler: attach 127.0.0.1:%d %s\n", port, ok ? "started" : "unavailable");
+    return true;
+  }
+  if (act == "profilerframedump") {   // the selected frame, all columns, one line each: what the window shows
+    const std::vector<ProfFrameData> fr = currentFrames();
+    const ProfFrameData* f = pick(fr);
+    if (!f) { std::printf("profiler: no frames\n"); return true; }
+    std::printf("profiler: frame=%u total_ms=%.3f update=%.3f render=%.3f present=%.3f audio=%.3f draws=%u tris=%u tex=%u vram=%u mem=%u/%u\n", f->frame, f->totalUs / 1000.0,
+                f->sectionUs[0] / 1000.0, f->sectionUs[1] / 1000.0, f->sectionUs[2] / 1000.0, f->sectionUs[3] / 1000.0, f->draws, f->triangles, f->textures, f->vramBytes,
+                f->memUsed, f->memCapacity);
+    for (const ProfSampleRec& r : f->samples) std::printf("profiler: sample %s ms=%.3f calls=%u parent=%d\n", r.name.c_str(), r.us / 1000.0, r.calls, r.parent);
+    return true;
+  }
+  if (act == "profilerclear") {
+    ProfilerFeed::instance().clear(); g_fv.frozen.clear(); g_fv.selected = -1; g_fv.paused = false; const size_t c = g_p.cursor; g_p = Prof(); g_p.cursor = c; return true; }
   if (act == "profilerfeed") { std::printf("profiler: feed %s\n", feed(arg) ? "parsed" : "ignored"); return true; }
   if (act == "profilerdump") {
     const Sample s = average();

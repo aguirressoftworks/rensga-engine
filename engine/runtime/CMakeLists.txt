@@ -4,10 +4,21 @@ set(RENSGA_PROJECT_SCRIPTS ${RENSGA_REFLECT_PROJECT_SRCS})  # generated tables r
 
 # F4 contract: the shared pack boot (runtime_boot.h) and the frame profiler. Core only. Mains link it as they adopt it;
 # bootPack with BootDeps::audio set also needs runtime_audio.cpp in the executable (it already is on desktop and PS2).
-add_library(rensga_runtime_boot STATIC runtime_boot.cpp profiler.cpp runtime_budget.cpp)
+add_library(rensga_runtime_boot STATIC runtime_boot.cpp profiler.cpp prof_stream.cpp runtime_budget.cpp)
 target_include_directories(rensga_runtime_boot PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(rensga_runtime_boot PUBLIC rensga_core)
 rensga_runtime_target(rensga_runtime_boot)
+# --- F6 d2 begin ---
+# F6.06 remote profiler: localhost TCP server on Linux and Android players (Windows streams through the log channel);
+# RENSGA_PROF_STREAM_LOG=ON (dev builds of the pipeline) writes one "rensga: pf ..." line per frame to the log channel.
+option(RENSGA_PROF_STREAM_LOG "Dev build: stream one 'rensga: pf' profiler line per frame to the log channel" OFF)
+if(RENSGA_TARGET MATCHES "^(linux-host|android)$")
+  target_compile_definitions(rensga_runtime_boot PRIVATE RENSGA_PROF_SOCKET=1)
+endif()
+if(RENSGA_PROF_STREAM_LOG)
+  target_compile_definitions(rensga_runtime_boot PRIVATE RENSGA_PROF_STREAM_LOG=1)
+endif()
+# --- F6 d2 end ---
 
 # PSP executables (F4.03): link our libraries, then the ordered system libraries once (RENSGA_PSP_SYSLIBS, root CMakeLists.txt), fix up
 # the imports (PPSSPP and hardware both need it) and, with RENSGA_PSP_PRX, link a PRX module for the EBOOT.PBP Package stage.

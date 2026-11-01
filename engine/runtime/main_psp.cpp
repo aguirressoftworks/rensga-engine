@@ -228,6 +228,7 @@ int main(int, char** argv) {
 #endif
 
   g_prof.init(clockUs);
+  g_prof.bindMemory(&arena);  // F6.06 d2
   {  // F5.11 (B4): per-scene budgets in the "rensga: budget" lines; triangles and VRAM from the pack's ConsoleTarget
     ProfBudget pb;
     pb.draws = kDefaultDrawBudget;

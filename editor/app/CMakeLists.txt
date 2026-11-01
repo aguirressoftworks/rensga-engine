@@ -61,3 +61,8 @@ set_tests_properties(editor_script_build_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEO
 # F5.04 / F5.09: Window > Emulators, the "emulator missing" offer, Build and Run.
 # (panels/emulator_manager.cpp is picked up by the panel glob above)
 # --- F5 B1 end ---
+
+# --- F6 d3 begin ---
+# F6.07: editor extensions host (builds/loads <project>/Editor, windows, menus, custom inspectors). The panel registers itself.
+target_sources(rensga-editor PRIVATE extensions/ext_host.cpp)
+# --- F6 d3 end ---

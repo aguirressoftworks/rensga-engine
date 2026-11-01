@@ -13,6 +13,7 @@
 #pragma once
 #include "rensga/core/backends.h"
 #include "rensga/core/object.h"
+#include "rensga/core/text_format.h"
 #include "rensga/core/pack_format.h"
 #include "rensga/core/unity_event.h"
 
@@ -242,12 +243,20 @@ struct UIText : Component {
   SERIALIZE_FIELD(i32, y, 0)
   SERIALIZE_FIELD(Color32, color, Color32(255, 255, 255, 255))
   SERIALIZE_FIELD(i32, sortingOrder, 0)
+  // F6 (appended; D1): the text a scene author types in the editor (31 characters). It is copied into `text` once, on the first UI
+  // frame, unless a script has already set `text` (SetText / SetFormat win).
+  APPENDED_FIELDS()
+  SERIALIZE_FIELD(String32, label, String32())
 
   static constexpr u32 kMaxText = 64;
   char text[kMaxText] = {};  // runtime: set by scripts
+  bool labelApplied_ = false;  // runtime
   void SetText(const char* s);
   // "<prefix><value>" (no heap).
   void SetInt(const char* prefix, i32 value);
+  // F6 (D1): allocation-free formatting, e.g. SetFormat("HP {0}/{1}", hp, maxHp) (rensga/core/text_format.h).
+  template <class... Args>
+  void SetFormat(const char* fmt, const Args&... args) { Format(text, kMaxText, fmt, args...); }
 };
 
 // Draws an image or, with no texture, a flat rectangle.
@@ -267,6 +276,13 @@ struct UIImage : Component {
   SERIALIZE_FIELD(i32, srcH, 0)
   SERIALIZE_FIELD(Color32, color, Color32(255, 255, 255, 255))
   SERIALIZE_FIELD(i32, sortingOrder, -1)
+  // F6 (appended; D1): Unity's Image fill. Horizontal fills from the left and Vertical from the bottom; fillFromEnd flips that
+  // (right / top). Only fillAmount (0..1) of the image is drawn, the picture is cropped, not squeezed.
+  APPENDED_FIELDS()
+  SERIALIZE_ENUM(fillMethod, 0, "None|Horizontal|Vertical")
+  RANGE(0, 1)
+  SERIALIZE_FIELD(Scalar, fillAmount, 1.0f)
+  SERIALIZE_FIELD(bool, fillFromEnd, false)
 };
 
 // A focusable button. D-pad up/down (or left/right) moves the focus between interactable buttons in reading order on
@@ -299,6 +315,7 @@ struct UIButton : Component {
 };
 
 namespace UI {
+// Shared by the engine, the editor Scene view and scripts. See ui_components.h for the F6 additions (Canvas scaling, EventSystem).
 using ClickHandler = void (*)(GameObject* button);
 void setClickHandler(ClickHandler handler);
 // Frame step: focus movement and presses from Input::pad(). Called by GameLoop::frame.

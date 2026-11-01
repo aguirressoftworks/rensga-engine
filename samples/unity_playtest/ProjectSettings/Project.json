@@ -1,0 +1,14 @@
+{
+ "format": 1,
+ "name": "CoinRun",
+ "target": "psp",
+ "scenes": [
+  "00000000-0000-4000-a000-000000000d41",
+  "00000000-0000-4000-a000-000000000d42"
+ ],
+ "componentReserve": {
+  "MeshRenderer": 16,
+  "BoxCollider": 16,
+  "Coin": 16
+ }
+}

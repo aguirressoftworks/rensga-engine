@@ -35,3 +35,15 @@ target_sources(rensga_editor_core PRIVATE src/material_document.cpp)  # F6.02 ma
 # --- F6 B1 begin ---
 target_sources(rensga_editor_core PRIVATE src/anim_clip_doc.cpp src/anim_controller_doc.cpp src/anim_preview.cpp)  # F6.03 Editor 9: clip and controller documents, preview + record (no UI)
 # --- F6 B1 end ---
+
+# --- F6 d2 begin ---
+target_sources(rensga_editor_core PRIVATE src/profiler_model.cpp)  # F6.06 Editor 12: frames of the remote profiler (log / TCP), no UI
+# --- F6 d2 end ---
+
+# --- F6 d3 begin ---
+target_sources(rensga_editor_core PRIVATE src/extension.cpp src/data_asset_doc.cpp)  # F6.07: editor extension registry/module + data asset documents (no ImGui)
+# --- F6 d3 end ---
+
+# --- F6 d1 begin ---
+target_sources(rensga_editor_core PRIVATE src/ui_edit.cpp src/input_actions_doc.cpp src/physics2d_settings.cpp)  # F6.04 Editor 10: UI creation + preview, Input Actions and Physics2D documents (no ImGui)
+# --- F6 d1 end ---

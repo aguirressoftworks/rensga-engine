@@ -3,8 +3,10 @@
 #include "rensga/pipeline/pipeline.h"
 
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <memory>
 #include <mutex>
 
 #include <nlohmann/json.hpp>
@@ -12,6 +14,8 @@
 #include "rensga/cooker/cooker.h"
 #include "rensga/editor/target_module.h"
 #include "rensga/pipeline/emulator_launcher.h"
+#include "rensga/pipeline/platform_build.h"
+#include "rensga/editor/project_settings.h"
 
 namespace rensga {
 namespace pipeline {
@@ -23,6 +27,15 @@ struct Session::Impl {
   std::atomic<bool> cancel{false};
   std::mutex mu;
   editor::TargetModule* launched = nullptr;
+  // F6.05: Build Settings platforms that are not TargetModules launch through their own launcher.
+  std::unique_ptr<EmulatorLauncher> platformLauncher;
+  std::filesystem::path output;
+  std::string note;
+  bool notRun = false;
+  EmulatorLauncher* launcher() {  // caller holds mu
+    if (platformLauncher) return platformLauncher.get();
+    return launched ? &launched->launcher() : nullptr;
+  }
 };
 
 const char* stageName(Stage s) {
@@ -92,7 +105,8 @@ bool readTargetFromProject(const fs::path& project, std::string& target, std::st
 
 }  // namespace
 
-bool Session::run(const BuildRequest& request, EventSink sink) {
+bool Session::run(const BuildRequest& requestIn, EventSink sink) {
+  BuildRequest request = requestIn;
   bool expected = false;
   if (!impl_->building.compare_exchange_strong(expected, true)) {
     emit(sink, Stage::Validate, Status::Failed, "a pipeline run is already in progress");
@@ -103,7 +117,25 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
     ~Reset() { b = false; }
   } reset{impl_->building};
   stop();  // a previous Launch may still be alive
+  {
+    std::lock_guard<std::mutex> lock(impl_->mu);
+    impl_->platformLauncher.reset();
+    impl_->launched = nullptr;
+    impl_->output.clear();
+    impl_->note.clear();
+    impl_->notRun = false;
+  }
   impl_->cancel = false;
+  const PlatformInfo* platformInfo = request.platform.empty() ? nullptr : findPlatform(request.platform);
+  if (!request.platform.empty() && !platformInfo) {
+    emit(sink, Stage::Validate, Status::Failed, "unknown platform '" + request.platform + "' (rensga platforms lists them)");
+    return false;
+  }
+  if (platformInfo && !platformInfo->moduleFlow()) return runPlatform(request, sink);
+  if (platformInfo) {  // Build Settings on a module-flow platform: the TargetModule does the work; release package unless development
+    request.target = platformInfo->id;
+    request.release = !request.development;
+  }
 
   const Clock::time_point tStart = Clock::now();
   Clock::time_point tStage = tStart;
@@ -129,6 +161,7 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
   editor::BuildContext ctx;
   ctx.project = project;
   ctx.release = request.release;
+  ctx.development = request.development || !request.release;
   ctx.quitAfterSeconds = request.quitAfterSeconds;
   ctx.cookedPack = project / "Library" / "Cooked" / target / "game.rpak";
   ctx.buildDir = project / "Library" / "Build" / (target + (request.release ? "-release" : "-dev"));
@@ -150,7 +183,18 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
   opt.project = project;
   opt.target = target;
   opt.genHeader = ctx.generatedDir / "console_target.gen.h";
+  bool voiceOver = false;
+  if (!request.platform.empty()) {
+    editor::ProjectBuildSettings pbs;
+    std::string perr;
+    if (editor::loadProjectBuild(project, pbs, perr) && pbs.enabledScenes().empty()) {
+      emit(sink, Stage::Validate, Status::Failed, "no scene is enabled in Build Settings (Project.json scenes is empty)");
+      return false;
+    }
+    opt.target = target;
+  }
   CookResult cr = cookProject(opt, [&](const CookMessage& m) {
+    if (!request.platform.empty() && m.severity == CookMessage::Warning && m.text.rfind("audio voices in", 0) == 0) voiceOver = true;
     Status st = m.severity == CookMessage::Error ? Status::Failed : Status::Progress;
     std::string text = m.text;
     if (!m.asset.empty()) text += " [" + m.asset + "]";
@@ -168,6 +212,10 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
              (unsigned long long)cr.usage.packBytes,
              (unsigned long long)cr.usage.triangles, (unsigned long long)cr.usage.objects);
     emit(sink, Stage::Cook, Status::Succeeded, buf);
+  }
+  if (voiceOver) {  // Build Settings: a scene that starts more AudioSources than the target has voices blocks the build
+    emit(sink, Stage::Validate, Status::Failed, "a scene starts more audio sources than the target has voices (see the warning above); lower the count or raise ConsoleTarget audio.voices");
+    return false;
   }
   stageTime(sink, Stage::Cook, tStage);
   tStage = Clock::now();
@@ -197,6 +245,12 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
     }
     emit(sink, Stage::Package, Status::Succeeded, "packaged in " + ctx.buildDir.string());
   }
+  if (!request.platform.empty() && request.release) {  // F6.05: the finished build goes to <outputDir>/psp
+    const fs::path out = platformOutputDir(project, request.platform, request.outputDir);
+    if (!collectFolder(ctx.buildDir, out, sink)) return false;
+    std::lock_guard<std::mutex> lock(impl_->mu);
+    impl_->output = out / platformInfo->output;  // the image file the module packaged
+  }
   if (request.lastStage == Stage::Package || !request.launch) return true;
 
   // ---- Launch ----
@@ -224,51 +278,183 @@ bool Session::run(const BuildRequest& request, EventSink sink) {
   return true;
 }
 
-void Session::stop() {
-  impl_->cancel = true;
-  editor::TargetModule* m;
+// F6.05: Build Settings for the platforms whose flow is not a TargetModule: the same five stages.
+bool Session::runPlatform(const BuildRequest& request, const EventSink& sink) {
+  const Clock::time_point tStart = Clock::now();
+  Clock::time_point tStage = tStart;
+  std::error_code ec;
+  const fs::path project = fs::absolute(request.project, ec);
+  emit(sink, Stage::Validate, Status::Started, "validating " + project.string() + " for " + request.platform);
+  if (!fs::exists(project / "ProjectSettings" / "Project.json")) {
+    emit(sink, Stage::Validate, Status::Failed, "not a Rensga project (missing ProjectSettings/Project.json): " + project.string());
+    return false;
+  }
+  const PlatformInfo* pi = findPlatform(request.platform);
+  if (!pi) {
+    emit(sink, Stage::Validate, Status::Failed, "unknown platform '" + request.platform + "'");
+    return false;
+  }
+  const std::vector<std::string> allowed = platformsForProject(project);
+  if (std::find(allowed.begin(), allowed.end(), pi->id) == allowed.end()) {
+    std::string l;
+    for (const std::string& a : allowed) l += (l.empty() ? "" : ", ") + a;
+    emit(sink, Stage::Validate, Status::Failed, pi->name + " builds need a project with the " + pi->id + " profile (ConsoleTarget.json); one project has one profile. This project builds for: " + l);
+    return false;
+  }
+  editor::ProjectBuildSettings pbs;
+  std::string perr;
+  if (!editor::loadProjectBuild(project, pbs, perr)) {
+    emit(sink, Stage::Validate, Status::Failed, "Project.json: " + perr);
+    return false;
+  }
+  if (pbs.enabledScenes().empty()) {
+    emit(sink, Stage::Validate, Status::Failed, "no scene is enabled in Build Settings (add scenes to the build first)");
+    return false;
+  }
+  emit(sink, Stage::Validate, Status::Succeeded,
+       std::to_string(pbs.enabledScenes().size()) + " scene(s) in the build; budgets are checked per scene while cooking for " + pi->id);
+  stageTime(sink, Stage::Validate, tStage);
+  tStage = Clock::now();
+  if (request.lastStage == Stage::Validate) return true;
+
+  // ---- Cook (validates every scene of the build against the target budgets; errors name the scene and the heaviest object) ----
+  const std::string cookTarget = cookTargetFor(pi->id);
+  emit(sink, Stage::Cook, Status::Started, "cooking for " + cookTarget);
+  CookOptions opt;
+  opt.project = project;
+  opt.target = cookTarget;
+  bool voiceOver = false;
+  CookResult cr = cookProject(opt, [&](const CookMessage& m) {
+    if (m.severity == CookMessage::Warning && m.text.rfind("audio voices in", 0) == 0) voiceOver = true;
+    std::string text = m.text;
+    if (!m.asset.empty()) text += " [" + m.asset + "]";
+    emit(sink, Stage::Cook, m.severity == CookMessage::Error ? Status::Failed : Status::Progress, text, m.assetGuid);
+  });
+  if (!cr.ok) {
+    if (cr.errors.empty()) emit(sink, Stage::Cook, Status::Failed, "cook failed");
+    return false;
+  }
+  if (voiceOver) {
+    emit(sink, Stage::Validate, Status::Failed, "a scene starts more audio sources than the target has voices (see the warning above); lower the count or raise ConsoleTarget audio.voices");
+    return false;
+  }
+  emit(sink, Stage::Cook, Status::Succeeded, (cr.upToDate ? "up to date: " : "cooked: ") + cr.packPath.string());
+  stageTime(sink, Stage::Cook, tStage);
+  tStage = Clock::now();
+  if (request.lastStage == Stage::Cook) return true;
+
+  PlatformContext pc;
+  pc.project = project;
+  pc.platform = pi->id;
+  pc.development = request.development;
+  pc.cookedPack = cr.packPath;
+  pc.buildDir = project / "Library" / "Build" / (pi->id + (request.development ? "-dev" : "-release"));
+  pc.outDir = platformOutputDir(project, pi->id, request.outputDir);
+  pc.name = projectBuildName(project);
+  pc.cancel = &impl_->cancel;
+
+  // ---- Compile ----
+  emit(sink, Stage::Compile, Status::Started, std::string("building the ") + pi->id + " player (" + (request.development ? "development" : "release") + ")");
+  fs::path exe;
+  if (!platformCompile(pc, sink, exe)) {
+    emit(sink, Stage::Compile, Status::Failed, "compile failed");
+    return false;
+  }
+  emit(sink, Stage::Compile, Status::Succeeded, "built " + exe.string());
+  stageTime(sink, Stage::Compile, tStage);
+  tStage = Clock::now();
+  if (request.lastStage == Stage::Compile) return true;
+
+  // ---- Package ----
+  emit(sink, Stage::Package, Status::Started, "packaging into " + pc.outDir.string());
+  fs::path primary;
+  if (!platformPackage(pc, exe, sink, primary)) {
+    emit(sink, Stage::Package, Status::Failed, "packaging failed");
+    return false;
+  }
   {
     std::lock_guard<std::mutex> lock(impl_->mu);
-    m = impl_->launched;
+    impl_->output = primary;
   }
-  if (m) m->launcher().stop();
+  emit(sink, Stage::Package, Status::Succeeded, "output: " + primary.string());
+  stageTime(sink, Stage::Package, tStage);
+  tStage = Clock::now();
+  if (request.lastStage == Stage::Package || !request.launch) return true;
+
+  // ---- Launch ----
+  emit(sink, Stage::Launch, Status::Started, "launching " + pi->name);
+  LaunchSpec spec;
+  spec.workingDir = pc.outDir;
+  spec.quitAfterSeconds = request.quitAfterSeconds;
+  spec.headless = request.headless;
+  spec.hangTimeoutSeconds = request.hangTimeoutSeconds;
+  std::unique_ptr<EmulatorLauncher> launcher;
+  std::string reason;
+  const LaunchKind lk = platformLaunch(pc, primary, spec, sink, launcher, reason);
+  if (lk == LaunchKind::Failed) {
+    emit(sink, Stage::Launch, Status::Failed, reason);
+    return false;
+  }
+  if (lk == LaunchKind::NotRun) {
+    {
+      std::lock_guard<std::mutex> lock(impl_->mu);
+      impl_->notRun = true;
+      impl_->note = reason;
+    }
+    emit(sink, Stage::Launch, Status::Skipped, reason);
+    return true;
+  }
+  {
+    std::lock_guard<std::mutex> lock(impl_->mu);
+    impl_->platformLauncher = std::move(launcher);
+  }
+  stageTime(sink, Stage::Launch, tStage);
+  emit(sink, Stage::Launch, Status::Progress, "pipeline: ready " + std::to_string(msSince(tStart)) + " ms after Play");
+  emit(sink, Stage::Launch, Status::Succeeded, pi->name + " running");
+  return true;
+}
+
+void Session::stop() {
+  impl_->cancel = true;
+  EmulatorLauncher* l;
+  {
+    std::lock_guard<std::mutex> lock(impl_->mu);
+    l = impl_->launcher();
+  }
+  if (l) l->stop();
 }
 
 bool Session::running() const {
   if (impl_->building) return true;
-  std::lock_guard<std::mutex> lock(impl_->mu);
-  return impl_->launched && impl_->launched->launcher().running();
-}
-
-namespace {
-editor::TargetModule* launchedOf(std::mutex& mu, editor::TargetModule* const& m) {
-  std::lock_guard<std::mutex> lock(mu);
-  return m;
-}
-}  // namespace
-
-bool Session::pause() { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().pause(); }
-bool Session::resume() { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().resume(); }
-bool Session::step(int frames) { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().step(frames); }
-bool Session::command(const std::string& raw) { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().sendCommand(raw); }
-bool Session::paused() const { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().paused(); }
-ExitState Session::exitState() const {
-  auto* m = launchedOf(impl_->mu, impl_->launched);
-  return m ? m->launcher().exitState() : ExitState::Exited;
-}
-int Session::exitCode() const { auto* m = launchedOf(impl_->mu, impl_->launched); return m ? m->launcher().exitCode() : -1; }
-int Session::exitSignal() const { auto* m = launchedOf(impl_->mu, impl_->launched); return m ? m->launcher().exitSignal() : 0; }
-std::string Session::exitDetail() const { auto* m = launchedOf(impl_->mu, impl_->launched); return m ? m->launcher().exitDetail() : std::string(); }
-bool Session::saveLog(const std::filesystem::path& path) const { auto* m = launchedOf(impl_->mu, impl_->launched); return m && m->launcher().saveLog(path); }
-
-std::vector<std::string> Session::drainGameLog() {
-  editor::TargetModule* m;
+  EmulatorLauncher* l;
   {
     std::lock_guard<std::mutex> lock(impl_->mu);
-    m = impl_->launched;
+    l = impl_->launcher();
   }
-  return m ? m->launcher().drainLog() : std::vector<std::string>{};
+  return l && l->running();
 }
+
+#define RENSGA_LAUNCHER(var)                          \
+  EmulatorLauncher* var;                              \
+  {                                                   \
+    std::lock_guard<std::mutex> lock(impl_->mu);      \
+    var = impl_->launcher();                          \
+  }
+
+bool Session::pause() { RENSGA_LAUNCHER(l); return l && l->pause(); }
+bool Session::resume() { RENSGA_LAUNCHER(l); return l && l->resume(); }
+bool Session::step(int frames) { RENSGA_LAUNCHER(l); return l && l->step(frames); }
+bool Session::command(const std::string& raw) { RENSGA_LAUNCHER(l); return l && l->sendCommand(raw); }
+bool Session::paused() const { RENSGA_LAUNCHER(l); return l && l->paused(); }
+ExitState Session::exitState() const { RENSGA_LAUNCHER(l); return l ? l->exitState() : ExitState::Exited; }
+int Session::exitCode() const { RENSGA_LAUNCHER(l); return l ? l->exitCode() : -1; }
+int Session::exitSignal() const { RENSGA_LAUNCHER(l); return l ? l->exitSignal() : 0; }
+std::string Session::exitDetail() const { RENSGA_LAUNCHER(l); return l ? l->exitDetail() : std::string(); }
+bool Session::saveLog(const std::filesystem::path& path) const { RENSGA_LAUNCHER(l); return l && l->saveLog(path); }
+std::vector<std::string> Session::drainGameLog() { RENSGA_LAUNCHER(l); return l ? l->drainLog() : std::vector<std::string>{}; }
+std::filesystem::path Session::lastOutput() const { std::lock_guard<std::mutex> lock(impl_->mu); return impl_->output; }
+bool Session::builtNotRun() const { std::lock_guard<std::mutex> lock(impl_->mu); return impl_->notRun; }
+std::string Session::lastNote() const { std::lock_guard<std::mutex> lock(impl_->mu); return impl_->note; }
 
 }  // namespace pipeline
 }  // namespace rensga

@@ -4,6 +4,8 @@
 #pragma once
 #include <string>
 
+#include <functional>
+
 namespace rensga {
 namespace editor {
 
@@ -18,8 +20,16 @@ void drawEmulatorManager(App& a);                 // every frame in Editor mode:
 bool gateTargetEmulator(App& a, const std::string& target, AfterEmulator after);
 void doBuildAndRun(App& a);                       // release EBOOT of the target, then run it in its emulator
 void stopBuildRun(App& a);
+void openBuildSettings(App& a);                    // F6.05: File > Build Settings... (panels/build_settings.cpp)
 
-bool emulatorHook(App& a, const std::string& act, const std::string& arg);   // --ui-event emulators|emuinfo|emuinstall|emuaccept|emugate|emudialoginstall|emudialogcancel|emureset|buildrun|buildrunstop|buildrunstate
+// F6.05: PCSX2 needs the user's own PS2 BIOS dump. It is referenced in place (~/.config/rensga/emulators.json {"pcsx2":{"bios":"<abs path>"}}, the file
+// tools/emulators/pcsx2_boot.sh reads); Rensga never ships, copies or commits one.
+std::string pcsx2Bios();                                           // configured BIOS path when the file exists, else ""
+bool setPcsx2Bios(const std::string& path, std::string& err);      // validates (a file of at least 1 MiB) and writes emulators.json, keeping other keys
+// True = a BIOS is configured, go ahead. False = the "PCSX2 needs your BIOS" dialog opened; `onReady` runs once a BIOS was set there.
+bool gatePcsx2Bios(App& a, std::function<void()> onReady);
+
+bool emulatorHook(App& a, const std::string& act, const std::string& arg);   // --ui-event emulators|emuinfo|emuinstall|emuaccept|emugate|emudialoginstall|emudialogcancel|emureset|buildrun|buildrunstop|buildrunstate|biosstate|biosset:<path>|biosdialog
 bool emulatorUiHolds(App& a, const std::string& event);                      // --ui-event buildrunwait:<running|finished>[|secs] holds the queue
 
 }  // namespace editor

@@ -21,6 +21,8 @@ void FrameProfiler::setScene(const char* name) {
 
 void FrameProfiler::noteDraws(u32 draws, u32 triangles) {
   haveCounts_ = true;
+  frameDraws_ = draws;
+  frameTris_ = triangles;
   runtime_stats::setTriangles(triangles);  // F6: Budget::trianglesLastFrame
   if (draws > peak_.draws) peak_.draws = draws;
   if (triangles > peak_.triangles) peak_.triangles = triangles;
@@ -28,6 +30,8 @@ void FrameProfiler::noteDraws(u32 draws, u32 triangles) {
 
 void FrameProfiler::noteResources(u32 textures, u32 vramBytes) {
   haveCounts_ = true;
+  lastTex_ = textures;
+  lastVram_ = vramBytes;
   runtime_stats::setVram(vramBytes);  // F6: Budget::vramUsed
   if (textures > peak_.textures) peak_.textures = textures;
   if (vramBytes > peak_.vramBytes) peak_.vramBytes = vramBytes;
@@ -47,12 +51,14 @@ void FrameProfiler::init(ClockUsFn clock, u32 logEvery) {
   clock_ = clock;
   logEvery_ = logEvery ? logEvery : 60;
   script_samples::setClock(clock);  // F6: Profiler::BeginSample uses the same microsecond clock
+  stream_.init();                   // F6.06: no-op unless RENSGA_PROF_STREAM_LOG / env RENSGA_PROF_STREAM ask for it
 }
 
 void FrameProfiler::frameBegin() {
   if (!clock_) return;
   start_ = last_ = clock_();
   for (u32 i = 0; i < kN; ++i) cur_[i] = 0;
+  frameDraws_ = frameTris_ = 0;
 }
 
 void FrameProfiler::mark(ProfSection s) {
@@ -66,6 +72,25 @@ void FrameProfiler::frameEnd() {
   if (!clock_) return;
   script_samples::endFrame();  // F6: roll the script samples of this frame into the window
   const u64 total = clock_() - start_;
+  if (stream_.active()) {  // F6.06
+    ProfFrameRecord r;
+    r.frame = ++streamFrame_;
+    r.totalUs = static_cast<u32>(total);
+    for (u32 i = 0; i < kN; ++i) r.sectionUs[i] = static_cast<u32>(cur_[i]);
+    r.draws = frameDraws_; r.triangles = frameTris_; r.textures = lastTex_; r.vramBytes = lastVram_;
+    if (arena_) { r.memUsed = static_cast<u32>(arena_->used()); r.memCapacity = static_cast<u32>(arena_->capacity()); }
+    i32 idx[script_samples::kMaxNames];
+    for (u32 i = 0; i < script_samples::windowCount() && r.sampleCount < kProfStreamMaxSamples; ++i) {
+      script_samples::LastFrameEntry e;
+      idx[i] = -1;
+      if (!script_samples::lastFrameEntry(i, &e)) continue;
+      idx[i] = static_cast<i32>(r.sampleCount);
+      ProfFrameRecord::Sample& s = r.samples[r.sampleCount++];
+      s.name = e.name; s.us = e.us; s.calls = e.calls;
+      s.parent = e.parent >= 0 && static_cast<u32>(e.parent) < i ? idx[e.parent] : -1;
+    }
+    stream_.push(r);
+  }
   for (u32 i = 0; i < kN; ++i) {
     sum_[i] += cur_[i];
     if (cur_[i] > max_[i]) max_[i] = cur_[i];

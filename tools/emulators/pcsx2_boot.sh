@@ -9,6 +9,7 @@
 #   --shot FILE  also save a PNG of the emulator window once the success heartbeat is seen (ImageMagick `import`)
 # Env: RENSGA_PCSX2_CARD=<file>  keep memory card 1 between runs (F6.11 save exercise): the file is copied into the sandbox before the
 #      boot (when it exists) and the card is copied back after PCSX2 stopped. Without it every run starts with a blank card.
+#      RENSGA_PCSX2_DONE=<regex>  also stop (success) once the log matches it, for a program that quits itself (tools/ci/ui_menus.sh)
 #      RENSGA_PCSX2_WORK=<dir>  sandbox + display folder (default build/pcsx2); give each parallel run its own, they cannot share one.
 # PCSX2 comes from the pcsx2 module (tools/emulators/pcsx2_bin.sh), $RENSGA_PCSX2, or PATH.
 # Exit: 0 heartbeat seen, 1 timeout/no heartbeat, 2 setup error.
@@ -98,6 +99,8 @@ while [ $SECONDS -lt $end ] && kill -0 $RUN 2>/dev/null; do
   cat "$XDG/PCSX2/logs/emulog.txt" >>/dev/null 2>&1
   best="$(cat "$LOG" "$XDG"/PCSX2/logs/*.txt 2>/dev/null | grep -a -o 'rensga: frame [0-9]*' | awk '{print $3}' | sort -n | tail -1)"
   if [ -n "$best" ] && [ "$best" -ge "$FRAMES" ]; then rc=0; break; fi
+  # RENSGA_PCSX2_DONE=<regex>: a program that quits by itself (a bot) is done when its log line shows up, even before the heartbeat reaches --frames
+  if [ -n "${RENSGA_PCSX2_DONE:-}" ] && cat "$LOG" "$XDG"/PCSX2/logs/*.txt 2>/dev/null | grep -aqE "$RENSGA_PCSX2_DONE"; then sleep 2; best="${best:-0}"; rc=0; break; fi
   sleep 1
 done
 if [ $rc = 0 ] && [ -n "$SHOT" ]; then sleep 2; DISPLAY="$DSP" import -window root "$SHOT" 2>/dev/null && echo "pcsx2_boot: screenshot $SHOT"; fi

@@ -25,6 +25,14 @@ struct WindowEntry {
   u64 totalUs = 0;
   u32 maxFrameUs = 0;
 };
+// F6.06: the samples of the most recent rolled frame only (false for entries not sampled in it). `parent` is the entry index of the
+// sample that was open when this one first began (-1 = top level): the hierarchy the Profiler window shows.
+struct LastFrameEntry {
+  const char* name = "";
+  u32 us = 0, calls = 0;
+  i32 parent = -1;
+};
+bool lastFrameEntry(u32 i, LastFrameEntry* out);
 u32 windowCount();
 bool windowEntry(u32 i, WindowEntry* out);
 void resetWindow();

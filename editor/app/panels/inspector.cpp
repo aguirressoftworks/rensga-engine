@@ -19,6 +19,7 @@
 #include "panels/drawers/drawers.h"
 #include "panels/prefab_ui.h"
 #include "panels/preview_state.h"
+#include "extensions/ext_host.h"  // F6 D3
 #include "panels/tile_tools.h"
 #include "rensga/core/reflect.h"
 #include "rensga/core/reflect_json.h"
@@ -209,7 +210,7 @@ void drawComponent(App& a, const CompRow& cr, int rowIdx, const std::set<std::st
       bool inTable = false;
       for (u32 i = 0; i < ti->fieldCount; ++i) {
         const FieldDesc& f = ti->fields[i];
-        if (f.hideInInspector) continue;
+        if (f.hideInInspector || extensionReplacesFields(cr.type)) continue;  // F6 D3: RENSGA_CUSTOM_INSPECTOR_REPLACE draws instead
         if (f.header) {
           if (inTable) { ImGui::EndTable(); inTable = false; }
           ImGui::SeparatorText(f.header);

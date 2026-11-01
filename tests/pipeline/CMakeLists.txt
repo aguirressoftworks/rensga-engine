@@ -41,3 +41,19 @@ if(TARGET rensga)
   set_tests_properties(pipeline_emu_play_cli PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 LABELS "slow;emulator" ENVIRONMENT "RENSGA_JOBS=2")
 endif()
 # --- F5 emu-play end ---
+
+# --- F6 d2 begin ---
+# F6.05 / F6.06: platform table, process launcher, Build Settings refusals, profiler stream line + editor model (no toolchain, no emulator).
+if(TARGET rensga_pipeline AND TARGET rensga_runtime_boot AND TARGET rensga_editor_core)
+  add_executable(rensga_build_pipeline_tests ../test_main.cpp test_build_pipeline.cpp)
+  target_link_libraries(rensga_build_pipeline_tests PRIVATE rensga_pipeline rensga_editor_core rensga_runtime_boot)
+  target_include_directories(rensga_build_pipeline_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. ${CMAKE_SOURCE_DIR}/engine/runtime)
+  target_compile_definitions(rensga_build_pipeline_tests PRIVATE RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp")
+  if(RENSGA_TARGET MATCHES "^(linux-host|android)$")
+    target_compile_definitions(rensga_build_pipeline_tests PRIVATE RENSGA_PROF_SOCKET=1)
+  endif()
+  rensga_host_target(rensga_build_pipeline_tests)
+  add_test(NAME pipeline_build_settings COMMAND rensga_build_pipeline_tests)
+  set_tests_properties(pipeline_build_settings PROPERTIES TIMEOUT 120)
+endif()
+# --- F6 d2 end ---

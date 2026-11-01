@@ -25,6 +25,7 @@ struct BuildContext {
   std::filesystem::path cookedPack;  // Library/Cooked/<target>/game.rpak
   std::filesystem::path buildDir;    // Library/Build/<target>-dev or -release
   bool release = false;
+  bool development = true;  // F6.05: development build (profiler stream on); false only for a release build without the flag
   int quitAfterSeconds = 0;
   std::filesystem::path generatedDir;       // Library/Generated/<target>/ (console_target.gen.h)
   const std::atomic<bool>* cancel = nullptr;  // set by Session::stop(); long steps poll it

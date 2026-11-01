@@ -177,6 +177,7 @@ int main(int argc, char** argv) {
   u32 vw = 480, vh = 272;  // PSP profile resolution unless the pack says otherwise
   static BootState boot;   // BootState must not move: SceneManager and GfxAssets point into it
   PackView& view = boot.view;
+  (void)view;  // F6 d2: only the hot-reload block (not built on Android) reads it; the Android build is -Werror
   LoadedPack& loaded = boot.loaded;
   const PackConsoleTarget* ct = nullptr;
   static u32 packTex[kMaxPackTextures] = {};
@@ -269,6 +270,7 @@ int main(int argc, char** argv) {
 #endif
 
   g_prof.init(audioClockUs);
+  g_prof.bindMemory(&arena);  // F6.06 d2: arena use in the remote profiler stream
   static ProfilingRenderer profRenderer(renderer, g_prof);
   profRenderer.setEndHook(endHook);
   GameLoop loop;

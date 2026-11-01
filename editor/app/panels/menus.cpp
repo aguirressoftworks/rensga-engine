@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "app.h"
+#include "extensions/ext_host.h"  // F6 D3
 #include "panel_registry.h"
 #include "panels/asset_ui.h"
 #include "panels/dock_debug.h"
@@ -55,6 +56,7 @@ void drawMenuBar(App& a) {
     if (ImGui::MenuItem("Open Project...")) a.hub.goPicker = true;
     if (ImGui::MenuItem("Save Scene", "Ctrl+S", false, a.doc.loaded())) a.saveScene();
     ImGui::Separator();
+    if (ImGui::MenuItem("Build Settings...", nullptr, false, a.loaded)) openBuildSettings(a);   // F6.05 (panels/build_settings.cpp)
     if (ImGui::MenuItem("Build and Run", "Ctrl+B", false, a.loaded && !a.target.empty())) doBuildAndRun(a);   // F5.09: release package, then the emulator
     ImGui::Separator();
     if (ImGui::MenuItem("Quit")) a.quitRequested = true;
@@ -109,10 +111,14 @@ void drawMenuBar(App& a) {
     }
     if (ImGui::MenuItem("Animation", nullptr, false, a.loaded)) panelHook(a, "animwindow", "");  // F6.03 (panels/animation_window.cpp)
     if (ImGui::MenuItem("Animator", nullptr, false, a.loaded)) panelHook(a, "animatorgraph", "");  // F6.03 (panels/animator_graph.cpp)
+    if (ImGui::MenuItem("Input Actions", nullptr, false, a.loaded)) panelHook(a, "inputactions", "");  // F6.04 (panels/input_actions.cpp)
+    if (ImGui::MenuItem("Project Settings", nullptr, false, a.loaded)) panelHook(a, "projsettings", "");  // F6.04 (panels/project_settings.cpp)
     if (ImGui::MenuItem("Build Support Modules...")) openModulesFromHub(a);
     if (ImGui::MenuItem("Emulators...", nullptr, false, a.loaded)) openEmulatorManager(a);   // F5.04
+    drawExtensionWindowItems(a);  // F6 D3: windows registered by <project>/Editor
     ImGui::EndMenu();
   }
+  drawExtensionMenus(a);  // F6 D3: Tools/... menus registered by <project>/Editor
   if (ImGui::BeginMenu("Help")) {
     if (ImGui::MenuItem("Build Support Modules...")) openModulesFromHub(a);
     if (ImGui::MenuItem("About Rensga Engine")) a.openAbout = true;

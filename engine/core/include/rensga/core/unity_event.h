@@ -31,7 +31,8 @@ struct UnityEventListener {
   u32 typeHash = 0;    // fnv1a32 of the component type name
   u32 methodHash = 0;  // fnv1a32 of the method name
   u8 argKind = 0;      // MethodArgKind
-  u8 pad_[3] = {};
+  u8 dynamic = 0;      // F6 (D1): 1 = the method gets the value the event is raised with (Invoke(world, arg)), not a stored argument
+  u8 pad_[2] = {};
   u8 arg[16] = {};  // Scalar/i32: first 4 bytes, bool: first byte, Guid: 16 bytes
 
   MethodArg decode() const;
@@ -50,6 +51,10 @@ struct UnityEvent {
   // objects and unknown methods are skipped. Returns the number of methods called.
   u32 Invoke() const;
   u32 Invoke(World& world) const;
+  // F6 (D1): dynamic-argument invoke (Unity's UnityEvent<T>): listeners marked `dynamic` whose method takes an argument get `arg`
+  // (converted to the method's kind: Scalar <-> i32, bool <-> number); every other listener behaves as in Invoke(world).
+  u32 InvokeWith(World& world, MethodArgKind kind, const MethodArg& arg) const;
+  u32 InvokeWith(MethodArgKind kind, const MethodArg& arg) const;
 
   // Adds a listener; null when full. `arg` is read only for one-argument methods.
   UnityEventListener* AddListener(const Guid& target, const char* componentType, const char* method);

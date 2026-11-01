@@ -76,3 +76,9 @@ set_source_files_properties(src/vertex_bake.cpp PROPERTIES COMPILE_OPTIONS "-O2"
 # Property clips and animator controllers (F6.03): shared by the cooker and the editor preview.
 target_sources(rensga_cooker_core PRIVATE src/anim_cook.cpp)
 # --- F6 B1 end ---
+
+# --- F6 d3 begin ---
+# F6.07: data assets (*.asset.json) -> DATA. The editor's data asset documents bake with the same code.
+target_sources(rensga_cooker_core PRIVATE src/data_cook.cpp)
+target_include_directories(rensga_cooker_core PRIVATE ${CMAKE_SOURCE_DIR}/engine/api/include)  # DataAsset.h (header only)
+# --- F6 d3 end ---

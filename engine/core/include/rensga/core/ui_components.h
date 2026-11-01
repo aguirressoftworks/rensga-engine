@@ -4,6 +4,7 @@
 #pragma once
 #include "rensga/core/object.h"
 #include "rensga/core/unity_event.h"
+#include "rensga/core/gameplay.h"
 
 namespace rensga {
 
@@ -85,5 +86,43 @@ struct EventSystem : Component {
   GameObject* currentSelectedGameObject() const;
   void SetSelectedGameObject(GameObject* go);
 };
+
+// ---- F6.04 / F6.12 (D1): the UI runtime (engine/core/src/ui_runtime.cpp) ------------------------------------------------------
+class IRenderer;
+class World;
+namespace UI {
+
+// How a Canvas maps its reference resolution to the real view. Without a Canvas (or ConstantPixelSize) scale is 1 and the virtual
+// view is the real view. ScaleWithScreenSize: scale = sw + (sh - sw) * matchWidthOrHeight with sw = view / reference width and sh =
+// view / reference height; the virtual view is the real view divided by the scale. Every UI element is laid out in virtual pixels.
+struct CanvasView {
+  Scalar scale = 1.0f;
+  i32 viewW = 320, viewH = 240;  // real view
+  i32 vw = 320, vh = 240;        // virtual view (anchors resolve against it)
+  i32 order = 0;                 // Canvas.sortingOrder, added to every element's sorting order
+};
+// Real view size last given to renderGameplay2D (or the 320 x 240 default).
+void viewSize(i32& w, i32& h);
+CanvasView canvasView(World& world, i32 viewW, i32 viewH);
+// Layout groups, slider fills and handles, toggle graphics. Idempotent; UI::update and the 2D drawing both call it.
+void prepare(World& world);
+// The same for a given real view size (the editor preview lays a scene out for the target's resolution without a renderer).
+void prepare(World& world, i32 viewW, i32 viewH);
+// Draws the UI (images with fill, buttons, sliders' parts, text) with the Canvas scale. Called by renderGameplay2D.
+void draw(World& world, IRenderer& renderer);
+// Rectangle of a UI object in virtual pixels (UIButton / UIImage / UIText, or the UIImage of a Slider / Toggle). False if it has none.
+bool rectOf(GameObject* go, const CanvasView& view, Rect& out);
+
+// Navigation input that does not come from the pad (bots, tests, on-screen controls): consumed by the next UI::update like a pad press.
+enum Nav : u32 { NavUp = 1, NavDown = 2, NavLeft = 4, NavRight = 8, NavSubmit = 16, NavCancel = 32 };
+void pushNav(u32 navBits);
+// Called when the cancel button (the one the platform does not confirm with) is pressed; `focused` may be null.
+using CancelHandler = void (*)(GameObject* focused);
+void setCancelHandler(CancelHandler handler);
+// The focused object (null if none) and a forced focus (what EventSystem::SetSelectedGameObject calls).
+GameObject* focused();
+void setFocused(GameObject* go);
+
+}  // namespace UI
 
 }  // namespace rensga

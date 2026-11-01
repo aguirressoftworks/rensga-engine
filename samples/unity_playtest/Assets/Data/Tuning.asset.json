@@ -1,0 +1,12 @@
+{
+ "format": 1,
+ "kind": "DataAsset",
+ "type": "GameTuning",
+ "fields": {
+  "playerSpeed": 5.0,
+  "coinCount": 8,
+  "coinValue": 10,
+  "timeLimit": 30.0,
+  "arenaHalf": 6.0
+ }
+}

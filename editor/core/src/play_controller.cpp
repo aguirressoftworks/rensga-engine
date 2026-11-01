@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "rensga/editor/editor_log.h"
+#include "rensga/editor/profiler_model.h"
 
 namespace rensga {
 namespace editor {
@@ -42,11 +43,25 @@ bool PlayController::play(const std::filesystem::path& project, const std::strin
 }
 
 bool PlayController::play(const pipeline::BuildRequest& request) {
-  if (busy()) return false;
-  if (thread_.joinable()) thread_.join();
   pipeline::BuildRequest req = request;
   req.launch = true;
-  req.release = false;
+  if (req.platform.empty()) req.release = false;  // F6.05: a Build Settings run keeps its release / development choice
+  return start(req);
+}
+
+bool PlayController::build(const pipeline::BuildRequest& request) {
+  pipeline::BuildRequest req = request;
+  req.launch = false;
+  if (req.lastStage == pipeline::Stage::Launch) req.lastStage = pipeline::Stage::Package;
+  return start(req);
+}
+
+bool PlayController::start(pipeline::BuildRequest req) {
+  if (busy()) return false;
+  if (thread_.joinable()) thread_.join();
+  profAttached_ = false;
+  ProfilerFeed::instance().detach();
+  ProfilerFeed::instance().clear();
   last_ = req;
   haveLast_ = true;
   done_ = false;
@@ -54,7 +69,8 @@ bool PlayController::play(const pipeline::BuildRequest& request) {
   readyMs_ = 0;
   stopAsked_ = false;
   status_ = PlayStatus::Building;
-  EditorLog::instance().info("play: building " + req.target + " for " + req.project.string() + (req.debugger ? " (emulator debugger on)" : ""));
+  EditorLog::instance().info(std::string(req.launch ? "play: building " : "build: ") + (req.platform.empty() ? req.target : req.platform) + " for " +
+                             req.project.string() + (req.debugger ? " (emulator debugger on)" : ""));
   thread_ = std::thread([this, req] { worker(req); });
   return true;
 }
@@ -74,7 +90,14 @@ void PlayController::worker(pipeline::BuildRequest req) {
   readyMs_ = static_cast<long>(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count());
   // The emulator keeps running after run() returned: stay Running until the process is gone, and report how it ended.
   bool reportedBad = false;
-  if (ok && req.launch) {
+  if (ok && req.launch && session_.builtNotRun()) {  // F6.05: built, nothing to run it on here
+    pipeline::Event e;
+    e.stage = pipeline::Stage::Launch;
+    e.status = pipeline::Status::Skipped;
+    e.message = "built, not run: " + session_.lastNote();
+    std::lock_guard<std::mutex> g(mu_);
+    events_.push_back(e);
+  } else if (ok && req.launch) {
     status_ = PlayStatus::Running;
     while (session_.running()) {
       const pipeline::ExitState st = session_.exitState();
@@ -149,7 +172,16 @@ void PlayController::pump() {
     if (!e.assetGuid.empty()) t += " [" + e.assetGuid + "]";
     if (e.status == pipeline::Status::Failed) log.error(t); else log.info(t);
   }
-  for (const std::string& l : session_.drainGameLog()) log.game(l);
+  // F6.06: the per-frame profiler lines go to the Profiler window, not the Console; a Linux dev player also streams over TCP.
+  for (const std::string& l : session_.drainGameLog())
+    if (!ProfilerFeed::instance().feedLogLine(l)) log.game(l);
+  if (!profAttached_ && status_.load() == PlayStatus::Running && last_.development && last_.platform == "linux") attachProfiler();
+}
+
+void PlayController::attachProfiler() {
+  profAttached_ = true;
+  if (ProfilerFeed::instance().attachTcp(47017, 8000))
+    EditorLog::instance().info("profiler: attaching to the player on 127.0.0.1:47017");
 }
 
 }  // namespace editor

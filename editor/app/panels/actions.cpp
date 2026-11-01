@@ -5,6 +5,7 @@
 #include <algorithm>
 
 #include "app.h"
+#include "panels/canvas_edit.h"  // F6.04 (D1): GameObject > UI
 #include "rensga/editor/editor_log.h"
 
 namespace rensga {
@@ -191,6 +192,10 @@ void drawCreateMenuItems(App& a, const std::string& parent, const float* at) {
     ImGui::Separator();
     if (ImGui::MenuItem("Camera", nullptr, false, ok)) createCameraObject(a, parent, at);
     if (ImGui::MenuItem("Audio Source", nullptr, false, ok)) createAudioSourceObject(a, parent, at);
+    ImGui::EndMenu();
+  }
+  if (ImGui::BeginMenu("UI", ok)) {  // F6.04 (D1): panels/canvas_edit.cpp
+    drawUiCreateMenuItems(a, parent, at);
     ImGui::EndMenu();
   }
   if (ImGui::MenuItem("Camera", nullptr, false, ok)) createCameraObject(a, parent, at);

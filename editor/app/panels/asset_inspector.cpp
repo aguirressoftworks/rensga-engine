@@ -7,6 +7,7 @@
 
 #include "app.h"
 #include "panels/asset_ui.h"
+#include "panels/data_asset_ui.h"  // F6 D3
 #include "panels/tile_tools.h"
 #include "rensga/editor/editor_log.h"
 #include "rensga/editor/inspector_model.h"
@@ -256,6 +257,7 @@ bool drawAssetInspector(App& a) {
   ImGui::TextDisabled("GUID %s", e.guid.c_str());
   if (ImGui::IsItemClicked()) ImGui::SetClipboardText(e.guid.c_str());
   ImGui::TextDisabled("%s", kb(e.size).c_str());
+  if (e.kind == AssetKind::DataAsset) return drawDataAssetInspector(a, e);  // F6 D3: typed fields with undo
   if (e.kind == AssetKind::Texture) {  // F4.08
     if (ImGui::Button("Open Sprite Editor", ImVec2(-FLT_MIN, 0))) openSpriteEditor(a, e.guid);
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("Slice this texture into named sprites (grid or manual rectangles, pivots)");

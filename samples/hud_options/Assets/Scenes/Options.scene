@@ -1,0 +1,591 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-0000000d2002",
+ "objects": [
+  {
+   "guid": "6a49581a-ebb0-4b48-bcc4-b6f1cf2654ac",
+   "name": "Canvas",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "Canvas",
+     "fields": {
+      "matchWidthOrHeight": 0.5,
+      "referenceHeight": 272,
+      "referenceWidth": 480,
+      "scaleMode": 1
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "f8b0caf2-6a82-4e7a-84d4-988b19d9e060",
+   "name": "EventSystem",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "EventSystem",
+     "fields": {}
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "2d6e83aa-ea75-4552-8f22-8ee280dad8bc",
+   "name": "Heading",
+   "parent": "6a49581a-ebb0-4b48-bcc4-b6f1cf2654ac",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "OPTIONS",
+      "x": 0,
+      "y": -85
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "ef5945a2-5f8c-4b14-80ad-e79103b32f4c",
+   "name": "MusicText",
+   "parent": "6a49581a-ebb0-4b48-bcc4-b6f1cf2654ac",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "MUSIC 50%",
+      "x": 0,
+      "y": -55
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "2feaf3ae-63e4-46c0-ac0a-2bdf691c3779",
+   "name": "MusicSlider",
+   "parent": "6a49581a-ebb0-4b48-bcc4-b6f1cf2654ac",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       40,
+       40,
+       60,
+       255
+      ],
+      "h": 8,
+      "sortingOrder": 0,
+      "w": 220,
+      "x": 0,
+      "y": -35
+     }
+    },
+    {
+     "type": "Slider",
+     "fields": {
+      "value": 0.5,
+      "fillRect": "4a667f84-b1b4-472d-bb55-ee60b92cbd4d",
+      "handleRect": "c29b37b9-2234-4896-8bb2-c6eda97f65fe",
+      "onValueChanged": [
+       {
+        "dynamic": true,
+        "method": "SetMusic",
+        "target": "d2ea0887-84fc-44c7-b9ad-3474196237fa",
+        "type": "OptionsMenu"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "4a667f84-b1b4-472d-bb55-ee60b92cbd4d",
+   "name": "MusicSliderFill",
+   "parent": "2feaf3ae-63e4-46c0-ac0a-2bdf691c3779",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       240,
+       160,
+       30,
+       255
+      ],
+      "h": 8,
+      "sortingOrder": 1,
+      "w": 110,
+      "x": 0,
+      "y": -35
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "c29b37b9-2234-4896-8bb2-c6eda97f65fe",
+   "name": "MusicSliderHandle",
+   "parent": "2feaf3ae-63e4-46c0-ac0a-2bdf691c3779",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       240,
+       240,
+       240,
+       255
+      ],
+      "h": 16,
+      "sortingOrder": 2,
+      "w": 8,
+      "x": 0,
+      "y": -35
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "d7aa88c1-8ef1-492c-9c68-dcf103c7c6fa",
+   "name": "SfxText",
+   "parent": "6a49581a-ebb0-4b48-bcc4-b6f1cf2654ac",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "EFFECTS 50%",
+      "x": 0,
+      "y": -5
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "f8fb7ca7-ea99-4991-b154-5f2d3eaa875f",
+   "name": "SfxSlider",
+   "parent": "6a49581a-ebb0-4b48-bcc4-b6f1cf2654ac",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       40,
+       40,
+       60,
+       255
+      ],
+      "h": 8,
+      "sortingOrder": 0,
+      "w": 220,
+      "x": 0,
+      "y": 15
+     }
+    },
+    {
+     "type": "Slider",
+     "fields": {
+      "value": 0.5,
+      "fillRect": "b6ada389-0a8d-4381-88cc-05355f7b869c",
+      "handleRect": "8699ca47-037d-4c48-b80d-c97cdd9329f3",
+      "onValueChanged": [
+       {
+        "dynamic": true,
+        "method": "SetSfx",
+        "target": "d2ea0887-84fc-44c7-b9ad-3474196237fa",
+        "type": "OptionsMenu"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "b6ada389-0a8d-4381-88cc-05355f7b869c",
+   "name": "SfxSliderFill",
+   "parent": "f8fb7ca7-ea99-4991-b154-5f2d3eaa875f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       240,
+       160,
+       30,
+       255
+      ],
+      "h": 8,
+      "sortingOrder": 1,
+      "w": 110,
+      "x": 0,
+      "y": 15
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "8699ca47-037d-4c48-b80d-c97cdd9329f3",
+   "name": "SfxSliderHandle",
+   "parent": "f8fb7ca7-ea99-4991-b154-5f2d3eaa875f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       240,
+       240,
+       240,
+       255
+      ],
+      "h": 16,
+      "sortingOrder": 2,
+      "w": 8,
+      "x": 0,
+      "y": 15
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "7b4aa984-3504-40e6-9476-5120fad93bed",
+   "name": "BackButton",
+   "parent": "6a49581a-ebb0-4b48-bcc4-b6f1cf2654ac",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "h": 24,
+      "w": 110,
+      "x": 0,
+      "y": 65,
+      "onClick": [
+       {
+        "method": "Back",
+        "target": "d2ea0887-84fc-44c7-b9ad-3474196237fa",
+        "type": "OptionsMenu"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "581c3f11-8dcb-4537-b3f1-d58e6b781e75",
+   "name": "BackButtonLabel",
+   "parent": "7b4aa984-3504-40e6-9476-5120fad93bed",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "BACK",
+      "sortingOrder": 1,
+      "x": 0,
+      "y": 65
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "d2ea0887-84fc-44c7-b9ad-3474196237fa",
+   "name": "OptionsObject",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "OptionsMenu",
+     "fields": {
+      "verifyOnly": 0
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

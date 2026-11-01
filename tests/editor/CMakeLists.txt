@@ -332,3 +332,69 @@ if(TARGET rensga-editor)
   set_tests_properties(editor_animation_graph_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 400 LABELS "slow;gl")
 endif()
 # --- F6 B1 end ---
+
+# --- F6 d3 begin ---
+# F6.07: editor extensions (registry, ComponentView, editor API), data asset documents, and a real Editor/ module built and hot-reloaded.
+if(TARGET rensga_editor_core)
+  rensga_reflect_scan(tests_extensions RENSGA_EXT_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_extensions.cpp)
+  add_executable(rensga_extension_tests ../test_main.cpp ${RENSGA_EXT_TEST_SRCS})
+  target_link_libraries(rensga_extension_tests PRIVATE rensga_editor_core rensga_cooker_lib rensga_api)
+  target_include_directories(rensga_extension_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_extension_tests PRIVATE RENSGA_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../fixtures"
+    RENSGA_TEMPLATE_DIR="${CMAKE_SOURCE_DIR}/templates/psp-3d")
+  # The module resolves the editor API from this executable, like the editor.
+  rensga_link_whole_archive(rensga_extension_tests PRIVATE rensga_editor_core)
+  rensga_link_whole_archive(rensga_extension_tests PRIVATE rensga_core)
+  rensga_link_whole_archive(rensga_extension_tests PRIVATE rensga_api)
+  set_target_properties(rensga_extension_tests PROPERTIES ENABLE_EXPORTS ON)
+  rensga_host_target(rensga_extension_tests)
+  add_test(NAME rensga_extension_tests COMMAND rensga_extension_tests)
+  set_tests_properties(rensga_extension_tests PROPERTIES ENVIRONMENT "RENSGA_JOBS=2" TIMEOUT 600)
+endif()
+# --- F6 d3 end ---
+
+# --- F6 d1 begin ---
+# F6.04 Editor 10: UI creation + preview, Input Actions and Physics2D documents (editor/core only, no UI).
+if(TARGET rensga_editor_core AND TARGET rensga_target_psp)
+  add_executable(rensga_ui_edit_tests ../test_main.cpp test_ui_edit.cpp)
+  target_link_libraries(rensga_ui_edit_tests PRIVATE rensga_editor_core rensga_cooker_lib)
+  target_include_directories(rensga_ui_edit_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/..)
+  target_compile_definitions(rensga_ui_edit_tests PRIVATE RENSGA_TEST_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp_ui_edit")
+  rensga_link_whole_archive(rensga_ui_edit_tests PRIVATE rensga_target_psp)
+  rensga_host_target(rensga_ui_edit_tests)
+  add_test(NAME rensga_ui_edit_tests COMMAND rensga_ui_edit_tests)
+endif()
+if(TARGET rensga-editor)
+  add_test(NAME editor_ui_edit_ui COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/ui_edit_ui_check.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/menus ${CMAKE_CURRENT_BINARY_DIR}/ui_edit_ui)
+  set_tests_properties(editor_ui_edit_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 400 LABELS "slow;gl")
+endif()
+# --- F6 d1 end ---
+
+# --- F6 d3 begin (ui) ---
+# F6.07: samples/extending_editor in the real editor: Editor/ module, custom inspector, window, menu items, data assets, hot reload (screenshots in the build dir).
+if(TARGET rensga-editor)
+  add_test(NAME editor_extensions_ui COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/extensions_ui_check.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/extending_editor ${CMAKE_CURRENT_BINARY_DIR}/extensions_ui)
+  set_tests_properties(editor_extensions_ui PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 LABELS "slow;gl" ENVIRONMENT "RENSGA_JOBS=2")
+endif()
+# --- F6 d3 end (ui) ---
+
+# --- F6 d2 begin ---
+# F6.05 / gate F6.G2: Build and Run from the Build Settings window for each platform (skips with 77 without the module / emulator / BIOS / wine),
+# and the Profiler exercise: samples/frame_spike on a PSP development build, the spike found in the Frames tab and fixed in Build Settings.
+if(TARGET rensga-editor)
+  foreach(plat linux windows android psp ps2)
+    set(proj ${CMAKE_SOURCE_DIR}/templates/psp-2d)
+    if(plat STREQUAL ps2)
+      set(proj ${CMAKE_SOURCE_DIR}/templates/ps2-2d)
+    endif()
+    add_test(NAME editor_build_settings_${plat} COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/build_settings_ui.sh $<TARGET_FILE:rensga-editor>
+             ${proj} ${CMAKE_CURRENT_BINARY_DIR}/build_settings_${plat} ${plat} $<IF:$<STREQUAL:${plat},psp>,release,dev>)
+    set_tests_properties(editor_build_settings_${plat} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400 LABELS "slow;gl;g2" ENVIRONMENT "RENSGA_JOBS=2")
+  endforeach()
+  add_test(NAME editor_profiler_frames COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/profiler_frames_ui.sh $<TARGET_FILE:rensga-editor>
+           ${CMAKE_SOURCE_DIR}/samples/frame_spike ${CMAKE_CURRENT_BINARY_DIR}/profiler_frames)
+  set_tests_properties(editor_profiler_frames PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 2400 LABELS "slow;gl" ENVIRONMENT "RENSGA_JOBS=2")
+endif()
+# --- F6 d2 end ---

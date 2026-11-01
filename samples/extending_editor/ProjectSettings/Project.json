@@ -1,0 +1,8 @@
+{
+ "format": 1,
+ "name": "ExtendingEditor",
+ "target": "psp",
+ "scenes": [
+  "00000000-0000-4000-a000-000000000d31"
+ ]
+}

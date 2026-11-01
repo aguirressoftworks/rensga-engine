@@ -3,14 +3,22 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <poll.h>
 #include <unistd.h>
 
 #include <chrono>
+#include <cerrno>
 #include <cstdlib>
 #include <cstring>
 
 namespace rensga {
 namespace pipeline {
+
+namespace {
+long long nowMs() {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count() + 1;
+}
+}  // namespace
 
 Process::~Process() {
   terminate(500);
@@ -33,6 +41,9 @@ bool Process::start(const ProcessSpec& spec, LineSink onLine) {
     close(p[1]);
     int nul = open("/dev/null", O_RDONLY);
     if (nul >= 0) { dup2(nul, 0); close(nul); }
+    // F6.05: nothing but stdio goes to the child. A daemon the child starts (wineserver) would otherwise keep the build lock (flock) and
+    // other descriptors of the editor open after the game ended.
+    for (int fd = 3; fd < 1024; ++fd) close(fd);
     if (!spec.cwd.empty() && chdir(spec.cwd.c_str()) != 0) _exit(127);
     for (auto& kv : spec.env) setenv(kv.first.c_str(), kv.second.c_str(), 1);
     std::vector<char*> args;
@@ -49,10 +60,20 @@ bool Process::start(const ProcessSpec& spec, LineSink onLine) {
   exitCode_ = -1;
   exitSignal_ = 0;
   int fd = fd_;
-  reader_ = std::thread([fd, onLine]() {
+  exitedAtMs_ = 0;
+  reader_ = std::thread([this, fd, onLine]() {
     std::string buf;
     char tmp[4096];
     for (;;) {
+      // A daemon the child started (wineserver) can keep the pipe open long after the child ended: stop shortly after the child was reaped.
+      pollfd pfd = {fd, POLLIN, 0};
+      const int pr = ::poll(&pfd, 1, 100);
+      if (pr == 0) {
+        const long long at = exitedAtMs_.load();
+        if (at && nowMs() - at > 300) break;
+        continue;
+      }
+      if (pr < 0) break;
       ssize_t n = read(fd, tmp, sizeof tmp);
       if (n <= 0) break;
       for (ssize_t i = 0; i < n; ++i) {
@@ -77,6 +98,7 @@ bool Process::poll(bool block) {
   pid_t r = waitpid(pid_, &status, block ? 0 : WNOHANG);
   if (r == 0) return true;
   if (r < 0) {
+    waitErrno_ = errno;
     exitCode_ = -1;
   } else if (WIFEXITED(status)) {
     exitCode_ = WEXITSTATUS(status);
@@ -85,6 +107,7 @@ bool Process::poll(bool block) {
     exitSignal_ = WTERMSIG(status);
   }
   done_ = true;
+  exitedAtMs_ = nowMs();
   return false;
 }
 

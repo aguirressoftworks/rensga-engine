@@ -1,0 +1,13 @@
+{
+ "format": 1,
+ "stickDeadZone": 0.2,
+ "stickOuterClamp": 0.95,
+ "actions": [
+  {
+   "name": "Menu",
+   "kind": "button",
+   "source": "start",
+   "alt": "key:Escape"
+  }
+ ]
+}

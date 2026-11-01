@@ -6,8 +6,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <fstream>
 #include <mutex>
 #include <thread>
+
+#include <nlohmann/json.hpp>
 
 #include "app.h"
 #include "panel_registry.h"
@@ -25,22 +28,6 @@ namespace {
 
 enum class EmuState { Unknown, Missing, Match, Differs, NoVersion };
 
-struct BuildRun {
-  pipeline::Session session;
-  std::thread th;
-  std::atomic<int> state{0};          // 0 idle, 1 building, 2 running, 3 ended ok, 4 failed
-  std::atomic<long> readyMs{0};       // click to emulator running
-  std::atomic<bool> stopAsked{false};
-  std::mutex mu;
-  std::vector<std::pair<int, std::string>> lines;   // level 0 info, 1 warn, 2 error, 3 game
-  std::string summary;                 // last status sentence for the window
-  std::chrono::steady_clock::time_point t0;
-  ~BuildRun() {
-    session.stop();
-    if (th.joinable()) th.join();
-  }
-};
-
 struct EmulatorUi {
   bool show = false;
   // what the emulator is, refreshed on open, after an install and with the Refresh button (it starts a process for the version)
@@ -55,7 +42,13 @@ struct EmulatorUi {
   bool installStarted = false;
   bool closeOffer = false;
   bool offerShown = false;             // the dialog was drawn this frame (for --ui-event emuinfo)
-  std::unique_ptr<BuildRun> run;
+  // F6.05: Build and Run goes through App::play (PlayController), like Play on console; the separate Session of F5.09 is gone.
+  bool runActive = false, runReadyLogged = false, runEndLogged = false;
+  // F6.05: PCSX2 BIOS prompt
+  bool openBios = false;
+  std::function<void()> onBios;
+  char biosInput[512] = {};
+  std::string biosNote;
   // --ui-event buildrunwait
   std::chrono::steady_clock::time_point waitStart;
   bool waiting = false;
@@ -195,97 +188,96 @@ void moduleActions(App& a, const ModuleRow& r, const char* idSuffix) {
 }
 
 // ---- Build and Run ------------------------------------------------------------------------------------------------------------
-void flushRun(BuildRun& r) {
-  std::vector<std::pair<int, std::string>> take;
-  {
-    std::lock_guard<std::mutex> g(r.mu);
-    take.swap(r.lines);
+// 0 idle, 1 building / launching, 2 running, 3 ended ok, 4 failed. Follows App::play while the run this window started is the one in it.
+int runState(App& a) {
+  const EmulatorUi& u = ui();
+  if (!u.runActive) return 0;
+  switch (a.play.status()) {
+    case PlayStatus::Building:
+    case PlayStatus::Launching: return 1;
+    case PlayStatus::Running: return 2;
+    case PlayStatus::Stopped: return a.play.finished() && !a.play.lastOk() ? 4 : 3;
+    case PlayStatus::Idle: return 1;
   }
-  for (auto& [lvl, text] : take) {
-    if (lvl == 3) EditorLog::instance().game(text);
-    else EditorLog::instance().add(LogSource::Editor, lvl == 2 ? LogLevel::Error : lvl == 1 ? LogLevel::Warn : LogLevel::Info, text);
-  }
+  return 0;
 }
 
-void runWorker(BuildRun* r, pipeline::BuildRequest req) {
-  auto push = [r](int lvl, std::string t) { std::lock_guard<std::mutex> g(r->mu); r->lines.emplace_back(lvl, std::move(t)); };
-  const bool ok = r->session.run(req, [&](const pipeline::Event& e) {
-    std::string t = std::string("build-run: ") + pipeline::stageName(e.stage) + ": " + e.message;
-    if (e.status == pipeline::Status::Failed) push(2, t);
-    else if (e.status == pipeline::Status::Progress) {   // tool output is long: keep the lines that say what happens
-      static const char* const keep[] = {"warning", "package:", "package art", "compile skipped", "configure skipped", "configuring", "building",
-                                         "toolchain", "reflection", "pipeline:", "cook:", "PPSSPP"};
-      bool show = e.message.find("error") != std::string::npos || e.message.find("Error") != std::string::npos;
-      for (const char* k : keep) show = show || e.message.rfind(k, 0) == 0;
-      if (show) push(e.message.rfind("warning", 0) == 0 ? 1 : 0, t);
-    } else {
-      push(0, t);
-    }
-    if (e.stage == pipeline::Stage::Launch && e.status == pipeline::Status::Started) r->state = 1;
-  });
-  r->readyMs = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - r->t0).count();
-  if (!ok) {
-    r->state = 4;
-    std::lock_guard<std::mutex> g(r->mu);
-    r->summary = "failed (see the Console)";
-    return;
-  }
-  r->state = 2;
-  {
-    std::lock_guard<std::mutex> g(r->mu);
-    r->summary = "running, ready " + std::to_string(r->readyMs.load()) + " ms after the click";
-    r->lines.emplace_back(0, "build-run: ready in " + std::to_string(r->readyMs.load()) + " ms (release EBOOT running)");
-  }
-  while (r->session.running()) {
-    for (const std::string& l : r->session.drainGameLog()) push(3, l);
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-  }
-  for (const std::string& l : r->session.drainGameLog()) push(3, l);
-  r->state = 3;
-  std::lock_guard<std::mutex> g(r->mu);
-  r->summary = "ended";
-  r->lines.emplace_back(0, "build-run: the emulator closed");
+bool runBusy(App& a) {
+  const int st = runState(a);
+  return st == 1 || st == 2;
 }
-
-bool runBusy(const EmulatorUi& u) { return u.run && (u.run->state == 1 || u.run->state == 2); }
 
 void startBuildRun(App& a) {
   EmulatorUi& u = ui();
   if (!a.loaded || a.target.empty()) { EditorLog::instance().error("build-run: no project with a console target is open"); return; }
-  if (runBusy(u)) { EditorLog::instance().warn("build-run: already running"); return; }
-  if (a.play.busy()) { EditorLog::instance().warn("build-run: stop Play first"); return; }
+  if (a.play.busy()) { EditorLog::instance().warn("build-run: already running (stop Play first)"); return; }
   if (!gateTargetModule(a, a.target, AfterModule::None)) return;                   // build support module missing: its dialog
   if (!gateTargetEmulator(a, a.target, AfterEmulator::BuildRun)) return;           // emulator missing: our dialog
   if (a.doc.dirty()) {
     EditorLog::instance().info("build-run: saving the modified scene before the build");
     if (!a.saveScene()) return;
   }
-  if (u.run) { stopBuildRun(a); if (u.run->th.joinable()) u.run->th.join(); }
-  u.run = std::make_unique<BuildRun>();
-  BuildRun* r = u.run.get();
   pipeline::BuildRequest req;
   req.project = a.project.root;
   req.target = a.target;
+  req.platform = a.target;     // the Build Settings flow: release package, then the emulator
   req.release = true;
   req.launch = true;
   if (const char* h = std::getenv("RENSGA_HANG_TIMEOUT")) req.hangTimeoutSeconds = std::atoi(h);
   if (const char* h = std::getenv("RENSGA_PLAY_HEADLESS")) req.headless = *h && *h != '0';
-  r->state = 1;
-  r->t0 = std::chrono::steady_clock::now();
-  r->summary = "building the release package";
   EditorLog::instance().info("build-run: release build of " + a.target + " for " + a.project.root.string());
-  r->th = std::thread(runWorker, r, req);
+  u.runActive = a.play.play(req);
+  u.runReadyLogged = u.runEndLogged = false;
 }
 
 }  // namespace
 
 void doBuildAndRun(App& a) { startBuildRun(a); }
 
-void stopBuildRun(App&) {
+std::string pcsx2Bios() {
+  try {
+    std::ifstream f(fs::path(std::getenv("HOME") ? std::getenv("HOME") : ".") / ".config" / "rensga" / "emulators.json");
+    if (!f) return {};
+    const nlohmann::json j = nlohmann::json::parse(f);
+    const std::string p = j.contains("pcsx2") && j["pcsx2"].is_object() ? j["pcsx2"].value("bios", std::string()) : std::string();
+    std::error_code ec;
+    return !p.empty() && fs::is_regular_file(p, ec) ? p : std::string();
+  } catch (...) {
+    return {};
+  }
+}
+
+bool setPcsx2Bios(const std::string& path, std::string& err) {
+  std::error_code ec;
+  if (path.empty() || !fs::is_regular_file(path, ec)) { err = "that file does not exist"; return false; }
+  if (fs::file_size(path, ec) < (1u << 20)) { err = "that file is smaller than 1 MiB, a PS2 BIOS dump is 4 MiB"; return false; }
+  const fs::path cfg = fs::path(std::getenv("HOME") ? std::getenv("HOME") : ".") / ".config" / "rensga" / "emulators.json";
+  nlohmann::json j = nlohmann::json::object();
+  try {
+    std::ifstream f(cfg);
+    if (f) j = nlohmann::json::parse(f);
+  } catch (...) { j = nlohmann::json::object(); }
+  if (!j.is_object()) j = nlohmann::json::object();
+  if (!j.contains("pcsx2") || !j["pcsx2"].is_object()) j["pcsx2"] = nlohmann::json::object();
+  j["pcsx2"]["bios"] = fs::absolute(path).string();   // referenced in place, never copied
+  fs::create_directories(cfg.parent_path(), ec);
+  std::ofstream o(cfg);
+  if (!o) { err = "cannot write " + cfg.string(); return false; }
+  o << j.dump(2) << "\n";
+  return true;
+}
+
+bool gatePcsx2Bios(App&, std::function<void()> onReady) {
+  if (!pcsx2Bios().empty()) return true;
   EmulatorUi& u = ui();
-  if (!u.run) return;
-  u.run->stopAsked = true;
-  u.run->session.stop();
+  u.openBios = true;
+  u.onBios = std::move(onReady);
+  u.biosNote.clear();
+  return false;
+}
+
+void stopBuildRun(App& a) {
+  if (ui().runActive) a.play.stop();
 }
 
 void openEmulatorManager(App& a) {
@@ -377,7 +369,7 @@ static void drawWindow(App& a) {
   ImGui::Spacing();
   if (ImGui::Button("Refresh")) { refreshInfo(a); say(u, 0, "checked again"); }
   ImGui::SameLine();
-  ImGui::BeginDisabled(!t->emulator().resetSandbox || a.play.busy() || runBusy(u));
+  ImGui::BeginDisabled(!t->emulator().resetSandbox || a.play.busy() || runBusy(a));
   if (ImGui::Button("Reset emulator save area")) {
     const EmulatorInfo e = t->emulator();
     if (e.resetSandbox && e.resetSandbox(a.project.root)) say(u, 1, "the project's emulator save area and settings were removed (Library/Emulators)");
@@ -395,7 +387,7 @@ static void drawWindow(App& a) {
   ImGui::TextWrapped("Builds the release package of the project (EBOOT.PBP with icon, PARAM.SFO, music and licenses), then runs that file in the emulator. Output: Library/Build/%s-release.", a.target.c_str());
   ImGui::PopStyleColor();
   ImGui::Spacing();
-  const bool busy = runBusy(u);
+  const bool busy = runBusy(a);
   ImGui::BeginDisabled(busy || a.play.busy());
   if (primaryBtn("Build and Run", ImVec2(160, 32))) startBuildRun(a);
   ImGui::EndDisabled();
@@ -403,11 +395,9 @@ static void drawWindow(App& a) {
   ImGui::BeginDisabled(!busy);
   if (ImGui::Button("Stop", ImVec2(96, 32))) stopBuildRun(a);
   ImGui::EndDisabled();
-  if (u.run) {
-    std::string s;
-    { std::lock_guard<std::mutex> g(u.run->mu); s = u.run->summary; }
+  if (u.runActive) {
     ImGui::SameLine();
-    ImGui::TextUnformatted(s.c_str());
+    ImGui::TextUnformatted(consoleStatusText(a).c_str());
   }
   if (const ModuleRow* tc = m.forTarget(a.target)) {
     ImGui::Spacing();
@@ -468,10 +458,45 @@ static void drawOffer(App& a) {
   ImGui::EndPopup();
 }
 
+static void drawBiosDialog(App&) {
+  EmulatorUi& u = ui();
+  if (u.openBios) { ImGui::OpenPopup("PCSX2 needs your BIOS"); u.openBios = false; }
+  ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+  if (!ImGui::BeginPopupModal("PCSX2 needs your BIOS", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+  ImGui::PushTextWrapPos(520.0f);
+  ImGui::TextUnformatted("PCSX2 cannot boot a PS2 disc image without a PS2 BIOS. Rensga never ships one: dump the BIOS from your own console and point to the file. "
+                         "It is used where it is (nothing is copied) and the path is kept in your user settings, outside the project.");
+  ImGui::PopTextWrapPos();
+  ImGui::SetNextItemWidth(520.0f);
+  ImGui::InputTextWithHint("##bios", "/path/to/scph39001.bin", u.biosInput, sizeof u.biosInput);
+  if (!u.biosNote.empty()) { ImGui::PushStyleColor(ImGuiCol_Text, brandToken("danger")); ImGui::TextUnformatted(("Problem: " + u.biosNote).c_str()); ImGui::PopStyleColor(); }
+  if (primaryBtn("Use this BIOS")) {
+    std::string err;
+    if (setPcsx2Bios(u.biosInput, err)) {
+      EditorLog::instance().info(std::string("emulators: PCSX2 BIOS set to ") + u.biosInput);
+      ImGui::CloseCurrentPopup();
+      auto go = std::move(u.onBios);
+      u.onBios = nullptr;
+      if (go) go();
+    } else {
+      u.biosNote = err;
+    }
+  }
+  ImGui::SameLine();
+  if (ImGui::Button("Cancel")) { u.onBios = nullptr; ImGui::CloseCurrentPopup(); }
+  ImGui::EndPopup();
+}
+
 void drawEmulatorManager(App& a) {
   EmulatorUi& u = ui();
-  if (u.run) flushRun(*u.run);
-  if (u.run && u.run->state >= 3 && u.run->th.joinable()) u.run->th.join();
+  if (u.runActive && !u.runReadyLogged && a.play.status() == PlayStatus::Running) {
+    u.runReadyLogged = true;
+    EditorLog::instance().info("build-run: ready in " + std::to_string(a.play.lastReadyMs()) + " ms (release EBOOT running)");
+  }
+  if (u.runActive && !u.runEndLogged && a.play.status() == PlayStatus::Stopped && a.play.finished()) {
+    u.runEndLogged = true;
+    EditorLog::instance().info("build-run: the emulator closed");
+  }
   // an install of the emulator finished: look again, and continue what Play or Build and Run wanted
   ModulesModel& m = modulesModel(a);
   const JobSnapshot j = m.job();
@@ -491,6 +516,7 @@ void drawEmulatorManager(App& a) {
   }
   drawWindow(a);
   drawOffer(a);
+  drawBiosDialog(a);
 }
 
 // ---- --ui-event verbs ---------------------------------------------------------------------------------------------------------
@@ -503,14 +529,13 @@ bool emulatorUiHolds(App& a, const std::string& event) {
   int timeout = 120;
   if (const size_t bar = what.rfind('|'); bar != std::string::npos) { timeout = std::atoi(what.c_str() + bar + 1); what = what.substr(0, bar); }
   const bool timedOut = std::chrono::steady_clock::now() - u.waitStart > std::chrono::seconds(timeout);
-  const int st = u.run ? u.run->state.load() : 0;
+  const int st = runState(a);
   bool done = st == 0 || timedOut || st == 4;
   if (what == "running") done = done || st == 2 || st == 3;
   else if (what == "finished") done = done || st == 3;
   if (done) {
     u.waiting = false;
-    std::printf("build-run: wait %s %s state=%d ready_ms=%ld\n", what.c_str(), timedOut ? "timed-out" : "done", st, u.run ? u.run->readyMs.load() : 0L);
-    if (u.run) flushRun(*u.run);
+    std::printf("build-run: wait %s %s state=%d ready_ms=%ld\n", what.c_str(), timedOut ? "timed-out" : "done", st, u.runActive ? a.play.lastReadyMs() : 0L);
   }
   (void)a;
   return !done;
@@ -561,10 +586,13 @@ bool emulatorHook(App& a, const std::string& act, const std::string& arg) {
     std::printf("emureset: %s\n", ok ? "ok" : "failed");
     return true;
   }
-  if (act == "buildrun") { startBuildRun(a); std::printf("build-run: started=%d\n", runBusy(u) ? 1 : 0); return true; }
+  if (act == "biosstate") { std::printf("bios: pcsx2=%s\n", pcsx2Bios().empty() ? "missing" : pcsx2Bios().c_str()); return true; }
+  if (act == "biosdialog") { u.openBios = true; u.onBios = nullptr; std::printf("bios: dialog open\n"); return true; }
+  if (act == "biosset") { std::string err; const bool ok = setPcsx2Bios(arg, err); std::printf("bios: set %s %s\n", ok ? "ok" : "refused", err.c_str()); return true; }
+  if (act == "buildrun") { startBuildRun(a); std::printf("build-run: started=%d\n", runBusy(a) ? 1 : 0); return true; }
   if (act == "buildrunstop") { stopBuildRun(a); std::printf("build-run: stop asked\n"); return true; }
   if (act == "buildrunstate") {
-    std::printf("build-run: state=%d ready_ms=%ld\n", u.run ? u.run->state.load() : 0, u.run ? u.run->readyMs.load() : 0L);
+    std::printf("build-run: state=%d ready_ms=%ld\n", runState(a), u.runActive ? a.play.lastReadyMs() : 0L);
     return true;
   }
   return false;

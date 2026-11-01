@@ -26,6 +26,12 @@ class PlayController {
   bool play(const std::filesystem::path& project, const std::string& target, int quitAfterSeconds = 0);
   // Same, with the extras of the last request kept (headless / debugger / hang timeout).
   bool play(const pipeline::BuildRequest& request);
+  // F6.05 (Build Settings): Build only (no launch) or Build and Run of request.platform on the same worker; the status goes Building ->
+  // Stopped for a build and follows the process for a run. False if busy.
+  bool build(const pipeline::BuildRequest& request);
+  std::filesystem::path lastOutput() const { return session_.lastOutput(); }   // EBOOT.PBP / rensga.iso / folder / APK of the last good build
+  bool builtNotRun() const { return session_.builtNotRun(); }                  // built, but nothing could run it here (no device, no wine)
+  std::string lastNote() const { return session_.lastNote(); }
   void stop();                       // returns at once; status becomes Stopped when the process is gone
   bool busy() const;
   PlayStatus status() const { return status_.load(); }
@@ -53,7 +59,10 @@ class PlayController {
   void pump();
 
  private:
+  bool start(pipeline::BuildRequest req);
   void worker(pipeline::BuildRequest req);
+  void attachProfiler();
+  bool profAttached_ = false;
   pipeline::Session session_;
   std::thread thread_;
   std::atomic<PlayStatus> status_{PlayStatus::Idle};

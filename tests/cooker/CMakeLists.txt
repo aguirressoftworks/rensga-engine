@@ -11,6 +11,10 @@ list(APPEND RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_resources_c
 # --- F6 B3 begin ---
 list(APPEND RENSGA_COOKER_TEST_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_vertex_bake.cpp)
 # --- F6 B3 end ---
+# --- F6 d3 begin ---
+rensga_reflect_scan(tests_cooker_d3 RENSGA_COOKER_D3_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/test_data_cook.cpp)  # CookStats / CookOtherStats are reflected
+list(APPEND RENSGA_COOKER_TEST_SRCS ${RENSGA_COOKER_D3_SRCS})
+# --- F6 d3 end ---
 add_executable(rensga_cooker_tests ../test_main.cpp ${RENSGA_COOKER_TEST_SRCS})
 target_link_libraries(rensga_cooker_tests PRIVATE rensga_cooker_lib rensga_api)
 target_include_directories(rensga_cooker_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.. )

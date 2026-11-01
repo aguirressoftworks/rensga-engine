@@ -1,0 +1,820 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-0000000d1003",
+ "objects": [
+  {
+   "guid": "be611202-4bb3-48d7-b370-d60d7252503a",
+   "name": "Canvas",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "Canvas",
+     "fields": {
+      "matchWidthOrHeight": 0.5,
+      "referenceHeight": 272,
+      "referenceWidth": 480,
+      "scaleMode": 1
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "355c5143-b7c8-4515-b330-80c4e0372032",
+   "name": "EventSystem",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "EventSystem",
+     "fields": {}
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "7bc0cddb-1062-4e03-bfdd-1512438792b6",
+   "name": "Heading",
+   "parent": "be611202-4bb3-48d7-b370-d60d7252503a",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "RENSGA MENUS",
+      "x": 0,
+      "y": -90
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "3cc044a0-5533-412d-9976-9708241bdfea",
+   "name": "Hint",
+   "parent": "be611202-4bb3-48d7-b370-d60d7252503a",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "D-PAD MOVE   CONFIRM SELECT",
+      "x": 0,
+      "y": 110
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "d44dcd60-93d4-4f6b-9e54-51404a8bebbb",
+   "name": "PlayButton",
+   "parent": "be611202-4bb3-48d7-b370-d60d7252503a",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "h": 24,
+      "w": 110,
+      "x": -110,
+      "y": -30,
+      "onClick": [
+       {
+        "method": "Play",
+        "target": "73f6dfa7-a63b-4c86-b472-9830d27c378b",
+        "type": "MenuFlow"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "bec481d9-dd1f-4cd7-856a-f8410a4da033",
+   "name": "PlayButtonLabel",
+   "parent": "d44dcd60-93d4-4f6b-9e54-51404a8bebbb",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "PLAY",
+      "sortingOrder": 1,
+      "x": -110,
+      "y": -30
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "119f17df-724c-4e07-9c8c-59c4a6cd67bb",
+   "name": "OptionsButton",
+   "parent": "be611202-4bb3-48d7-b370-d60d7252503a",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "h": 24,
+      "w": 110,
+      "x": -110,
+      "y": 0,
+      "onClick": [
+       {
+        "method": "ToggleOptions",
+        "target": "73f6dfa7-a63b-4c86-b472-9830d27c378b",
+        "type": "MenuFlow"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "33203b8d-a24b-42ab-85c7-ff7a84988379",
+   "name": "OptionsButtonLabel",
+   "parent": "119f17df-724c-4e07-9c8c-59c4a6cd67bb",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "OPTIONS",
+      "sortingOrder": 1,
+      "x": -110,
+      "y": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "77e112c1-a61f-491a-a26e-02c6628eee9d",
+   "name": "QuitButton",
+   "parent": "be611202-4bb3-48d7-b370-d60d7252503a",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIButton",
+     "fields": {
+      "anchor": 4,
+      "h": 24,
+      "w": 110,
+      "x": -110,
+      "y": 30,
+      "onClick": [
+       {
+        "method": "Quit",
+        "target": "73f6dfa7-a63b-4c86-b472-9830d27c378b",
+        "type": "MenuFlow"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "877c6567-fc85-45c5-8014-16a28e0f495c",
+   "name": "QuitButtonLabel",
+   "parent": "77e112c1-a61f-491a-a26e-02c6628eee9d",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "QUIT",
+      "sortingOrder": 1,
+      "x": -110,
+      "y": 30
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "48f03eef-f814-4b28-9b98-2ad82f891d4b",
+   "name": "OptionsPanel",
+   "parent": "be611202-4bb3-48d7-b370-d60d7252503a",
+   "active": false,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       30,
+       30,
+       60,
+       220
+      ],
+      "h": 120,
+      "w": 200,
+      "x": 105,
+      "y": 0,
+      "sortingOrder": -3
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "04563aff-9658-4016-b8d4-fc3cbdc6dac9",
+   "name": "VolumeText",
+   "parent": "48f03eef-f814-4b28-9b98-2ad82f891d4b",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "VOLUME 100%",
+      "x": 105,
+      "y": -45
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "43344bab-ec89-4fc4-ad04-cc7eb432936c",
+   "name": "VolumeSlider",
+   "parent": "48f03eef-f814-4b28-9b98-2ad82f891d4b",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       40,
+       40,
+       60,
+       255
+      ],
+      "h": 8,
+      "sortingOrder": 0,
+      "w": 160,
+      "x": 105,
+      "y": -18
+     }
+    },
+    {
+     "type": "Slider",
+     "fields": {
+      "value": 1.0,
+      "fillRect": "6e440c0b-3e67-4498-a526-4021a0c995ef",
+      "handleRect": "f0765f96-5f9b-4ff3-b5b3-27658fc508f1",
+      "onValueChanged": [
+       {
+        "dynamic": true,
+        "method": "SetVolume",
+        "target": "73f6dfa7-a63b-4c86-b472-9830d27c378b",
+        "type": "MenuFlow"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "6e440c0b-3e67-4498-a526-4021a0c995ef",
+   "name": "VolumeSliderFill",
+   "parent": "43344bab-ec89-4fc4-ad04-cc7eb432936c",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       240,
+       160,
+       30,
+       255
+      ],
+      "h": 8,
+      "sortingOrder": 1,
+      "w": 160,
+      "x": 105,
+      "y": -18
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "f0765f96-5f9b-4ff3-b5b3-27658fc508f1",
+   "name": "VolumeSliderHandle",
+   "parent": "43344bab-ec89-4fc4-ad04-cc7eb432936c",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       240,
+       240,
+       240,
+       255
+      ],
+      "h": 16,
+      "sortingOrder": 2,
+      "w": 8,
+      "x": 185,
+      "y": -18
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "07dc5de3-b19f-4e34-8786-bb8e3993fa0f",
+   "name": "MuteToggle",
+   "parent": "48f03eef-f814-4b28-9b98-2ad82f891d4b",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       40,
+       40,
+       60,
+       255
+      ],
+      "h": 16,
+      "w": 16,
+      "x": 45,
+      "y": 18
+     }
+    },
+    {
+     "type": "Toggle",
+     "fields": {
+      "isOn": false,
+      "graphic": "f13dd49d-de31-4ffc-8378-9776031f6506",
+      "onValueChanged": [
+       {
+        "dynamic": true,
+        "method": "SetMute",
+        "target": "73f6dfa7-a63b-4c86-b472-9830d27c378b",
+        "type": "MenuFlow"
+       }
+      ]
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "f13dd49d-de31-4ffc-8378-9776031f6506",
+   "name": "MuteToggleCheck",
+   "parent": "07dc5de3-b19f-4e34-8786-bb8e3993fa0f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 4,
+      "color": [
+       240,
+       160,
+       30,
+       255
+      ],
+      "h": 10,
+      "sortingOrder": 1,
+      "w": 10,
+      "x": 45,
+      "y": 18
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "c3d898dd-c5c9-4646-af09-6b42526b631f",
+   "name": "MuteToggleLabel",
+   "parent": "07dc5de3-b19f-4e34-8786-bb8e3993fa0f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 4,
+      "label": "MUTE OFF",
+      "x": 110,
+      "y": 18
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "73f6dfa7-a63b-4c86-b472-9830d27c378b",
+   "name": "MenuFlowObject",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "MenuFlow",
+     "fields": {
+      "mode": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "1fb4f3a4-8a54-47ef-818d-d93661bef91b",
+   "name": "MenuBotObject",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "MenuBot",
+     "fields": {
+      "gap": 12
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

@@ -30,6 +30,31 @@ u32 UnityEvent::Invoke() const {
 }
 
 u32 UnityEvent::Invoke(World& world) const {
+  MethodArg none;
+  return InvokeWith(world, MethodArgKind::None, none);
+}
+
+u32 UnityEvent::InvokeWith(MethodArgKind kind, const MethodArg& arg) const {
+  World* w = World::active();
+  return w ? InvokeWith(*w, kind, arg) : 0;
+}
+
+namespace {
+// The event's value as the kind the method takes. Scalar <-> i32 truncates / widens, bool is "not zero".
+MethodArg convertArg(MethodArgKind from, const MethodArg& a, MethodArgKind to) {
+  MethodArg r = a;
+  if (from == to) return r;
+  const bool num = from == MethodArgKind::Scalar || from == MethodArgKind::I32 || from == MethodArgKind::Bool;
+  if (!num) return r;
+  const Scalar v = from == MethodArgKind::Scalar ? a.s : (from == MethodArgKind::I32 ? static_cast<Scalar>(a.i) : (a.b ? 1.0f : 0.0f));
+  if (to == MethodArgKind::Scalar) r.s = v;
+  else if (to == MethodArgKind::I32) r.i = static_cast<i32>(v);
+  else if (to == MethodArgKind::Bool) r.b = v != 0;
+  return r;
+}
+}  // namespace
+
+u32 UnityEvent::InvokeWith(World& world, MethodArgKind dynKind, const MethodArg& dyn) const {
   u32 called = 0;
   const u32 n = count < kMaxUnityEventListeners ? count : kMaxUnityEventListeners;
   for (u32 i = 0; i < n; ++i) {
@@ -41,7 +66,7 @@ u32 UnityEvent::Invoke(World& world) const {
     const MethodInfo* m = MethodRegistry::instance().find(*t, l.methodHash);
     Component* c = m ? world.getComponent(go, *t) : nullptr;
     if (!c) continue;
-    m->invoke(c, l.decode());
+    m->invoke(c, l.dynamic && dynKind != MethodArgKind::None && m->arg != MethodArgKind::None ? convertArg(dynKind, dyn, m->arg) : l.decode());
     ++called;
   }
   return called;

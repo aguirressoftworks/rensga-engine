@@ -57,6 +57,7 @@ json eventToJson(const UnityEvent& e) {
       }
       case MethodArgKind::None: break;
     }
+    if (l.dynamic) o["dynamic"] = true;
     arr.push_back(o);
   }
   return arr;
@@ -102,6 +103,7 @@ bool eventFromJson(const json& v, UnityEvent& out, std::string& why) {
         l.setI32(static_cast<i32>(l.decode().s));
       }
     }
+    if (o.contains("dynamic") && o["dynamic"].is_boolean()) l.dynamic = o["dynamic"].template get<bool>() ? 1 : 0;
     e.listeners[e.count++] = l;
   }
   out = e;

@@ -1,0 +1,310 @@
+{
+ "format": 1,
+ "guid": "00000000-0000-4000-a000-0000000d2001",
+ "objects": [
+  {
+   "guid": "cf7d88d3-80c4-49d3-b7c1-011bcca2eb0f",
+   "name": "Canvas",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "Canvas",
+     "fields": {
+      "matchWidthOrHeight": 0.5,
+      "referenceHeight": 272,
+      "referenceWidth": 480,
+      "scaleMode": 1
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "12b4c88b-460b-414b-b805-32bc9e54d86e",
+   "name": "HealthBack",
+   "parent": "cf7d88d3-80c4-49d3-b7c1-011bcca2eb0f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "color": [
+       30,
+       30,
+       50,
+       255
+      ],
+      "h": 14,
+      "w": 154,
+      "x": 10,
+      "y": 10,
+      "sortingOrder": 0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "5cb38ced-5439-4cba-8e54-5604dea47211",
+   "name": "HealthFill",
+   "parent": "cf7d88d3-80c4-49d3-b7c1-011bcca2eb0f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIImage",
+     "fields": {
+      "anchor": 0,
+      "color": [
+       230,
+       70,
+       60,
+       255
+      ],
+      "h": 10,
+      "w": 150,
+      "x": 12,
+      "y": 12,
+      "sortingOrder": 1,
+      "fillMethod": 1,
+      "fillAmount": 1.0
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "63256fc8-724e-4bbf-b239-3b389e869440",
+   "name": "HpText",
+   "parent": "cf7d88d3-80c4-49d3-b7c1-011bcca2eb0f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 0,
+      "label": "HP 100/100",
+      "x": 14,
+      "y": 28
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "c4ffd400-8de6-4349-90cb-03ff6262b4b2",
+   "name": "ScoreText",
+   "parent": "cf7d88d3-80c4-49d3-b7c1-011bcca2eb0f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 2,
+      "label": "SCORE 000000",
+      "x": -10,
+      "y": 12
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "69c20a54-b168-48f4-be34-0332859d435f",
+   "name": "TimerText",
+   "parent": "cf7d88d3-80c4-49d3-b7c1-011bcca2eb0f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 1,
+      "label": "00:00",
+      "x": 0,
+      "y": 12
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "8642385e-79d4-4df5-8106-25019c58fc43",
+   "name": "Hint",
+   "parent": "cf7d88d3-80c4-49d3-b7c1-011bcca2eb0f",
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "UIText",
+     "fields": {
+      "anchor": 7,
+      "label": "STARTS IN THE HUD, THEN OPTIONS",
+      "x": 0,
+      "y": -10
+     }
+    }
+   ],
+   "prefab": null
+  },
+  {
+   "guid": "ff3923b4-949e-4609-93bb-b0a5256f7932",
+   "name": "HudObject",
+   "parent": null,
+   "active": true,
+   "transform": {
+    "position": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "rotation": [
+     0.0,
+     0.0,
+     0.0,
+     1.0
+    ],
+    "scale": [
+     1.0,
+     1.0,
+     1.0
+    ]
+   },
+   "components": [
+    {
+     "type": "HudDemo",
+     "fields": {
+      "maxHealth": 100,
+      "period": 30
+     }
+    }
+   ],
+   "prefab": null
+  }
+ ]
+}

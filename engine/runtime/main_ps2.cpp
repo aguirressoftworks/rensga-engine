@@ -237,6 +237,7 @@ int main() {
   Input::bindPlatform(&platform);
   loop.setFixedStepHook(physics::fixedStep, nullptr);
   g_prof.init(audioClockUs);
+  g_prof.bindMemory(&arena);  // F6.06 d2
   static ProfilingRenderer profRenderer(renderer, g_prof);  // marks Render just before endFrame (which waits for vsync)
 
   RLOG_INFO("game", "rensga: stress sprites=%u virtual=%ux%u", stress, vw, vh);

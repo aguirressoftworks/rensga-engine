@@ -1,6 +1,7 @@
 // Small POSIX child-process helper (host tools only). Output (stdout+stderr) is delivered line by line.
 #pragma once
 #include <atomic>
+#include <chrono>
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -31,6 +32,7 @@ class Process {
   bool running();                  // polls; false once the child exited
   int wait();                      // blocks until exit and the output is drained; exit code, or 128+signal
   void terminate(int graceMs = 2000);  // SIGTERM to the process group, SIGKILL after graceMs
+  int waitErrno() const { return waitErrno_; }  // errno of a failed waitpid (0 = none)
   int exitSignal();                // signal number that ended the child, 0 = it exited normally (valid once running() is false)
   long pid() const { return pid_; }  // -1 before the first start
   bool signalGroup(int sig);       // kill(-pgid, sig) while the child lives (SIGSTOP / SIGCONT fallback for emulators without a control channel)
@@ -40,8 +42,10 @@ class Process {
   int pid_ = -1;
   int fd_ = -1;
   int exitCode_ = -1;
+  int waitErrno_ = 0;
   int exitSignal_ = 0;
   bool done_ = true;
+  std::atomic<long long> exitedAtMs_{0};  // steady-clock ms when the child was reaped (0 = alive); the reader stops a moment later
   std::thread reader_;
   std::mutex mu_;
 };
